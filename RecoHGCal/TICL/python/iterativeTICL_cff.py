@@ -3,6 +3,7 @@ import FWCore.ParameterSet.Config as cms
 from RecoHGCal.TICL.FastJetStep_cff import *
 from RecoHGCal.TICL.CLUE3DHighStep_cff import *
 from RecoHGCal.TICL.CLUE3DLowStep_cff import *
+from RecoHGCal.TICL.KF_cff import *
 from RecoHGCal.TICL.MIPStep_cff import *
 from RecoHGCal.TICL.TrkEMStep_cff import *
 from RecoHGCal.TICL.TrkStep_cff import *
@@ -29,6 +30,9 @@ ticlIterationsTask = cms.Task(
     ,ticlTrkStepTask
     ,ticlHADStepTask
 )
+
+from Configuration.ProcessModifiers.kf_cff import kf
+kf.toModify(ticlIterationsTask, func=lambda x : x.add(ticlKFTask))
 
 from Configuration.ProcessModifiers.clue3D_cff import clue3D
 clue3D.toModify(ticlIterationsTask, func=lambda x : x.add(ticlCLUE3DHighStepTask,ticlCLUE3DLowStepTask))
