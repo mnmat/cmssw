@@ -31,10 +31,7 @@ def customiseEGammaEventContent(process):
         if outmod.type_()=='PoolOutputModule':
             outmod.outputCommands.extend(egammaEvtContent)
             addedEvtContent = True
-            for endpathname in process.endpaths_():
-                endpath = process.endpaths_()[endpathname]
-                if outmodname in endpath.moduleNames():
-                    endpath.insert(0,process.hltEgammaHLTExtra)
+
             
 
     if not addedEvtContent:
@@ -43,9 +40,13 @@ def customiseEGammaEventContent(process):
                                               outputCommands = cms.untracked.vstring('drop *')                                              
                                            )   
          process.egOutMod.outputCommands.extend(egammaEvtContent)
-         process.hltEgHLTOut = cms.EndPath(process.hltEgammaHLTExtra+process.egOutMod)
-         if hasattr(process,"HLTSchedule"):
-             process.HLTSchedule.append(process.hltEgHLTOut)
+         process.hltEgHLTOut = cms.FinalPath(process.hltEgammaHLTExtra+process.egOutMod)
+         if hasattr(process,"schedule") and process.schedule:
+             process.schedule.append(process.hltEgHLTOut)
+    
+    process.EgHLTExtraPath = cms.Path(process.hltEgammaHLTExtra)
+    if hasattr(process,"schedule") and process.schedule:
+             process.schedule.append(process.EgHLTExtraPath)
 
     return process
 
