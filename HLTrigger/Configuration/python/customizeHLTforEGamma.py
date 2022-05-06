@@ -40,7 +40,7 @@ def customiseEGammaEventContent(process):
                                               outputCommands = cms.untracked.vstring('drop *')                                              
                                            )   
          process.egOutMod.outputCommands.extend(egammaEvtContent)
-         process.hltEgHLTOut = cms.FinalPath(process.hltEgammaHLTExtra+process.egOutMod)
+         process.hltEgHLTOut = cms.FinalPath(process.egOutMod)
          if hasattr(process,"schedule") and process.schedule:
              process.schedule.append(process.hltEgHLTOut)
     
