@@ -11,6 +11,7 @@
 <use name="PhysicsTools/ONNXRuntime"/>
 <use name="RecoLocalCalo/HGCalRecAlgos"/>
 <use name="TrackingTools/GeomPropagators"/>
+<use name="TrackingTools/TrajectoryState"/>
 <export>
   <lib name="1"/>
 </export>

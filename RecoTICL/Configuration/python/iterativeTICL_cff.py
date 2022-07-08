@@ -188,6 +188,16 @@ iterTICLTask = cms.Task(
 ticlLayerTileHFNose = ticlLayerTileProducer.clone(
     detector = 'HFNose'
 )
+
+# Add Kalman Filter
+from Configuration.ProcessModifiers.hgcal_ticl_kf_cff import hgcal_ticl_kf
+ticlRecHitTile = ticlLayerTileProducer.clone(
+    isLC = False
+)
+
+ticlRecHitTileTask = cms.Task(ticlRecHitTile)
+hgcal_ticl_kf.toModify(ticlIterationsTask, func=lambda x : x.add(ticlRecHitTileTask, ticlKalmanFilterStepTask))
+
 ticlLayerTileHFNoseTask = cms.Task(ticlLayerTileHFNose)
 iterHFNoseTICLTask = cms.Task(
     ticlLayerTileHFNoseTask,

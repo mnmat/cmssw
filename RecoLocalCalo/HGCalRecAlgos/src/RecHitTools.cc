@@ -17,6 +17,8 @@
 #include "FWCore/Framework/interface/Event.h"
 #include "FWCore/Framework/interface/EventSetup.h"
 
+#include "DataFormats/GeometrySurface/interface/LocalError.h"
+
 using namespace hgcal;
 
 namespace {
@@ -712,3 +714,8 @@ namespace hgcal {
     }
   }
 }  // namespace hgcal
+LocalError RecHitTools::getLocalError(const DetId& id) {
+  auto hg = static_cast<const HGCalGeometry*>(getSubdetectorGeometry(id));
+  auto lerr = hg->getLocalError(id);
+  return lerr;
+}

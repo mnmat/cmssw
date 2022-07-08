@@ -26,6 +26,8 @@
 #include "MagneticField/Engine/interface/MagneticField.h"
 #include <algorithm>
 #include <cstdint>
+#include "DataFormats/GeometrySurface/interface/LocalError.h"
+
 #include <vector>
 
 class HGCalGeometry final : public CaloSubdetectorGeometry {
@@ -142,6 +144,11 @@ public:
   const HGCalTopology& topology() const { return m_topology; }
   void sortDetIds();
 
+  void fillLocalErrorCache();
+  LocalError getLocalError(const DetId& id) const;
+  float calculateHexError(const DetId& id) const;
+  LocalError calculateScintillatorError(const DetId& id) const;
+
 protected:
   unsigned int indexFor(const DetId& id) const override;
   using CaloSubdetectorGeometry::sizeForDenseIndex;
@@ -175,6 +182,13 @@ private:
   DetId::Detector m_det;
   ForwardSubdetector m_subdet;
   const double twoBysqrt3_;
+
+  std::unordered_map<DetId, LocalError> m_ScintillatorLocalErrorCache;
+  float HGCSiFineError, HGCSiCoarseError, HFNoseFineError,HFNoseCoarseError ;
+  bool isInitHGCSiFine = false;
+  bool isInitHGCSiCoarse = false;
+  bool isInitHFNoseFine = false;
+  bool isInitHFNoseCoarse = false;
 };
 
 #endif
