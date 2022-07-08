@@ -18,8 +18,9 @@ TICL_RECO = cms.PSet(
        'keep *_ticlTrackstersHFNoseTrk_*_*',
        'keep *_ticlTrackstersHFNoseMIP_*_*',
        'keep *_ticlTrackstersHFNoseHAD_*_*',
-       'keep *_ticlTrackstersHFNoseMerge_*_*',] +
-      ['keep *_pfTICL_*_*']
+       'keep *_ticlTrackstersHFNoseMerge_*_*'] +
+      ['keep *_pfTICL_*_*'] +
+      ['keep *_ticlRecHitTile_*_*']
       )
     )
 TICL_RECO.outputCommands.extend(TICL_AOD.outputCommands)
@@ -34,6 +35,7 @@ TICL_FEVT = cms.PSet(
 TICL_FEVT.outputCommands.extend(TICL_RECO.outputCommands)
 
 def customiseHGCalOnlyEventContent(process):
+    print("customiseHGCalOnlyEventContent!!!!!!!!!!!!")
     def cleanOutputAndSet(outputModule, ticl_outputCommads):
         outputModule.outputCommands = ['drop *_*_*_*']
         outputModule.outputCommands.extend(ticl_outputCommads)

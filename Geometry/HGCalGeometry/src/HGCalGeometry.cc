@@ -879,6 +879,96 @@ DetId HGCalGeometry::getGeometryDetId(DetId detId) const {
   return geomId;
 }
 
+void HGCalGeometry::fillLocalErrorCache(){
+  for (auto const & id : m_validIds) {
+    if (m_topology.tileTrapezoid()){
+      m_ScintillatorLocalErrorCache[id] = calculateScintillatorError(id);
+    } else if (m_topology.isHFNose()){
+      HFNoseDetId subDetId(id);
+      bool &isInitHFNose = subDetId.type()==HFNoseDetId::HFNoseFine ? isInitHFNoseFine : isInitHFNoseCoarse;
+      if (isInitHFNose) continue;
+      (subDetId.type() == HFNoseDetId::HFNoseFine ? HFNoseFineError:HFNoseCoarseError) = calculateHexError(id);
+      isInitHFNose = true;
+    } else {
+      HGCSiliconDetId subDetId(id);
+      bool &isInitHGCSi = subDetId.type() == HGCSiliconDetId::HGCalFine ? isInitHGCSiFine : isInitHGCSiCoarse;
+      if (isInitHGCSi) continue;
+      (subDetId.type()== HGCSiliconDetId::HGCalFine? HGCSiFineError:HGCSiCoarseError) = calculateHexError(id);
+      isInitHGCSi = true;
+    }
+  }
+}
+
+
+LocalError HGCalGeometry::getLocalError(const DetId& id) const {
+  LocalError lError;
+  if (m_topology.tileTrapezoid()){
+    // Get Scintillator Error
+    auto const search = m_ScintillatorLocalErrorCache.find(id);
+    if (search != m_ScintillatorLocalErrorCache.end()){
+      lError = search->second;
+    } else {
+      lError = calculateScintillatorError(id); 
+    }
+  } else if (m_topology.isHFNose()){
+    auto subDetId = HFNoseDetId(id);
+    const bool isInitHFNose = subDetId.type()==HFNoseDetId::HFNoseFine ? isInitHFNoseFine : isInitHFNoseCoarse;
+    float var;
+    if (isInitHFNose){
+      var = (subDetId.type()==HFNoseDetId::HFNoseFine? HFNoseFineError:HFNoseCoarseError);   
+    }
+    else {
+      var = calculateHexError(id);
+    }
+    lError = LocalError(var,0,var);
+  } else {
+    auto subDetId = HGCSiliconDetId(id);
+    const bool isInitHGCSi = subDetId.type() == HGCSiliconDetId::HGCalFine ? isInitHGCSiFine : isInitHGCSiCoarse;
+    float var;
+    if (isInitHGCSi){
+      var = (subDetId.type() == HGCSiliconDetId::HGCalFine ? HGCSiFineError:HGCSiCoarseError);   
+    }
+    else {
+      var = calculateHexError(id);
+    }
+    lError = LocalError(var,0,var);
+  }
+  return lError;
+}
+
+float HGCalGeometry::calculateHexError(const DetId& id) const {
+  // Error equals covariance matrix of a hexagonal area
+  float A = getArea(id);
+  float a = sqrt(2*A/(3*sqrt(3))); // side length hexagon
+  float var = pow(a,4)*5*sqrt(3)/(16*A);;
+  return var;
+}
+
+template<typename T>
+T square_var(T b, T h){
+  return b*pow(h,3)/12;
+}
+
+LocalError HGCalGeometry::calculateScintillatorError(const DetId& id) const{
+  const GlobalPoint &pos = getPosition(id);
+  float r = sqrt(pos.x()*pos.x() + pos.y()*pos.y());
+  auto layer = topology().dddConstants().getLayer(pos.z(), true);
+  auto radiusLayer = topology().dddConstants().getRadiusLayer(layer);
+  int idx = static_cast<int>(std::lower_bound(radiusLayer.begin(), radiusLayer.end(),r)-radiusLayer.begin());
+  float rmax = radiusLayer[idx];
+  float rmin = radiusLayer[idx-1];
+  float phi = atan2(pos.y(), pos.x());
+  float dphi = getGeometry(id)->phiSpan();
+
+  float h = rmax - rmin;
+  float b = (rmax+rmin)*sin(dphi/2);
+  float A = b*h;
+
+  LocalError lerr(square_var(b,h)/A,0,square_var(h,b)/A);
+  lerr = lerr.rotate(phi-M_PI/2);
+
+  return lerr;
+}
 #include "FWCore/Utilities/interface/typelookup.h"
 
 TYPELOOKUP_DATA_REG(HGCalGeometry);

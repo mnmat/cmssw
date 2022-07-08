@@ -15,6 +15,8 @@
 #include "FWCore/Framework/interface/Event.h"
 #include "FWCore/Framework/interface/EventSetup.h"
 
+#include "DataFormats/GeometrySurface/interface/LocalError.h"
+
 using namespace hgcal;
 
 namespace {
@@ -492,4 +494,10 @@ bool RecHitTools::maskCell(const DetId& id, int corners) const {
     auto hg = static_cast<const HGCalGeometry*>(getSubdetectorGeometry(id));
     return hg->topology().dddConstants().maskCell(id, corners);
   }
+}
+
+LocalError RecHitTools::getLocalError(const DetId& id) {
+  auto hg = static_cast<const HGCalGeometry*>(getSubdetectorGeometry(id));
+  auto lerr = hg->getLocalError(id);
+  return lerr;
 }
