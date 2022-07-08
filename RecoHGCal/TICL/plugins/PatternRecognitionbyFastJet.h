@@ -29,6 +29,8 @@ namespace ticl {
                 const std::vector<Trackster>& inTracksters,
                 const typename PatternRecognitionAlgoBaseT<TILES>::Inputs& input,
                 std::unordered_map<int, std::vector<int>>& seedToTracksterAssociation) override;
+    void makeTrajectories(const typename PatternRecognitionAlgoBaseT<TILES>::Inputs& input,
+                std::vector<KFHit>& kfhits) override {};
 
     static void fillPSetDescription(edm::ParameterSetDescription& iDesc);
     void setGeometry(hgcal::RecHitTools const& rhtools) override;

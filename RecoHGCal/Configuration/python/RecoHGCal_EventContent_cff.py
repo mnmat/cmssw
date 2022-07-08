@@ -28,7 +28,7 @@ TICL_RECO = cms.PSet(
        'keep *_layerClusterCaloParticleAssociationProducer_*_*', 
        'keep *_layerClusterSimTracksterAssociationProducer_*_*',
        'keep *_allTrackstersToSimTrackstersAssociations*_*_*'
-      ]
+      ] + ['keep *_ticlRecHitTile_*_*']
     )
 )
 TICL_RECO.outputCommands.extend(TICL_AOD.outputCommands)

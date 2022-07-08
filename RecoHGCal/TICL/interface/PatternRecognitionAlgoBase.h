@@ -10,6 +10,7 @@
 #include <algorithm>
 #include "DataFormats/CaloRecHit/interface/CaloCluster.h"
 #include "DataFormats/HGCalReco/interface/Trackster.h"
+#include "DataFormats/HGCalReco/interface/KFHit.h"
 #include "DataFormats/HGCalReco/interface/TICLLayerTile.h"
 #include "DataFormats/HGCalReco/interface/TICLSeedingRegion.h"
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
@@ -48,6 +49,11 @@ namespace ticl {
              const std::vector<TICLSeedingRegion>& rG)
           : ev(eV), es(eS), layerClusters(lC), mask(mS), layerClustersTime(lT), tiles(tL), regions(rG) {}
     };
+    
+    // (mmatthew): makeTrajectories used only by PatternRecognitionbyKalmanFilter. 
+    // TODO: combine with makeTracksters as pure virtual function
+    virtual void makeTrajectories(const Inputs& input,
+                                std::vector<KFHit>& kfhits) = 0;
 
     virtual void makeTracksters(const Inputs& input,
                                 std::vector<Trackster>& result,

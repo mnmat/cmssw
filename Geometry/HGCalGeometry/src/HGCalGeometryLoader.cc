@@ -203,6 +203,8 @@ HGCalGeometry* HGCalGeometryLoader::build(const HGCalTopology& topology) {
     }
   }
 
+  geom->fillLocalErrorCache();
+
   return geom;
 }
 
