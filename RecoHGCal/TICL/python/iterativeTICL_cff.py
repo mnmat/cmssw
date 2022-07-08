@@ -2,6 +2,7 @@ import FWCore.ParameterSet.Config as cms
 
 from RecoHGCal.TICL.FastJetStep_cff import *
 from RecoHGCal.TICL.CLUE3DHighStep_cff import *
+from RecoHGCal.TICL.KalmanFilterStep_cff import *
 from RecoHGCal.TICL.MIPStep_cff import *
 from RecoHGCal.TICL.TrkEMStep_cff import *
 from RecoHGCal.TICL.TrkStep_cff import *
@@ -72,6 +73,15 @@ ticl_v5.toModify(iterTICLTask, func=lambda x : x.add(mtdSoATask, ticlCandidateTa
 ticlLayerTileHFNose = ticlLayerTileProducer.clone(
     detector = 'HFNose'
 )
+
+# Add Kalman Filter
+from Configuration.ProcessModifiers.hgcal_ticl_kf_cff import hgcal_ticl_kf
+ticlRecHitTile = ticlLayerTileProducer.clone(
+    isLC = False
+)
+
+ticlRecHitTileTask = cms.Task(ticlRecHitTile)
+hgcal_ticl_kf.toModify(ticlIterationsTask, func=lambda x : x.add(ticlRecHitTileTask, ticlKalmanFilterStepTask))
 
 ticlLayerTileHFNoseTask = cms.Task(ticlLayerTileHFNose)
 
