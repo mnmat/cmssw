@@ -104,6 +104,8 @@ TrackstersProducer::TrackstersProducer(const edm::ParameterSet& ps)
 
   produces<std::vector<Trackster>>();
   produces<std::vector<float>>();  // Mask to be applied at the next iteration
+  produces<std::vector<GlobalPoint>>("TEST").setBranchAlias("TEST");
+
 }
 
 void TrackstersProducer::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
@@ -148,6 +150,14 @@ void TrackstersProducer::produce(edm::Event& evt, const edm::EventSetup& es) {
   auto result = std::make_unique<std::vector<Trackster>>();
   auto output_mask = std::make_unique<std::vector<float>>();
 
+  // This was implemented to export the points of the KF
+
+  auto points = std::make_unique<std::vector<GlobalPoint>>();
+
+  std::cout<<itername_<<std::endl;
+
+  // ----------
+
   const std::vector<float>& original_layerclusters_mask = evt.get(original_layerclusters_mask_token_);
   const auto& layerClusters = evt.get(clusters_token_);
   const auto& inputClusterMask = evt.get(filtered_layerclusters_mask_token_);
@@ -175,7 +185,6 @@ void TrackstersProducer::produce(edm::Event& evt, const edm::EventSetup& es) {
                                                                                          layer_clusters_hfnose_tiles,
                                                                                          seeding_regions,
                                                                                          tfSession_);
-
     myAlgoHFNose_->makeTracksters(inputHFNose, *result, seedToTrackstersAssociation);
 
   } else {
@@ -183,7 +192,19 @@ void TrackstersProducer::produce(edm::Event& evt, const edm::EventSetup& es) {
     const typename PatternRecognitionAlgoBaseT<TICLLayerTiles>::Inputs input(
         evt, es, layerClusters, inputClusterMask, layerClustersTimes, layer_clusters_tiles, seeding_regions, tfSession_);
 
-    myAlgo_->makeTracksters(input, *result, seedToTrackstersAssociation);
+
+    // myAlgo_->makeTracksters(input, *result, seedToTrackstersAssociation); uncomment me!
+
+    // Delete Me! This was implemented to export the points of the KF
+
+    if(itername_!="KF"){
+      myAlgo_->makeTracksters(input, *result, seedToTrackstersAssociation);
+    } else {
+      myAlgo_->makeTracksters_verbose(input, *result, *points, seedToTrackstersAssociation);
+    }
+
+    // ----------------------------------------------------------------
+
   }
   // Now update the global mask and put it into the event
   output_mask->reserve(original_layerclusters_mask.size());
@@ -203,4 +224,6 @@ void TrackstersProducer::produce(edm::Event& evt, const edm::EventSetup& es) {
 
   evt.put(std::move(result));
   evt.put(std::move(output_mask));
+  evt.put(std::move(points),"TEST");
+
 }

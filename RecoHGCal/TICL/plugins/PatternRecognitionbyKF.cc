@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <set>
 #include <vector>
+#include <typeinfo>
 
 #include "DataFormats/Math/interface/deltaR.h"
 #include "FWCore/Framework/interface/Event.h"
@@ -15,124 +16,276 @@
 #include "Geometry/Records/interface/CaloGeometryRecord.h"
 #include "FWCore/Framework/interface/EventSetup.h"
 
+#include "DataFormats/TrackReco/interface/Track.h"
+
+#include "Geometry/CaloGeometry/interface/CaloGeometry.h"
+#include "Geometry/CaloGeometry/interface/CaloSubdetectorGeometry.h"
+#include "DataFormats/ForwardDetId/interface/HGCScintillatorDetId.h"
+#include "DataFormats/ForwardDetId/interface/HGCSiliconDetId.h"
+#include "DataFormats/TrajectorySeed/interface/PropagationDirection.h"
+
+#include "DataFormats/GeometrySurface/interface/MediumProperties.h"
+#include "DataFormats/GeometrySurface/interface/BoundDisk.h"
+#include "Geometry/CommonDetUnit/interface/GeomDet.h"
+
+#include "TrackingTools/GeomPropagators/interface/Propagator.h"
+#include "TrackingTools/Records/interface/TrackingComponentsRecord.h"
+
 using namespace ticl;
 
 template <typename TILES>
 PatternRecognitionbyKF<TILES>::PatternRecognitionbyKF(const edm::ParameterSet &conf, edm::ConsumesCollector iC)
     : PatternRecognitionAlgoBaseT<TILES>(conf, iC),
       caloGeomToken_(iC.esConsumes<CaloGeometry, CaloGeometryRecord>()),
-      criticalDensity_(conf.getParameter<double>("criticalDensity")),
-      densitySiblingLayers_(conf.getParameter<int>("densitySiblingLayers")),
-      densityEtaPhiDistanceSqr_(conf.getParameter<double>("densityEtaPhiDistanceSqr")),
-      densityOnSameLayer_(conf.getParameter<bool>("densityOnSameLayer")),
-      criticalEtaPhiDistance_(conf.getParameter<double>("criticalEtaPhiDistance")),
-      outlierMultiplier_(conf.getParameter<double>("outlierMultiplier")),
-      minNumLayerCluster_(conf.getParameter<int>("minNumLayerCluster")),
+      propName_(conf.getParameter<std::string>("propagator")),
+      bfieldtoken_(iC.esConsumes<MagneticField, IdealMagneticFieldRecord>()),
+      propagatortoken_(iC.esConsumes<Propagator, TrackingComponentsRecord>(edm::ESInputTag("",propName_))),
+      trackToken_(iC.consumes<reco::TrackCollection>(conf.getParameter<edm::InputTag>("tracks"))),
       eidInputName_(conf.getParameter<std::string>("eid_input_name")),
       eidOutputNameEnergy_(conf.getParameter<std::string>("eid_output_name_energy")),
       eidOutputNameId_(conf.getParameter<std::string>("eid_output_name_id")),
       eidMinClusterEnergy_(conf.getParameter<double>("eid_min_cluster_energy")),
       eidNLayers_(conf.getParameter<int>("eid_n_layers")),
-      eidNClusters_(conf.getParameter<int>("eid_n_clusters")){};
+      eidNClusters_(conf.getParameter<int>("eid_n_clusters")){
 
-template <typename TILES>
-void PatternRecognitionbyKF<TILES>::dumpTiles(const TILES &tiles) const {
-  constexpr int nEtaBin = TILES::constants_type_t::nEtaBins;
-  constexpr int nPhiBin = TILES::constants_type_t::nPhiBins;
-  auto lastLayerPerSide = static_cast<int>(rhtools_.lastLayer(false));
-  int maxLayer = 2 * lastLayerPerSide - 1;
-  for (int layer = 0; layer <= maxLayer; layer++) {
-    for (int ieta = 0; ieta < nEtaBin; ieta++) {
-      auto offset = ieta * nPhiBin;
-      for (int phi = 0; phi < nPhiBin; phi++) {
-        int iphi = ((phi % nPhiBin + nPhiBin) % nPhiBin);
-        if (!tiles[layer][offset + iphi].empty()) {
-          if (this->algo_verbosity_ > this->Advanced) {
-            edm::LogVerbatim("PatternRecognitionbyKF") << "Layer: " << layer << " ieta: " << ieta << " phi: " << phi
-                                                          << " " << tiles[layer][offset + iphi].size();
-          }
-        }
+};
+
+
+template<typename TILES>
+const GeomDet * PatternRecognitionbyKF<TILES>::nextDisk(const GeomDet * from, PropagationDirection direction, const std::vector<GeomDet *> &vec) const{
+  
+  auto it = std::find(vec.begin(), vec.end(), from);
+  if (it == vec.end()) throw cms::Exception("LogicError", "nextDisk called with invalid starting disk");
+  if (direction == alongMomentum) {
+    if(*it == vec.back()) return nullptr;
+    return *(++it);    
+  } else {
+    if (it == vec.begin()) return nullptr;
+      return *(--it);
+  }
+}
+
+template<typename TILES>
+void PatternRecognitionbyKF<TILES>::computeAbsorbers(){
+  std::map<std::string, float> X0_;
+  std::map<std::string, float> lambda_;
+  std::map<std::string, float> ZoA_;
+
+  X0_["Fe"] = 13.84;
+  X0_["Pb"] = 6.37;
+  X0_["Cu"] = 12.86;
+  X0_["W"] = 6.76;
+  X0_["WCu"] = combineX0(0.75, X0_["W"], 0.25, X0_["Cu"]);
+  //X0_["WCu"] = combinedEdX(0.75, X0_["W"], 0.25, X0_["Cu"]);
+
+  lambda_["Fe"] = 132.1;
+  lambda_["Pb"] = 199.6;
+  lambda_["Cu"] = 137.3;
+  lambda_["W"] = 191.9;
+  lambda_["WCu"] = combineX0(0.75, lambda_["W"], 0.25, lambda_["Cu"]);
+  //lambda_["WCu"] = combinedEdX(0.75, lambda_["W"], 0.25, lambda_["Cu"]);
+
+  ZoA_["Fe"] = 0.466;
+  ZoA_["Pb"] = 0.396;
+  ZoA_["Cu"] = 0.456;
+  ZoA_["W"] = 0.403;
+  ZoA_["WCu"] = combinedEdX(0.75, ZoA_["W"], 0.25, ZoA_["Cu"]);
+
+  // see DataFormats/GeometrySurface/interface/MediumProperties.h
+  for(auto ij : X0_){
+    xi_[ij.first] = X0_[ij.first] * 0.307075 * ZoA_[ij.first] * 0.5;
+    std::cout << " " << ij.first << " xi = " << xi_[ij.first] << std::endl;
+  }
+
+
+  //from TDR pag 18
+  //radlen = number of X0
+  //EE odd layers: 0.748 Pb + 0.068 Fe
+  //EE even layers: 0.648 WCu + 0.417 Cu
+
+  //FH (Had first 12) L28: 0.374 Pb + 0.034 Fe + 0.007 Cu + 2.277 Fe + 0.07 Cu
+  //FH (Had first 12) L>29: 0.2315 WCu + 1.992 Fe + 0.487 Cu
+
+  //BH (Had last 12): 0.2315 WCu + 3.87 Fe + 0.487 Cu
+
+}
+
+
+template<typename TILES>
+void PatternRecognitionbyKF<TILES>::makeDisks(int subdet, int disks, const CaloGeometry* geom_) {
+
+    // const CaloSubdetectorGeometry *subGeom = subdet < 5 ? geom_->getSubdetectorGeometry(DetId::Forward, subdet) :
+    //                                                       geom_->getSubdetectorGeometry(DetId::Hcal, 2);
+
+  const CaloSubdetectorGeometry *subGeom = geom_->getSubdetectorGeometry(DetId::Detector(subdet), ForwardSubdetector::ForwardEmpty);
+
+  std::vector<float>  rmax(disks, 0), rmin(disks, 9e9);
+  std::vector<double> zsumPos(disks), zsumNeg(disks);
+  std::vector<int>    countPos(disks), countNeg(disks);
+  const std::vector<DetId> & ids = subGeom->getValidDetIds();
+  //if (hgctracking::g_debuglevel > 0) std::cout << "on subdet " << subdet << " I got a total of " << ids.size() << " det ids " << std::endl;
+
+  // This loops over all the valid DetIds of the geometry. This seems like a very roundabout way of getting 47 layers from millions of detids
+
+  for (auto & i : ids) {
+    const GlobalPoint & pos = geom_->getPosition(i); 
+    float z = pos.z();
+    float rho = pos.perp();
+    int side = z > 0 ? +1 : -1;
+
+    int layer = std::numeric_limits<unsigned int>::max();
+    if (i.det() == DetId::HGCalEE)    layer = HGCSiliconDetId(i).layer() - 1;
+    else if(i.det() == DetId::HGCalHSi) layer = HGCSiliconDetId(i).layer() - 1;
+    else if (i.det() == DetId::HGCalHSc)  layer = HGCScintillatorDetId(i).layer() - 1;
+
+    (side > 0 ? zsumPos : zsumNeg)[layer] += z;
+    (side > 0 ? countPos : countNeg)[layer]++;
+    if (rho > rmax[layer]) rmax[layer] = rho;
+    if (rho < rmin[layer]) rmin[layer] = rho;
+  }
+  for (int i = 0; i < disks; ++i) {
+    float radlen=-1, xi=-1; // see DataFormats/GeometrySurface/interface/MediumProperties.h
+    switch(subdet) {
+    case 8:
+      if (i%2 == 0) {
+        radlen = 0.748 * xi_["Pb"] + 0.068 * xi_["Fe"] + 0.014 * xi_["Cu"];
+        xi = radlen / (0.748 + 0.068 + 0.014) * 1.e-3;
       }
+      else{
+        radlen = 0.648 * xi_["WCu"] + 0.417 * xi_["Cu"];
+        xi = radlen / (0.648 + 0.417) * 1.e-3;
+      }
+      break;
+    case 9:
+      if (i == 0){
+        radlen = 0.374 * xi_["Pb"] + (0.007+0.07) * xi_["Cu"] + (0.034+2.277) * xi_["Fe"];
+        xi = radlen / (0.374 + 0.007+0.07 + 0.034+2.277) * 1.e-3;
+      }
+      else if(i < 12){
+        radlen = 0.2315 * xi_["WCu"] + 0.487 * xi_["Cu"] + 1.992 * xi_["Fe"];
+        xi = radlen / (0.2315 + 0.487 + 1.992) * 1.e-3;
+      }
+      else{
+        radlen = 0.2315 * xi_["WCu"] + 0.487 * xi_["Cu"] + 3.870 * xi_["Fe"];
+        xi = radlen / (0.2315 + 0.487 + 3.870) * 1.e-3;
+      }
+      break;
+    }
+
+    if (countPos[i]) {
+      //printf("Positive disk %2d at z = %+7.2f   %6.1f <= rho <= %6.1f\n", i+1, zsumPos[i]/countPos[i], rmin[i], rmax[i]);
+              //addDisk(new GeomDet(subdet, +1, i+1, zsumPos[i]/countPos[i], rmin[i], rmax[i], radlen, xi));
+
+      GeomDet* disk = new GeomDet(Disk::build(Disk::PositionType(0,0,zsumPos[i]/countPos[i]), Disk::RotationType(), SimpleDiskBounds(rmin[i], rmax[i], -20, 20)).get() );
+      if (radlen > 0) {
+        (const_cast<Plane &>(disk->surface())).setMediumProperties(MediumProperties(radlen,xi));
+      }
+      addDisk(disk, 1);
+    }
+    if (countNeg[i]) {
+      //printf("Negative disk %2d at z = %+7.2f   %6.1f <= rho <= %6.1f\n", i+1, zsumNeg[i]/countPos[i], rmin[i], rmax[i]);
+      //addDisk(new GeomDet(subdet, -1, i+1, zsumNeg[i]/countNeg[i], rmin[i], rmax[i], radlen, xi));
+
+      GeomDet* disk = new GeomDet(Disk::build(Disk::PositionType(0,0,zsumNeg[i]/countPos[i]), Disk::RotationType(), SimpleDiskBounds(rmin[i], rmax[i], -20, 20)).get() );
+      if (radlen > 0) {
+        (const_cast<Plane &>(disk->surface())).setMediumProperties(MediumProperties(radlen,xi));
+      }
+
+      addDisk(disk, -1);
     }
   }
 }
 
-template <typename TILES>
-void PatternRecognitionbyKF<TILES>::dumpTracksters(const std::vector<std::pair<int, int>> &layerIdx2layerandSoa,
-                                                       const int eventNumber,
-                                                       const std::vector<Trackster> &tracksters) const {
-  if (PatternRecognitionAlgoBaseT<TILES>::algo_verbosity_ > PatternRecognitionAlgoBaseT<TILES>::Advanced) {
-    edm::LogVerbatim("PatternRecognitionbyKFD")
-        << "[evt, tracksterId, cells, prob_photon, prob_ele, prob_chad, prob_nhad, layer_i, x_i, y_i, eta_i, phi_i, "
-           "energy_i, radius_i, rho_i, delta_i, isSeed_i";
-  }
 
-  int num = 0;
-  const std::string sep(", ");
-  for (auto const &t : tracksters) {
-    for (auto v : t.vertices()) {
-      auto [lyrIdx, soaIdx] = layerIdx2layerandSoa[v];
-      auto const &thisLayer = clusters_[lyrIdx];
-      if (PatternRecognitionAlgoBaseT<TILES>::algo_verbosity_ > PatternRecognitionAlgoBaseT<TILES>::Advanced) {
-        edm::LogVerbatim("PatternRecognitionbyKFD")
-            << "TracksterInfo: " << eventNumber << sep << num << sep << t.vertices().size() << sep
-            << t.id_probability(ticl::Trackster::ParticleType::photon) << sep
-            << t.id_probability(ticl::Trackster::ParticleType::electron) << sep
-            << t.id_probability(ticl::Trackster::ParticleType::charged_hadron) << sep
-            << t.id_probability(ticl::Trackster::ParticleType::neutral_hadron) << sep << lyrIdx << sep
-            << thisLayer.x[soaIdx] << sep << thisLayer.y[soaIdx] << sep << thisLayer.eta[soaIdx] << sep
-            << thisLayer.phi[soaIdx] << sep << thisLayer.energy[soaIdx] << sep << thisLayer.radius[soaIdx] << sep
-            << thisLayer.rho[soaIdx] << sep << thisLayer.delta[soaIdx] << sep << thisLayer.isSeed[soaIdx] << '\n';
-      }
-    }
-    num++;
-  }
-}
-
-template <typename TILES>
-void PatternRecognitionbyKF<TILES>::dumpClusters(const std::vector<std::pair<int, int>> &layerIdx2layerandSoa,
-                                                     const int eventNumber) const {
-  if (PatternRecognitionAlgoBaseT<TILES>::algo_verbosity_ > PatternRecognitionAlgoBaseT<TILES>::Advanced) {
-    edm::LogVerbatim("PatternRecognitionbyKFD") << "[evt, layer, x, y, eta, phi, cells, energy, radius, rho, delta, "
-                                                     "isSeed, clusterIdx, layerClusterOriginalIdx";
-  }
-
-  for (unsigned int layer = 0; layer < clusters_.size(); layer++) {
-    if (PatternRecognitionAlgoBaseT<TILES>::algo_verbosity_ > PatternRecognitionAlgoBaseT<TILES>::Advanced) {
-      edm::LogVerbatim("PatternRecognitionbyKFD") << "On Layer " << layer;
-    }
-    auto const &thisLayer = clusters_[layer];
-    int num = 0;
-    for (auto v : thisLayer.x) {
-      if (PatternRecognitionAlgoBaseT<TILES>::algo_verbosity_ > PatternRecognitionAlgoBaseT<TILES>::Advanced) {
-        edm::LogVerbatim("PatternRecognitionbyKFD")
-            << "ClusterInfo: " << eventNumber << ", " << layer << ", " << v << ", " << thisLayer.y[num] << ", "
-            << thisLayer.eta[num] << ", " << thisLayer.phi[num] << ", " << thisLayer.cells[num] << ", "
-            << thisLayer.energy[num] << ", " << thisLayer.radius[num] << ", " << thisLayer.rho[num] << ", "
-            << thisLayer.delta[num] << ", " << thisLayer.isSeed[num] << ", " << thisLayer.clusterIndex[num] << ", "
-            << thisLayer.layerClusterOriginalIdx[num];
-      }
-      ++num;
-    }
-  }
-  for (unsigned int lcIdx = 0; lcIdx < layerIdx2layerandSoa.size(); lcIdx++) {
-    auto const &layerandSoa = layerIdx2layerandSoa[lcIdx];
-    // Skip masked layer clusters
-    if ((layerandSoa.first == -1) && (layerandSoa.second == -1))
-      continue;
-    if (PatternRecognitionAlgoBaseT<TILES>::algo_verbosity_ > PatternRecognitionAlgoBaseT<TILES>::Advanced) {
-      edm::LogVerbatim("PatternRecognitionbyKFD")
-          << "lcIdx: " << lcIdx << " on Layer: " << layerandSoa.first << " SOA: " << layerandSoa.second;
-    }
-  }
-}
 
 template <typename TILES>
 void PatternRecognitionbyKF<TILES>::makeTracksters(
     const typename PatternRecognitionAlgoBaseT<TILES>::Inputs &input,
     std::vector<Trackster> &result,
+    std::unordered_map<int, std::vector<int>> &seedToTracksterAssociation) {}
+
+
+template <typename TILES>
+void PatternRecognitionbyKF<TILES>::makeTracksters_verbose(
+    const typename PatternRecognitionAlgoBaseT<TILES>::Inputs &input,
+    std::vector<Trackster> &result,
+    std::vector<GlobalPoint> &points,
     std::unordered_map<int, std::vector<int>> &seedToTracksterAssociation) {
-  // Protect from events with no seeding regions
+
+  // Initializing (maybe export to own function)
+
+  edm::EventSetup const &es = input.es;
+  bfield_ = es.getHandle(bfieldtoken_);
+  propagator_ = es.getHandle(propagatortoken_);
+  const Propagator &prop = *propagator_;
+  const CaloGeometry* geom = &es.getData(caloGeomToken_);
+
+  computeAbsorbers();
+  if (disksPos_.size()==0){
+    makeDisks(8, 28, geom);
+    makeDisks(9, 24, geom);
+  }
+
+  // Sort needs to be implemented
+
+  //auto ptrSort = [](const GeomDet *a, const GeomDet *b) -> bool { return (*a) < (*b); };
+  //std::sort(disksPos_.begin(), disksPos_.end(), ptrSort);
+  //std::sort(disksNeg_.begin(), disksNeg_.end(), ptrSort);
+
+
+  /*
+  // Option 1: build from track
+
+  edm::Event const &ev = input.ev;
+  edm::Handle<reco::TrackCollection> tracks_h;
+  ev.getByToken(trackToken_,tracks_h);
+  const reco::TrackCollection& tkx = *tracks_h;  
+
+  FreeTrajectoryState fts = trajectoryStateTransform::outerFreeState(tkx.front(),bfield_.product());
+  std::cout << fts.position().x() << std::endl;
+  std::cout << fts.position().y() << std::endl;
+  std::cout << fts.position().z() << std::endl;
+  */
+
+  // Option 2: from SeedingRegion
+  // The tracks are chosen as they contain error information which the seedingregion does not.
+  // This however means that the propagation to the first layer is done twice: once by the seedingregionproducer and again here in the next step.
+
+  edm::Event const &ev = input.ev;
+  edm::Ref<reco::TrackCollection> myRef(input.regions.front().collectionID);
+  edm::Handle<reco::TrackCollection> tracks_h_seed;
+  ev.get(input.regions.front().collectionID, tracks_h_seed);
+  const reco::TrackCollection& tkx_seed = * tracks_h_seed;
+
+  // Create FTS
+
+  FreeTrajectoryState fts = trajectoryStateTransform::outerFreeState(tkx_seed.front(),bfield_.product());
+  std::cout << "Has Error: " << fts.hasError()<<std::endl;
+
+  // Propagate through all disks
+
+  // Get first disk
+
+  int zside = fts.momentum().eta() > 0 ? +1 : -1;
+  PropagationDirection direction = alongMomentum;
+  std::vector<GeomDet*> disks = (zside > 0? disksPos_ : disksNeg_);
+  const GeomDet* disk = (zside > 0 ? disksPos_ : disksNeg_).front();
+
+  // Propagation step
+
+  TrajectoryStateOnSurface tsos = prop.propagate(fts, disk->surface());
+  GlobalPoint gp = tsos.globalPosition();
+  points.push_back(gp);
+
+  // Loop over all disks
+
+  unsigned int depth = 2;
+  for(disk = nextDisk(disk, direction, disks); disk != nullptr; disk = nextDisk(disk, direction, disks), depth++){
+    tsos = prop.propagate(tsos, disk->surface());
+    points.push_back(tsos.globalPosition());
+  }
+  /*
+
   if (input.regions.empty())
     return;
 
@@ -285,6 +438,9 @@ void PatternRecognitionbyKF<TILES>::makeTracksters(
   if (PatternRecognitionAlgoBaseT<TILES>::algo_verbosity_ > PatternRecognitionAlgoBaseT<TILES>::Advanced) {
     edm::LogVerbatim("PatternRecognitionbyKFD") << std::endl;
   }
+
+  */
+
 }
 
 template <typename TILES>
@@ -315,11 +471,13 @@ void PatternRecognitionbyKF<TILES>::energyRegressionAndID(const std::vector<reco
   // set default values per trackster, determine if the cluster energy threshold is passed,
   // and store indices of hard tracksters
   std::vector<int> tracksterIndices;
+  std::cout<<"energyRegressionAndID" <<std::endl;
   for (int i = 0; i < static_cast<int>(tracksters.size()); i++) {
     // calculate the cluster energy sum (2)
     // note: after the loop, sumClusterEnergy might be just above the threshold which is enough to
     // decide whether to run inference for the trackster or not
     float sumClusterEnergy = 0.;
+    std::cout << "Regressed Energy" << tracksters[i].regressed_energy() <<std::endl;
     for (const unsigned int &vertex : tracksters[i].vertices()) {
       sumClusterEnergy += static_cast<float>(layerClusters[vertex].energy());
       // there might be many clusters, so try to stop early
@@ -332,6 +490,8 @@ void PatternRecognitionbyKF<TILES>::energyRegressionAndID(const std::vector<reco
       }
     }
   }
+
+  std::cout << "Regressed Energy" << tracksters.size() <<std::endl;
 
   // do nothing when no trackster passes the selection (3)
   int batchSize = static_cast<int>(tracksterIndices.size());
@@ -405,316 +565,39 @@ void PatternRecognitionbyKF<TILES>::energyRegressionAndID(const std::vector<reco
   tensorflow::run(const_cast<tensorflow::Session *>(eidSession), inputList, outputNames, &outputs);
 
   // store regressed energy per trackster (8)
-  if (!eidOutputNameEnergy_.empty()) {
-    // get the pointer to the energy tensor, dimension is batch x 1
-    float *energy = outputs[0].flat<float>().data();
 
-    for (const int &i : tracksterIndices) {
-      tracksters[i].setRegressedEnergy(*(energy++));
-    }
+// get the pointer to the energy tensor, dimension is batch x 1
+	//float *energy = outputs[0].flat<float>().data();
+
+
+  float *energy;
+  float e = 654321.0f;
+  energy = &e;
+  for (const int &i : tracksterIndices) {
+    tracksters[i].setRegressedEnergy(*(energy++));
   }
 
   // store id probabilities per trackster (8)
-  if (!eidOutputNameId_.empty()) {
-    // get the pointer to the id probability tensor, dimension is batch x id_probabilities.size()
-    int probsIdx = eidOutputNameEnergy_.empty() ? 0 : 1;
-    //float *probs = outputs[probsIdx].flat<float>().data();
-    float *probs;
-    float val=0.42f;
-    probs=&val;
+  // get the pointer to the id probability tensor, dimension is batch x id_probabilities.size()
+  int probsIdx = eidOutputNameEnergy_.empty() ? 0 : 1;
+  //float *probs = outputs[probsIdx].flat<float>().data();
+  float *probs;
+  float val=0.42f;
+  probs=&val;
 
-    for (const int &i : tracksterIndices) {
-      tracksters[i].setProbabilities(probs);
-      probs += tracksters[i].id_probabilities().size();
-    }
+  for (const int &i : tracksterIndices) {
+    tracksters[i].setProbabilities(probs);
+    probs += tracksters[i].id_probabilities().size();
   }
-}
+  std::cout<<"End of PID and EREG" <<std::endl;
 
-template <typename TILES>
-void PatternRecognitionbyKF<TILES>::calculateLocalDensity(
-    const TILES &tiles, const int layerId, const std::vector<std::pair<int, int>> &layerIdx2layerandSoa) {
-  constexpr int nEtaBin = TILES::constants_type_t::nEtaBins;
-  constexpr int nPhiBin = TILES::constants_type_t::nPhiBins;
-  auto &clustersOnLayer = clusters_[layerId];
-  unsigned int numberOfClusters = clustersOnLayer.x.size();
-
-  auto isReachable = [&](float x1, float x2, float y1, float y2, float delta_sqr) -> bool {
-    if (PatternRecognitionAlgoBaseT<TILES>::algo_verbosity_ > PatternRecognitionAlgoBaseT<TILES>::Advanced) {
-      edm::LogVerbatim("PatternRecognitionbyKFD")
-          << ((x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2)) << " vs " << delta_sqr << "["
-          << ((x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2) < delta_sqr) << "]\n";
-    }
-    return (x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2) < delta_sqr;
-  };
-
-  for (unsigned int i = 0; i < numberOfClusters; i++) {
-    // We need to partition the two sides of the HGCAL detector
-    auto lastLayerPerSide = static_cast<int>(rhtools_.lastLayer(false));
-    int minLayer = 0;
-    int maxLayer = 2 * lastLayerPerSide - 1;
-    if (layerId < lastLayerPerSide) {
-      minLayer = std::max(layerId - densitySiblingLayers_, minLayer);
-      maxLayer = std::min(layerId + densitySiblingLayers_, lastLayerPerSide - 1);
-    } else {
-      minLayer = std::max(layerId - densitySiblingLayers_, lastLayerPerSide);
-      maxLayer = std::min(layerId + densitySiblingLayers_, maxLayer);
-    }
-    for (int currentLayer = minLayer; currentLayer <= maxLayer; currentLayer++) {
-      if (PatternRecognitionAlgoBaseT<TILES>::algo_verbosity_ > PatternRecognitionAlgoBaseT<TILES>::Advanced) {
-        edm::LogVerbatim("PatternRecognitionbyKFD") << "RefLayer: " << layerId << " SoaIDX: " << i;
-        edm::LogVerbatim("PatternRecognitionbyKFD") << "NextLayer: " << currentLayer;
-      }
-      const auto &tileOnLayer = tiles[currentLayer];
-      bool onSameLayer = (currentLayer == layerId);
-      if (PatternRecognitionAlgoBaseT<TILES>::algo_verbosity_ > PatternRecognitionAlgoBaseT<TILES>::Advanced) {
-        edm::LogVerbatim("PatternRecognitionbyKFD") << "onSameLayer: " << onSameLayer;
-      }
-      const int etaWindow = 2;
-      const int phiWindow = 2;
-      int etaBinMin = std::max(tileOnLayer.etaBin(clustersOnLayer.eta[i]) - etaWindow, 0);
-      int etaBinMax = std::min(tileOnLayer.etaBin(clustersOnLayer.eta[i]) + etaWindow, nEtaBin);
-      int phiBinMin = tileOnLayer.phiBin(clustersOnLayer.phi[i]) - phiWindow;
-      int phiBinMax = tileOnLayer.phiBin(clustersOnLayer.phi[i]) + phiWindow;
-      if (PatternRecognitionAlgoBaseT<TILES>::algo_verbosity_ > PatternRecognitionAlgoBaseT<TILES>::Advanced) {
-        edm::LogVerbatim("PatternRecognitionbyKFD") << "eta: " << clustersOnLayer.eta[i];
-        edm::LogVerbatim("PatternRecognitionbyKFD") << "phi: " << clustersOnLayer.phi[i];
-        edm::LogVerbatim("PatternRecognitionbyKFD") << "etaBinMin: " << etaBinMin << ", etaBinMax: " << etaBinMax;
-        edm::LogVerbatim("PatternRecognitionbyKFD") << "phiBinMin: " << phiBinMin << ", phiBinMax: " << phiBinMax;
-      }
-      for (int ieta = etaBinMin; ieta <= etaBinMax; ++ieta) {
-        auto offset = ieta * nPhiBin;
-        if (PatternRecognitionAlgoBaseT<TILES>::algo_verbosity_ > PatternRecognitionAlgoBaseT<TILES>::Advanced) {
-          edm::LogVerbatim("PatternRecognitionbyKFD") << "offset: " << offset;
-        }
-        for (int iphi_it = phiBinMin; iphi_it <= phiBinMax; ++iphi_it) {
-          int iphi = ((iphi_it % nPhiBin + nPhiBin) % nPhiBin);
-          if (PatternRecognitionAlgoBaseT<TILES>::algo_verbosity_ > PatternRecognitionAlgoBaseT<TILES>::Advanced) {
-            edm::LogVerbatim("PatternRecognitionbyKFD") << "iphi: " << iphi;
-            edm::LogVerbatim("PatternRecognitionbyKFD")
-                << "Entries in tileBin: " << tileOnLayer[offset + iphi].size();
-          }
-          for (auto otherClusterIdx : tileOnLayer[offset + iphi]) {
-            auto const &layerandSoa = layerIdx2layerandSoa[otherClusterIdx];
-            // Skip masked layer clusters
-            if ((layerandSoa.first == -1) && (layerandSoa.second == -1)) {
-              if (PatternRecognitionAlgoBaseT<TILES>::algo_verbosity_ > PatternRecognitionAlgoBaseT<TILES>::Advanced) {
-                edm::LogVerbatim("PatternRecognitionbyKFD") << "Skipping masked layerIdx " << otherClusterIdx;
-              }
-              continue;
-            }
-            auto const &clustersLayer = clusters_[layerandSoa.first];
-            if (PatternRecognitionAlgoBaseT<TILES>::algo_verbosity_ > PatternRecognitionAlgoBaseT<TILES>::Advanced) {
-              edm::LogVerbatim("PatternRecognitionbyKFD")
-                  << "OtherLayer: " << layerandSoa.first << " SoaIDX: " << layerandSoa.second;
-              edm::LogVerbatim("PatternRecognitionbyKFD") << "OtherEta: " << clustersLayer.eta[layerandSoa.second];
-              edm::LogVerbatim("PatternRecognitionbyKFD") << "OtherPhi: " << clustersLayer.phi[layerandSoa.second];
-            }
-            // extend by 26 mm, roughly 2 cells, more wrt sum of radii
-            float delta = clustersOnLayer.radius[i] + clustersLayer.radius[layerandSoa.second] + 2.6f;
-            if (densityOnSameLayer_ && onSameLayer) {
-              if (isReachable(clustersOnLayer.x[i],
-                              clustersLayer.x[layerandSoa.second],
-                              clustersOnLayer.y[i],
-                              clustersLayer.y[layerandSoa.second],
-                              delta * delta)) {
-                clustersOnLayer.rho[i] += (clustersOnLayer.layerClusterOriginalIdx[i] == otherClusterIdx ? 1.f : 0.2f) *
-                                          clustersLayer.energy[layerandSoa.second];
-              }
-            } else {
-              if (PatternRecognitionAlgoBaseT<TILES>::algo_verbosity_ > PatternRecognitionAlgoBaseT<TILES>::Advanced) {
-                edm::LogVerbatim("PatternRecognitionbyKFD") << "Distance: "
-                                                              << reco::deltaR2(clustersOnLayer.eta[i],
-                                                                               clustersOnLayer.phi[i],
-                                                                               clustersLayer.eta[layerandSoa.second],
-                                                                               clustersLayer.phi[layerandSoa.second]);
-              }
-              if (reco::deltaR2(clustersOnLayer.eta[i],
-                                clustersOnLayer.phi[i],
-                                clustersLayer.eta[layerandSoa.second],
-                                clustersLayer.phi[layerandSoa.second]) < densityEtaPhiDistanceSqr_) {
-                auto energyToAdd = (clustersOnLayer.layerClusterOriginalIdx[i] == otherClusterIdx ? 1.f : 0.5f) *
-                                   clustersLayer.energy[layerandSoa.second];
-                clustersOnLayer.rho[i] += energyToAdd;
-                edm::LogVerbatim("PatternRecognitionbyKFD")
-                    << "Adding " << energyToAdd << " partial " << clustersOnLayer.rho[i];
-              }
-            }
-          }  // end of loop on possible compatible clusters
-        }    // end of loop over phi-bin region
-      }      // end of loop over eta-bin region
-    }        // end of loop on the sibling layers
-  }          // end of loop over clusters on this layer
-  if (PatternRecognitionAlgoBaseT<TILES>::algo_verbosity_ > PatternRecognitionAlgoBaseT<TILES>::Advanced) {
-    edm::LogVerbatim("PatternRecognitionbyKFD") << std::endl;
-  }
-}
-
-template <typename TILES>
-void PatternRecognitionbyKF<TILES>::calculateDistanceToHigher(
-    const TILES &tiles, const int layerId, const std::vector<std::pair<int, int>> &layerIdx2layerandSoa) {
-  constexpr int nEtaBin = TILES::constants_type_t::nEtaBins;
-  constexpr int nPhiBin = TILES::constants_type_t::nPhiBins;
-  auto &clustersOnLayer = clusters_[layerId];
-  unsigned int numberOfClusters = clustersOnLayer.x.size();
-
-  for (unsigned int i = 0; i < numberOfClusters; i++) {
-    if (PatternRecognitionAlgoBaseT<TILES>::algo_verbosity_ > PatternRecognitionAlgoBaseT<TILES>::Advanced) {
-      edm::LogVerbatim("PatternRecognitionbyKFD")
-          << "Starting searching nearestHigher on " << layerId << " with rho: " << clustersOnLayer.rho[i]
-          << " at eta, phi: " << tiles[layerId].etaBin(clustersOnLayer.eta[i]) << ", "
-          << tiles[layerId].etaBin(clustersOnLayer.phi[i]);
-    }
-    // We need to partition the two sides of the HGCAL detector
-    auto lastLayerPerSide = static_cast<int>(rhtools_.lastLayer(false));
-    int minLayer = 0;
-    int maxLayer = 2 * lastLayerPerSide - 1;
-    if (layerId < lastLayerPerSide) {
-      minLayer = std::max(layerId - densitySiblingLayers_, minLayer);
-      maxLayer = std::min(layerId + densitySiblingLayers_, lastLayerPerSide - 1);
-    } else {
-      minLayer = std::max(layerId - densitySiblingLayers_, lastLayerPerSide + 1);
-      maxLayer = std::min(layerId + densitySiblingLayers_, maxLayer);
-    }
-    float maxDelta = std::numeric_limits<float>::max();
-    float i_delta = maxDelta;
-    std::pair<int, int> i_nearestHigher(-1, -1);
-    for (int currentLayer = minLayer; currentLayer <= maxLayer; currentLayer++) {
-      const auto &tileOnLayer = tiles[currentLayer];
-      int etaWindow = 3;
-      int phiWindow = 3;
-      int etaBinMin = std::max(tileOnLayer.etaBin(clustersOnLayer.eta[i]) - etaWindow, 0);
-      int etaBinMax = std::min(tileOnLayer.etaBin(clustersOnLayer.eta[i]) + etaWindow, nEtaBin);
-      int phiBinMin = tileOnLayer.phiBin(clustersOnLayer.phi[i]) - phiWindow;
-      int phiBinMax = tileOnLayer.phiBin(clustersOnLayer.phi[i]) + phiWindow;
-      for (int ieta = etaBinMin; ieta <= etaBinMax; ++ieta) {
-        auto offset = ieta * nPhiBin;
-        for (int iphi_it = phiBinMin; iphi_it <= phiBinMax; ++iphi_it) {
-          int iphi = ((iphi_it % nPhiBin + nPhiBin) % nPhiBin);
-          if (PatternRecognitionAlgoBaseT<TILES>::algo_verbosity_ > PatternRecognitionAlgoBaseT<TILES>::Advanced) {
-            edm::LogVerbatim("PatternRecognitionbyKFD")
-                << "Searching nearestHigher on " << currentLayer << " eta, phi: " << ieta << ", " << iphi_it;
-          }
-          for (auto otherClusterIdx : tileOnLayer[offset + iphi]) {
-            auto const &layerandSoa = layerIdx2layerandSoa[otherClusterIdx];
-            // Skip masked layer clusters
-            if ((layerandSoa.first == -1) && (layerandSoa.second == -1))
-              continue;
-            auto const &clustersOnOtherLayer = clusters_[layerandSoa.first];
-            float dist = reco::deltaR2(clustersOnLayer.eta[i],
-                                       clustersOnLayer.phi[i],
-                                       clustersOnOtherLayer.eta[layerandSoa.second],
-                                       clustersOnOtherLayer.phi[layerandSoa.second]);
-            bool foundHigher = (clustersOnOtherLayer.rho[layerandSoa.second] > clustersOnLayer.rho[i]) ||
-                               (clustersOnOtherLayer.rho[layerandSoa.second] == clustersOnLayer.rho[i] &&
-                                clustersOnOtherLayer.layerClusterOriginalIdx[layerandSoa.second] >
-                                    clustersOnLayer.layerClusterOriginalIdx[i]);
-            if (PatternRecognitionAlgoBaseT<TILES>::algo_verbosity_ > PatternRecognitionAlgoBaseT<TILES>::Advanced) {
-              edm::LogVerbatim("PatternRecognitionbyKFD")
-                  << "Searching nearestHigher on " << currentLayer
-                  << " with rho: " << clustersOnOtherLayer.rho[layerandSoa.second]
-                  << " on layerIdxInSOA: " << layerandSoa.first << ", " << layerandSoa.second
-                  << " with distance: " << sqrt(dist) << " foundHigher: " << foundHigher;
-            }
-            if (foundHigher && dist <= i_delta) {
-              // update i_delta
-              i_delta = dist;
-              // update i_nearestHigher
-              i_nearestHigher = layerandSoa;
-            }
-          }  // End of loop on clusters
-        }    // End of loop on phi bins
-      }      // End of loop on eta bins
-    }        // End of loop on layers
-
-    bool foundNearestHigherInEtaPhiCylinder = (i_delta != maxDelta);
-    if (PatternRecognitionAlgoBaseT<TILES>::algo_verbosity_ > PatternRecognitionAlgoBaseT<TILES>::Advanced) {
-      edm::LogVerbatim("PatternRecognitionbyKFD")
-          << "i_delta: " << sqrt(i_delta) << " passed: " << foundNearestHigherInEtaPhiCylinder << " "
-          << i_nearestHigher.first << " " << i_nearestHigher.second;
-    }
-    if (foundNearestHigherInEtaPhiCylinder) {
-      clustersOnLayer.delta[i] = sqrt(i_delta);
-      clustersOnLayer.nearestHigher[i] = i_nearestHigher;
-    } else {
-      // otherwise delta is guaranteed to be larger outlierDeltaFactor_*delta_c
-      // we can safely maximize delta to be maxDelta
-      clustersOnLayer.delta[i] = maxDelta;
-      clustersOnLayer.nearestHigher[i] = {-1, -1};
-    }
-  }  // End of loop on clusters
-}
-
-template <typename TILES>
-int PatternRecognitionbyKF<TILES>::findAndAssignTracksters(
-    const TILES &tiles, const std::vector<std::pair<int, int>> &layerIdx2layerandSoa) {
-  unsigned int nTracksters = 0;
-
-  std::vector<std::pair<int, int>> localStack;
-  // find cluster seeds and outlier
-  for (unsigned int layer = 0; layer < 2 * rhtools_.lastLayer(); layer++) {
-    auto &clustersOnLayer = clusters_[layer];
-    unsigned int numberOfClusters = clustersOnLayer.x.size();
-    for (unsigned int i = 0; i < numberOfClusters; i++) {
-      // initialize clusterIndex
-      clustersOnLayer.clusterIndex[i] = -1;
-      bool isSeed =
-          (clustersOnLayer.delta[i] > criticalEtaPhiDistance_) && (clustersOnLayer.rho[i] >= criticalDensity_);
-      bool isOutlier = (clustersOnLayer.delta[i] > outlierMultiplier_ * criticalEtaPhiDistance_) &&
-                       (clustersOnLayer.rho[i] < criticalDensity_);
-      if (isSeed) {
-        if (PatternRecognitionAlgoBaseT<TILES>::algo_verbosity_ > PatternRecognitionAlgoBaseT<TILES>::Advanced) {
-          edm::LogVerbatim("PatternRecognitionbyKFD")
-              << "Found seed on Layer " << layer << " SOAidx: " << i << " assigned ClusterIdx: " << nTracksters;
-        }
-        clustersOnLayer.clusterIndex[i] = nTracksters++;
-        clustersOnLayer.isSeed[i] = true;
-        localStack.emplace_back(layer, i);
-      } else if (!isOutlier) {
-        auto [lyrIdx, soaIdx] = clustersOnLayer.nearestHigher[i];
-        if (PatternRecognitionAlgoBaseT<TILES>::algo_verbosity_ > PatternRecognitionAlgoBaseT<TILES>::Advanced) {
-          edm::LogVerbatim("PatternRecognitionbyKFD")
-              << "Found follower on Layer " << layer << " SOAidx: " << i << " attached to cluster on layer: " << lyrIdx
-              << " SOAidx: " << soaIdx;
-        }
-        if (lyrIdx >= 0)
-          clusters_[lyrIdx].followers[soaIdx].emplace_back(layer, i);
-      } else {
-        if (PatternRecognitionAlgoBaseT<TILES>::algo_verbosity_ > PatternRecognitionAlgoBaseT<TILES>::Advanced) {
-          edm::LogVerbatim("PatternRecognitionbyKFD")
-              << "Found Outlier on Layer " << layer << " SOAidx: " << i << " with rho: " << clustersOnLayer.rho[i]
-              << " and delta: " << clustersOnLayer.delta[i];
-        }
-      }
-    }
-  }
-
-  // Propagate cluster index
-  while (!localStack.empty()) {
-    auto [lyrIdx, soaIdx] = localStack.back();
-    auto &thisSeed = clusters_[lyrIdx].followers[soaIdx];
-    localStack.pop_back();
-
-    // loop over followers
-    for (auto [follower_lyrIdx, follower_soaIdx] : thisSeed) {
-      // pass id to a follower
-      clusters_[follower_lyrIdx].clusterIndex[follower_soaIdx] = clusters_[lyrIdx].clusterIndex[soaIdx];
-      // push this follower to localStack
-      localStack.emplace_back(follower_lyrIdx, follower_soaIdx);
-    }
-  }
-  return nTracksters;
 }
 
 template <typename TILES>
 void PatternRecognitionbyKF<TILES>::fillPSetDescription(edm::ParameterSetDescription &iDesc) {
   iDesc.add<int>("algo_verbosity", 0);
-  iDesc.add<double>("criticalDensity", 4)->setComment("in GeV");
-  iDesc.add<int>("densitySiblingLayers", 3);
-  iDesc.add<double>("densityEtaPhiDistanceSqr", 0.0008);
-  iDesc.add<bool>("densityOnSameLayer", false);
-  iDesc.add<double>("criticalEtaPhiDistance", 0.035);
-  iDesc.add<double>("outlierMultiplier", 2);
-  iDesc.add<int>("minNumLayerCluster", 2)->setComment("Not Inclusive");
+  iDesc.add<std::string>("propagator", "PropagatorWithMaterial");
+  iDesc.add<edm::InputTag>("tracks", edm::InputTag("generalTracks"));
   iDesc.add<std::string>("eid_input_name", "input");
   iDesc.add<std::string>("eid_output_name_energy", "output/regressed_energy");
   iDesc.add<std::string>("eid_output_name_id", "output/id_probabilities");

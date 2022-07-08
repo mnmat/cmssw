@@ -7,6 +7,26 @@
 #include "RecoHGCal/TICL/interface/PatternRecognitionAlgoBase.h"
 #include "RecoLocalCalo/HGCalRecAlgos/interface/RecHitTools.h"
 
+#include "DataFormats/TrackReco/interface/Track.h"
+#include "DataFormats/TrackReco/interface/TrackFwd.h"
+
+#include "TrackingTools/TrajectoryState/interface/TrajectoryStateTransform.h"
+
+#include "MagneticField/Records/interface/IdealMagneticFieldRecord.h"
+#include "MagneticField/Engine/interface/MagneticField.h"
+
+#include "TrackingTools/PatternTools/interface/Trajectory.h"
+#include "TrackingTools/PatternTools/interface/TempTrajectory.h"
+
+#include "DataFormats/Common/interface/Ptr.h"
+#include "DataFormats/Common/interface/PtrVector.h"
+#include "DataFormats/Common/interface/RefProd.h"
+#include "DataFormats/Common/interface/Ref.h"
+#include "DataFormats/Common/interface/RefVector.h"
+
+#include "TrackingTools/GeomPropagators/interface/Propagator.h"
+#include "TrackingTools/Records/interface/TrackingComponentsRecord.h"
+
 namespace ticl {
   template <typename TILES>
   class PatternRecognitionbyKF final : public PatternRecognitionAlgoBaseT<TILES> {
@@ -14,10 +34,29 @@ namespace ticl {
     PatternRecognitionbyKF(const edm::ParameterSet& conf, edm::ConsumesCollector);
     ~PatternRecognitionbyKF() override = default;
 
+    const GeomDet * nextDisk(const GeomDet * from, 
+                    PropagationDirection direction, 
+                    const std::vector<GeomDet *> &vec) const;
+
     void makeTracksters(const typename PatternRecognitionAlgoBaseT<TILES>::Inputs& input,
                         std::vector<Trackster>& result,
                         std::unordered_map<int, std::vector<int>>& seedToTracksterAssociation) override;
 
+
+    void makeTracksters_verbose(const typename PatternRecognitionAlgoBaseT<TILES>::Inputs& input,
+                        std::vector<Trackster>& result,
+                        std::vector<GlobalPoint>& points,
+                        std::unordered_map<int, std::vector<int>>& seedToTracksterAssociation) override;
+
+
+/*
+
+    void makeTracksters(const typename PatternRecognitionAlgoBaseKFT<TILES>::Inputs& input,
+                    std::vector<Trackster>& result,
+                    std::vector<GlobalPoint>& points,
+                    std::unordered_map<int, std::vector<int>>& seedToTracksterAssociation);
+
+*/
     void energyRegressionAndID(const std::vector<reco::CaloCluster>& layerClusters,
                                const tensorflow::Session*,
                                std::vector<Trackster>& result);
@@ -25,85 +64,15 @@ namespace ticl {
     static void fillPSetDescription(edm::ParameterSetDescription& iDesc);
 
   private:
-    struct ClustersOnLayer {
-      std::vector<float> x;
-      std::vector<float> y;
-      std::vector<float> radius;
-      std::vector<float> eta;
-      std::vector<float> phi;
-      std::vector<int> cells;
 
-      std::vector<float> energy;
-      std::vector<float> rho;
-
-      std::vector<float> delta;
-      std::vector<std::pair<int, int>> nearestHigher;
-      std::vector<int> clusterIndex;
-      std::vector<unsigned int> layerClusterOriginalIdx;
-      std::vector<std::vector<std::pair<int, int>>> followers;
-      std::vector<bool> isSeed;
-
-      void clear() {
-        x.clear();
-        y.clear();
-        radius.clear();
-        eta.clear();
-        phi.clear();
-        cells.clear();
-        energy.clear();
-        rho.clear();
-        delta.clear();
-        nearestHigher.clear();
-        clusterIndex.clear();
-        layerClusterOriginalIdx.clear();
-        followers.clear();
-        isSeed.clear();
-      }
-
-      void shrink_to_fit() {
-        x.shrink_to_fit();
-        y.shrink_to_fit();
-        radius.shrink_to_fit();
-        eta.shrink_to_fit();
-        phi.shrink_to_fit();
-        cells.shrink_to_fit();
-        energy.shrink_to_fit();
-        rho.shrink_to_fit();
-        delta.shrink_to_fit();
-        nearestHigher.shrink_to_fit();
-        clusterIndex.shrink_to_fit();
-        layerClusterOriginalIdx.shrink_to_fit();
-        followers.shrink_to_fit();
-        isSeed.shrink_to_fit();
-      }
-    };
-
-    void reset() {
-      for (auto& c : clusters_) {
-        c.clear();
-        c.shrink_to_fit();
-      }
-    }
-    void calculateLocalDensity(const TILES&, const int layerId, const std::vector<std::pair<int, int>>&);
-    void calculateDistanceToHigher(const TILES&, const int layerId, const std::vector<std::pair<int, int>>&);
-    int findAndAssignTracksters(const TILES&, const std::vector<std::pair<int, int>>&);
-    void dumpClusters(const std::vector<std::pair<int, int>>& layerIdx2layerandSoa, const int) const;
-    void dumpTracksters(const std::vector<std::pair<int, int>>& layerIdx2layerandSoa,
-                        const int,
-                        const std::vector<Trackster>&) const;
-    void dumpTiles(const TILES&) const;
-
-    std::vector<ClustersOnLayer> clusters_;
+    // Declarations for Constructor
 
     edm::ESGetToken<CaloGeometry, CaloGeometryRecord> caloGeomToken_;
-    const double criticalDensity_;
-    const int densitySiblingLayers_;
-    const double densityEtaPhiDistanceSqr_;
-    const double densityOnSameLayer_;
-    const double criticalEtaPhiDistance_;
-    const double outlierMultiplier_;
-    const int minNumLayerCluster_;
-    const std::vector<int> filter_on_categories_;
+    const std::string propName_;
+    edm::ESGetToken<MagneticField, IdealMagneticFieldRecord> bfieldtoken_;
+    edm::ESGetToken<Propagator, TrackingComponentsRecord> propagatortoken_;
+    edm::EDGetTokenT<reco::TrackCollection> trackToken_;
+
     const std::string eidInputName_;
     const std::string eidOutputNameEnergy_;
     const std::string eidOutputNameId_;
@@ -111,10 +80,32 @@ namespace ticl {
     const int eidNLayers_;
     const int eidNClusters_;
 
+    edm::ESHandle<MagneticField> bfield_;
+    edm::ESHandle<Propagator> propagator_;
+
+    std::map<std::string, float> xi_;
+
     hgcal::RecHitTools rhtools_;
     tensorflow::Session* eidSession_;
 
     static const int eidNFeatures_ = 3;
+
+    std::vector<GeomDet *> disksPos_, disksNeg_;
+
+    void computeAbsorbers();
+    float combinedEdX(float w1, float a, float w2, float b){
+      return (w1 * a + w2 * b);
+    };
+    float combineX0(float w1, float a, float w2, float b){
+      float oneOver = (w1 / a + w2 / b);
+      return 1./oneOver;
+    };
+    void makeDisks(int subdet, int disks, const CaloGeometry* geom_);
+    void addDisk(GeomDet *disk, int zside){
+      (zside > 0 ? disksPos_ : disksNeg_).push_back(disk);
+    }
+
+
   };
 
 }  // namespace ticl
