@@ -153,6 +153,7 @@ void PatternRecognitionbyCLUE3D<TILES>::makeTracksters(
     std::vector<Trackster> &result,
     std::unordered_map<int, std::vector<int>> &seedToTracksterAssociation) {
   // Protect from events with no seeding regions
+
   if (input.regions.empty())
     return;
 
