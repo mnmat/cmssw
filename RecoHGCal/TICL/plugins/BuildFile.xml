@@ -10,6 +10,7 @@
 <use name="DataFormats/ParticleFlowCandidate"/>
 <use name="DataFormats/ParticleFlowReco"/>
 <use name="DataFormats/TrackReco"/>
+<use name="DataFormats/Provenance"/>
 <use name="FWCore/Framework"/>
 <use name="FWCore/MessageLogger"/>
 <use name="FWCore/ParameterSet"/>
@@ -28,14 +29,18 @@
 <use name="RecoLocalCalo/HGCalRecAlgos"/>
 <use name="RecoLocalCalo/HGCalRecProducers"/>
 <use name="RecoHGCal/TICL"/>
+<use name="RecoTracker/TrackProducer"/>
 <use name="RecoParticleFlow/PFProducer"/>
 <use name="SimDataFormats/Associations"/>
 <use name="SimDataFormats/CaloAnalysis"/>
 <use name="TrackingTools/GeomPropagators"/>
+<use name="TrackingTools/KalmanUpdators"/>
 <use name="TrackingTools/Records"/>
 <use name="TrackingTools/TrajectoryState"/>
 <use name="fastjet"/>
 <use name="RecoEgamma/EgammaElectronAlgos"/> 
+<use name="TrackingTools/PatternTools"/>
+<use name="Geometry/CommonTopologies"/>
 <library file="*.cc" name="RecoHGCalTICLPlugins">
   <flags EDM_PLUGIN="1"/>
 </library>
