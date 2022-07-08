@@ -20,7 +20,9 @@
   <class name="edm::RefProd<edm::SortedCollection<io_v1::HGCRecHit,edm::StrictWeakOrdering<io_v1::HGCRecHit> > >"/>
   <class name="edm::Wrapper<std::vector<edm::RefProd<std::vector<io_v1::HGCRecHit> > > >"/>
   <class name="edm::Wrapper<std::vector<io_v1::HGCRecHit>>"/>
- 
+
+  <class name="edm::Ref<std::vector<io_v1::HGCRecHit>,io_v1::HGCRecHit,edm::refhelper::FindUsingAdvance<std::vector<io_v1::HGCRecHit>,io_v1::HGCRecHit> >"/>
+  <class name="edm::RefVector<std::vector<io_v1::HGCRecHit>,io_v1::HGCRecHit,edm::refhelper::FindUsingAdvance<std::vector<io_v1::HGCRecHit>,io_v1::HGCRecHit> >"/>
 
   <class name="edm::RefProd<std::vector<io_v1::HGCRecHit> >"/>
   <class name="vector<edm::RefProd<std::vector<io_v1::HGCRecHit> > >"/>

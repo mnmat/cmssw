@@ -7,6 +7,7 @@ import FWCore.ParameterSet.Config as cms
 from RecoTICL.Configuration.ticlEventContent_cff import (
     TICL_AOD, TICL_RECO, TICL_FEVT, TICL_FEVTHLT)
 
+TICL_RECO.outputCommands.extend(['keep *_ticlRecHitTile_*_*', 'keep *_ticlTrackstersKalmanFilter_*_*'])
 
 def customiseHGCalOnlyEventContent(process):
     def cleanOutputAndSet(outputModule, ticl_outputCommands):

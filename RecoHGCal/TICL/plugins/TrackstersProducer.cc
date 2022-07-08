@@ -17,6 +17,9 @@
 #include "FWCore/ParameterSet/interface/PluginDescription.h"
 
 #include "DataFormats/CaloRecHit/interface/CaloCluster.h"
+#include "DataFormats/ParticleFlowReco/interface/PFCluster.h"
+
+#include "DataFormats/HGCalReco/interface/KFHit.h"
 #include "DataFormats/HGCalReco/interface/TICLLayerTile.h"
 #include "DataFormats/HGCalReco/interface/TICLSeedingRegion.h"
 #include "DataFormats/HGCalReco/interface/Trackster.h"
@@ -25,8 +28,12 @@
 #include "RecoHGCal/TICL/interface/TracksterInferenceAlgoBase.h"
 #include "RecoHGCal/TICL/interface/TracksterInferenceAlgoFactory.h"
 #include "RecoHGCal/TICL/plugins/PatternRecognitionPluginFactory.h"
+#include "PatternRecognitionbyKalmanFilter.h"
 
 #include "RecoLocalCalo/HGCalRecAlgos/interface/TICLGeomTools.h"
+
+#include "TrackingTools/TrajectoryState/interface/TrajectoryStateOnSurface.h"
+#include "TrackingTools/PatternTools/interface/TempTrajectory.h"
 
 using namespace ticl;
 
@@ -150,8 +157,14 @@ TrackstersProducer::TrackstersProducer(const edm::ParameterSet& ps, ticl::TICLON
   else if (itername_ == "MIP")
     iterIndex_ = ticl::Trackster::MIP;
 
+
+
   produces<std::vector<Trackster>>();
   produces<std::vector<float>>();
+  produces<std::vector<KFHit>>("KFHits").setBranchAlias("KFHits");
+  produces<std::vector<reco::Track>>("HGCALTracks").setBranchAlias("HGCALTracks");
+  produces<std::vector<reco::TrackExtra>>("HGCALTrackExtras").setBranchAlias("HGCALTrackExtras");
+  produces<TrackingRecHitCollection>("HGCALTrackingRecHitCollection").setBranchAlias("HGCALTrackingRecHitCollection");
 }
 
 std::unique_ptr<ticl::TICLONNXGlobalCache> TrackstersProducer::initializeGlobalCache(const edm::ParameterSet& iConfig) {
@@ -164,6 +177,10 @@ void TrackstersProducer::produce(edm::Event& evt, const edm::EventSetup& es) {
   auto result = std::make_unique<std::vector<Trackster>>();
   auto initialResult = std::make_unique<std::vector<Trackster>>();
   auto output_mask = std::make_unique<std::vector<float>>();
+  auto kfhits = std::make_unique<std::vector<KFHit>>();
+  auto tracks = std::make_unique<std::vector<reco::Track>>();
+  auto trackExtras = std::make_unique<std::vector<reco::TrackExtra>>();
+  auto trackingRecHitCollection = std::make_unique<TrackingRecHitCollection>();
 
   const auto& original_layerclusters_mask = evt.get(original_layerclusters_mask_token_);
   const auto& layerClusters = evt.get(clusters_token_);
@@ -208,13 +225,18 @@ void TrackstersProducer::produce(edm::Event& evt, const edm::EventSetup& es) {
       const typename PatternRecognitionAlgoBaseT<TICLLayerTiles>::Inputs input(
           evt, es, layerClusters, inputClusterMask, layerClustersTimes, tiles, seeding_regions);
 
-      myAlgo_->makeTracksters(input, *initialResult, seedToTrackstersAssociation);
+      // TODO(mmatthew): Delete if conditions once correct function definition for KF is found
+      if(itername_ == "KalmanFilter"){ 
+        myAlgo_->makeTrajectories(input,*kfhits,*tracks,*trackExtras,*trackingRecHitCollection);   
+      } else {
+        myAlgo_->makeTracksters(input, *initialResult, seedToTrackstersAssociation);
 
-      if (inferenceAlgo_) {
-        inferenceAlgo_->runInference(layerClusters, *initialResult, rhtools_);
+        if (inferenceAlgo_) {
+          inferenceAlgo_->runInference(layerClusters, *initialResult, rhtools_);
+        }
+
+        myAlgo_->filter(*result, *initialResult, input, seedToTrackstersAssociation);
       }
-
-      myAlgo_->filter(*result, *initialResult, input, seedToTrackstersAssociation);
     }
   }
 
@@ -230,6 +252,10 @@ void TrackstersProducer::produce(edm::Event& evt, const edm::EventSetup& es) {
 
   evt.put(std::move(result));
   evt.put(std::move(output_mask));
+  evt.put(std::move(kfhits),"KFHits");
+  evt.put(std::move(tracks),"HGCALTracks");
+  evt.put(std::move(trackExtras),"HGCALTrackExtras");
+  evt.put(std::move(trackingRecHitCollection),"HGCALTrackingRecHitCollection");
 }
 
 void TrackstersProducer::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
@@ -260,6 +286,12 @@ void TrackstersProducer::fillDescriptions(edm::ConfigurationDescriptions& descri
   pluginDescClue3D.addNode(edm::PluginDescription<PatternRecognitionFactory>("type", "CLUE3D", true));
   desc.add<edm::ParameterSetDescription>("pluginPatternRecognitionByCLUE3D", pluginDescClue3D);
 
+  // KF Plugin
+  edm::ParameterSetDescription pluginDescKalmanFilter;
+  pluginDescKalmanFilter.addNode(edm::PluginDescription<PatternRecognitionFactory>("type", "KalmanFilter", true));
+  desc.add<edm::ParameterSetDescription>("pluginPatternRecognitionByKalmanFilter", pluginDescKalmanFilter);
+
+  // FastJet Plugin
   edm::ParameterSetDescription pluginDescFastJet;
   pluginDescFastJet.addNode(edm::PluginDescription<PatternRecognitionFactory>("type", "FastJet", true));
   desc.add<edm::ParameterSetDescription>("pluginPatternRecognitionByFastJet", pluginDescFastJet);

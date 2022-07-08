@@ -10,6 +10,7 @@
 #include <algorithm>
 #include "DataFormats/CaloRecHit/interface/CaloCluster.h"
 #include "DataFormats/HGCalReco/interface/Trackster.h"
+#include "DataFormats/HGCalReco/interface/KFHit.h"
 #include "DataFormats/HGCalReco/interface/TICLLayerTile.h"
 #include "DataFormats/HGCalReco/interface/TICLSeedingRegion.h"
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
@@ -32,14 +33,14 @@ namespace ticl {
     virtual ~PatternRecognitionAlgoBaseT() {};
 
     struct Inputs {
-      const edm::Event& ev;
+      edm::Event& ev;
       const edm::EventSetup& es;
       const std::vector<reco::CaloCluster>& layerClusters;
       const std::vector<float>& mask;
       const edm::ValueMap<std::pair<float, float>>& layerClustersTime;
       const TILES& tiles;
       const std::vector<TICLSeedingRegion>& regions;
-      Inputs(const edm::Event& eV,
+      Inputs(edm::Event& eV,
              const edm::EventSetup& eS,
              const std::vector<reco::CaloCluster>& lC,
              const std::vector<float>& mS,
@@ -48,6 +49,14 @@ namespace ticl {
              const std::vector<TICLSeedingRegion>& rG)
           : ev(eV), es(eS), layerClusters(lC), mask(mS), layerClustersTime(lT), tiles(tL), regions(rG) {}
     };
+    
+    // (mmatthew): makeTrajectories used only by PatternRecognitionbyKalmanFilter. 
+    // TODO: combine with makeTracksters as pure virtual function
+    virtual void makeTrajectories(const Inputs& input,
+                                std::vector<KFHit>& kfhits,
+                                std::vector<reco::Track>& tracks,
+                                std::vector<reco::TrackExtra>& trackExtras,
+                                TrackingRecHitCollection& trackingRecHitCollection) = 0;
 
     virtual void makeTracksters(const Inputs& input,
                                 std::vector<Trackster>& result,
