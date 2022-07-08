@@ -50,6 +50,16 @@ namespace ticl {
              const tensorflow::Session* tS)
           : ev(eV), es(eS), layerClusters(lC), mask(mS), layerClustersTime(lT), tiles(tL), regions(rG), tfSession(tS) {}
     };
+    
+    // Delete me! This was implemented to export the points of the KF
+
+    virtual void makeTracksters_verbose(const Inputs& input,
+                                std::vector<Trackster>& result,
+                                std::vector<GlobalPoint>& points,
+                                std::unordered_map<int, std::vector<int>>& seedToTracksterAssociation){};
+
+    // --------------------------------------------------------------
+
 
     virtual void makeTracksters(const Inputs& input,
                                 std::vector<Trackster>& result,
