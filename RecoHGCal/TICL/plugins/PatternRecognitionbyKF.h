@@ -69,8 +69,10 @@ namespace ticl {
 
     edm::ESGetToken<CaloGeometry, CaloGeometryRecord> caloGeomToken_;
     const std::string propName_;
+    //const std::string propNameRK_;
     edm::ESGetToken<MagneticField, IdealMagneticFieldRecord> bfieldtoken_;
     edm::ESGetToken<Propagator, TrackingComponentsRecord> propagatortoken_;
+    // edm::ESGetToken<Propagator, TrackingComponentsRecord> propagatortokenRK_;
     edm::EDGetTokenT<reco::TrackCollection> trackToken_;
 
     const std::string eidInputName_;
@@ -82,6 +84,7 @@ namespace ticl {
 
     edm::ESHandle<MagneticField> bfield_;
     edm::ESHandle<Propagator> propagator_;
+    //edm::ESHandle<Propagator> propagatorRK_;
 
     std::map<std::string, float> xi_;
 

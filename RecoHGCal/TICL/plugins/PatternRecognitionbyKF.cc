@@ -117,6 +117,109 @@ void PatternRecognitionbyKF<TILES>::makeDisks(int subdet, int disks, const CaloG
     // const CaloSubdetectorGeometry *subGeom = subdet < 5 ? geom_->getSubdetectorGeometry(DetId::Forward, subdet) :
     //                                                       geom_->getSubdetectorGeometry(DetId::Hcal, 2);
 
+
+  std::vector<float> radlen_v{0.287578231425533,
+    0.652574432663379,
+    0.519126219884760,
+    0.629329696701607,
+    0.470164608944423,
+    0.656926010668083,
+    0.505405478217971,
+    0.645561815316222,
+    0.476905911172138,
+    0.657129361462176,
+    0.494426335907814,
+    0.661767816723196,
+    0.476697696751714,
+    0.656792486637129,
+    0.488911438964815,
+    0.659428797546396,
+    0.519388799886432,
+    0.636443052965693,
+    0.690440833716593,
+    0.656083145894548,
+    0.710648981189018,
+    0.654738292372854,
+    0.711716272998115,
+    0.659031423898539,
+    0.708941939031308,
+    0.661965595922196,
+    2.868636061036860,
+    2.988866189877523,
+    2.989715911253076,
+    2.991436303780332,
+    2.989599621564430,
+    3.002821764306962,
+    2.990356629240060,
+    2.989573639239810,
+    2.988685711688429,
+    2.989414475081340,
+    2.990114765024607,
+    4.164871621966520,
+    4.144585482635521,
+    4.058009456314032,
+    4.137460795188776,
+    4.138177409380636,
+    4.129951519389949,
+    4.060009792683141,
+    4.133359022913795,
+    4.134560408406477,
+    4.13575162757734};
+  std::vector<float> xi_v{0.0005110512059408830,
+    0.0006831878206769110,
+    0.0004973065046027600,
+    0.0007055116075429950,
+    0.0004840811987581450,
+    0.0006815847792258840,
+    0.000498840698299919,
+    0.0006929527987818480,
+    0.0004884872008263560,
+    0.0006792860873528980,
+    0.0005021346124779450,
+    0.0006831033295305010,
+    0.0004904917404416280,
+    0.0006787315453395390,
+    0.0005011512213829390,
+    0.0006806752816281460,
+    0.0004986591763045000,
+    0.0007028556604867630,
+    0.0004469247382095310,
+    0.0006784016152473840,
+    0.0004576588817242630,
+    0.0006788591171105650,
+    0.00045805568196347000,
+    0.0006806926713052890,
+    0.00045644714532507900,
+    0.0006829423776194960,
+    0.0010145335633696400,
+    0.0009952585774521000,
+    0.00099472493124547,
+    0.00099461390470062,
+    0.000994829170470436,
+    0.0009973866163567710,
+    0.000994978298107381,
+    0.0009940245879949960,
+    0.0009951150189777040,
+    0.0009946645572410690,
+    0.0009948166566158740,
+    0.0010016131009442000,
+    0.0009996724454001690,
+    0.0009927229142128690,
+    0.0009989274416790460,
+    0.000998695705935224,
+    0.0009987097209326370,
+    0.0009919024127419550,
+    0.000998719611624487,
+    0.0009972693538724180,
+    0.0009976091170762653};
+
+
+
+
+
+
+
+
   const CaloSubdetectorGeometry *subGeom = geom_->getSubdetectorGeometry(DetId::Detector(subdet), ForwardSubdetector::ForwardEmpty);
 
   std::vector<float>  rmax(disks, 0), rmin(disks, 9e9);
@@ -143,10 +246,22 @@ void PatternRecognitionbyKF<TILES>::makeDisks(int subdet, int disks, const CaloG
     if (rho > rmax[layer]) rmax[layer] = rho;
     if (rho < rmin[layer]) rmin[layer] = rho;
   }
+  int j;
   for (int i = 0; i < disks; ++i) {
     float radlen=-1, xi=-1; // see DataFormats/GeometrySurface/interface/MediumProperties.h
+    if (subdet == 8){
+      j = 0;
+    }
+    else if (subdet ==9){
+      j=24;
+    }
+    radlen = radlen_v[i+j];
+    xi = xi_v[i+j];
+
+
+    /*
     switch(subdet) {
-    case 8:
+    if case 8:
       if (i%2 == 0) {
         radlen = 0.748 * xi_["Pb"] + 0.068 * xi_["Fe"] + 0.014 * xi_["Cu"];
         xi = radlen / (0.748 + 0.068 + 0.014) * 1.e-3;
@@ -171,6 +286,7 @@ void PatternRecognitionbyKF<TILES>::makeDisks(int subdet, int disks, const CaloG
       }
       break;
     }
+    */
 
     if (countPos[i]) {
       //printf("Positive disk %2d at z = %+7.2f   %6.1f <= rho <= %6.1f\n", i+1, zsumPos[i]/countPos[i], rmin[i], rmax[i]);
@@ -222,8 +338,8 @@ void PatternRecognitionbyKF<TILES>::makeTracksters_verbose(
 
   computeAbsorbers();
   if (disksPos_.size()==0){
-    makeDisks(8, 28, geom);
-    makeDisks(9, 24, geom);
+    makeDisks(8, 26, geom);
+    makeDisks(9, 21, geom);
   }
 
   // Sort needs to be implemented
@@ -281,8 +397,10 @@ void PatternRecognitionbyKF<TILES>::makeTracksters_verbose(
 
   unsigned int depth = 2;
   for(disk = nextDisk(disk, direction, disks); disk != nullptr; disk = nextDisk(disk, direction, disks), depth++){
+   //std::cout<<"Radlen and Xi of Disk: \t"<<disk->surface().mediumProperties().radLen() <<"\t" << disk->surface().mediumProperties().xi() << std::endl;
     tsos = prop.propagate(tsos, disk->surface());
     points.push_back(tsos.globalPosition());
+    
   }
   /*
 
@@ -596,7 +714,8 @@ void PatternRecognitionbyKF<TILES>::energyRegressionAndID(const std::vector<reco
 template <typename TILES>
 void PatternRecognitionbyKF<TILES>::fillPSetDescription(edm::ParameterSetDescription &iDesc) {
   iDesc.add<int>("algo_verbosity", 0);
-  iDesc.add<std::string>("propagator", "PropagatorWithMaterial");
+  iDesc.add<std::string>("propagator", "RungeKuttaTrackerPropagator"); //PropagatorWithMaterial
+  //iDesc.add<std::string>("propagator", "PropagatorWithMaterial"); //PropagatorWithMaterial
   iDesc.add<edm::InputTag>("tracks", edm::InputTag("generalTracks"));
   iDesc.add<std::string>("eid_input_name", "input");
   iDesc.add<std::string>("eid_output_name_energy", "output/regressed_energy");
