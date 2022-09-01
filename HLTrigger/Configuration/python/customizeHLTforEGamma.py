@@ -50,6 +50,71 @@ def customiseEGammaEventContent(process):
 
     return process
 
+def customiseEGammaInputContent(process):
+    """
+    customises the E/gamma input format.
+    this is necessary if we have old products in the event as when we pack things up, 
+    it may pick the old products and get confused.
+    so set this to only the RAW format
+
+    """
+    egammaInputContent = [
+         #basically RAW sim with some more HLT drops
+        'drop *',
+        'keep  FEDRawDataCollection_rawDataCollector_*_*',
+        'keep  FEDRawDataCollection_source_*_*',
+        'keep  FEDRawDataCollection_rawDataCollector_*_*',
+        'keep  FEDRawDataCollection_source_*_*',
+        'drop *_hlt*_*_*',
+        'keep FEDRawDataCollection_rawDataCollector_*_*',
+        'keep FEDRawDataCollection_source_*_*',
+        'keep GlobalObjectMapRecord_hltGtStage2ObjectMap_*_*',
+        'keep edmTriggerResults_*_*_*',
+        'keep triggerTriggerEvent_*_*_*',
+        'keep edmTriggerResults_*_*_*',
+        'keep *_g4SimHits_*_*',
+        'keep edmHepMCProduct_source_*_*',
+        'keep *_allTrackMCMatch_*_*',
+        'keep *_prunedTrackingParticles_*_*',
+        'keep *_prunedDigiSimLinks_*_*',
+        'keep StripDigiSimLinkedmDetSetVector_simMuonCSCDigis_*_*',
+        'keep CSCDetIdCSCComparatorDigiMuonDigiCollection_simMuonCSCDigis_*_*',
+        'keep DTLayerIdDTDigiSimLinkMuonDigiCollection_simMuonDTDigis_*_*',
+        'keep RPCDigiSimLinkedmDetSetVector_simMuonRPCDigis_*_*',
+        'keep *_simMuonCSCDigis_*_*',
+        'keep *_simMuonRPCDigis_*_*',
+        'keep *_simMuonGEMDigis_*_*',
+        'keep EBSrFlagsSorted_simEcalDigis_*_*',
+        'keep EESrFlagsSorted_simEcalDigis_*_*',
+        'keep *_simHcalUnsuppressedDigis_*_*',
+        'keep CrossingFramePlaybackInfoNew_*_*_*',
+        'keep PileupSummaryInfos_*_*_*',
+        'keep int6stdbitsetstdpairs_*_AffectedAPVList_*',
+        'keep int_*_bunchSpacing_*',
+        'keep *_genPUProtons_*_*',
+        'keep *_mix_MergedTrackTruth_*',
+        'keep LHERunInfoProduct_*_*_*',
+        'keep LHEEventProduct_*_*_*',
+        'keep GenRunInfoProduct_generator_*_*',
+        'keep GenLumiInfoHeader_generator_*_*',
+        'keep GenLumiInfoProduct_generator_*_*',
+        'keep GenEventInfoProduct_generator_*_*',
+        'keep edmHepMCProduct_generatorSmeared_*_*',
+        'keep edmHepMCProduct_LHCTransport_*_*',
+        'keep GenFilterInfo_*_*_*',
+        'keep *_genParticles_*_*',
+        'keep recoGenJets_ak*_*_*',
+        'keep *_ak4GenJets_*_*',
+        'keep *_ak8GenJets_*_*',
+        'keep *_ak4GenJetsNoNu_*_*',
+        'keep *_ak8GenJetsNoNu_*_*',
+        'keep *_genParticle_*_*',
+        'keep recoGenMETs_*_*_*',
+    ]
+    process.source.inputCommands = cms.untracked.vstring(egammaInputContent)
+    process.source.dropDescendantsOfDroppedBranches = cms.untracked.bool(False)
+    return process
+
 def customiseEGammaMenuDev(process):
     """
     Customise the HLT for E/gamma menu development
@@ -62,6 +127,7 @@ def customiseEGammaMenuDev(process):
             delattr(process,attrToDel)
 
     process = customiseEGammaEventContent(process)
+    
    
     return process
 
