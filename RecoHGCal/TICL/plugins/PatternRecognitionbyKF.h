@@ -81,6 +81,7 @@ namespace ticl {
     const float eidMinClusterEnergy_;
     const int eidNLayers_;
     const int eidNClusters_;
+    const std::string materialbudget_;
 
     edm::ESHandle<MagneticField> bfield_;
     edm::ESHandle<Propagator> propagator_;

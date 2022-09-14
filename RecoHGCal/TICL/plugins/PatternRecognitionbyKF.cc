@@ -46,7 +46,11 @@ PatternRecognitionbyKF<TILES>::PatternRecognitionbyKF(const edm::ParameterSet &c
       eidOutputNameId_(conf.getParameter<std::string>("eid_output_name_id")),
       eidMinClusterEnergy_(conf.getParameter<double>("eid_min_cluster_energy")),
       eidNLayers_(conf.getParameter<int>("eid_n_layers")),
-      eidNClusters_(conf.getParameter<int>("eid_n_clusters")){
+      eidNClusters_(conf.getParameter<int>("eid_n_clusters")),
+      materialbudget_(conf.getParameter<std::string>("materialbudget")){
+
+      std::cout << propName_ << std::endl;
+      std::cout << materialbudget_ <<std::endl;
 
 };
 
@@ -213,13 +217,6 @@ void PatternRecognitionbyKF<TILES>::makeDisks(int subdet, int disks, const CaloG
     0.0009972693538724180,
     0.0009976091170762653};
 
-
-
-
-
-
-
-
   const CaloSubdetectorGeometry *subGeom = geom_->getSubdetectorGeometry(DetId::Detector(subdet), ForwardSubdetector::ForwardEmpty);
 
   std::vector<float>  rmax(disks, 0), rmin(disks, 9e9);
@@ -247,47 +244,50 @@ void PatternRecognitionbyKF<TILES>::makeDisks(int subdet, int disks, const CaloG
     if (rho < rmin[layer]) rmin[layer] = rho;
   }
   int j;
+  float n = 10.;
   for (int i = 0; i < disks; ++i) {
     float radlen=-1, xi=-1; // see DataFormats/GeometrySurface/interface/MediumProperties.h
-    if (subdet == 8){
-      j = 0;
+    if (materialbudget_ == "Val"){
+      if (subdet == 8){ 
+        j = 0;
+      }
+      else if (subdet == 9){
+        j = 26;
+      }
+      radlen = radlen_v[i+j]*n;
+      xi = xi_v[i+j]*n;
     }
-    else if (subdet ==9){
-      j=24;
+    else if (materialbudget_ == "AG"){
+      switch(subdet) {
+        case 8:
+          if (i%2 == 0) {
+            radlen = 0.748 * xi_["Pb"] + 0.068 * xi_["Fe"] + 0.014 * xi_["Cu"]+n;
+            xi = radlen / (0.748 + 0.068 + 0.014) * 1.e-3;
+          }
+          else{
+            radlen = 0.648 * xi_["WCu"] + 0.417 * xi_["Cu"]+n;
+            xi = radlen / (0.648 + 0.417) * 1.e-3;
+          }
+          break;
+        case 9:
+          if (i == 0){
+            radlen = 0.374 * xi_["Pb"] + (0.007+0.07) * xi_["Cu"] + (0.034+2.277) * xi_["Fe"]+n;
+            xi = radlen / (0.374 + 0.007+0.07 + 0.034+2.277) * 1.e-3;
+          }
+          else if(i < 12){
+            radlen = 0.2315 * xi_["WCu"] + 0.487 * xi_["Cu"] + 1.992 * xi_["Fe"]+n;
+            xi = radlen / (0.2315 + 0.487 + 1.992) * 1.e-3;
+          }
+          else{
+            radlen = 0.2315 * xi_["WCu"] + 0.487 * xi_["Cu"] + 3.870 * xi_["Fe"]+n;
+            xi = radlen / (0.2315 + 0.487 + 3.870) * 1.e-3;
+          }
+          break;
+      }
     }
-    radlen = radlen_v[i+j];
-    xi = xi_v[i+j];
 
-
-    /*
-    switch(subdet) {
-    if case 8:
-      if (i%2 == 0) {
-        radlen = 0.748 * xi_["Pb"] + 0.068 * xi_["Fe"] + 0.014 * xi_["Cu"];
-        xi = radlen / (0.748 + 0.068 + 0.014) * 1.e-3;
-      }
-      else{
-        radlen = 0.648 * xi_["WCu"] + 0.417 * xi_["Cu"];
-        xi = radlen / (0.648 + 0.417) * 1.e-3;
-      }
-      break;
-    case 9:
-      if (i == 0){
-        radlen = 0.374 * xi_["Pb"] + (0.007+0.07) * xi_["Cu"] + (0.034+2.277) * xi_["Fe"];
-        xi = radlen / (0.374 + 0.007+0.07 + 0.034+2.277) * 1.e-3;
-      }
-      else if(i < 12){
-        radlen = 0.2315 * xi_["WCu"] + 0.487 * xi_["Cu"] + 1.992 * xi_["Fe"];
-        xi = radlen / (0.2315 + 0.487 + 1.992) * 1.e-3;
-      }
-      else{
-        radlen = 0.2315 * xi_["WCu"] + 0.487 * xi_["Cu"] + 3.870 * xi_["Fe"];
-        xi = radlen / (0.2315 + 0.487 + 3.870) * 1.e-3;
-      }
-      break;
-    }
-    */
-
+    std::cout << radlen << std::endl;
+    std::cout << xi << std::endl;
     if (countPos[i]) {
       //printf("Positive disk %2d at z = %+7.2f   %6.1f <= rho <= %6.1f\n", i+1, zsumPos[i]/countPos[i], rmin[i], rmax[i]);
               //addDisk(new GeomDet(subdet, +1, i+1, zsumPos[i]/countPos[i], rmin[i], rmax[i], radlen, xi));
@@ -302,7 +302,7 @@ void PatternRecognitionbyKF<TILES>::makeDisks(int subdet, int disks, const CaloG
       //printf("Negative disk %2d at z = %+7.2f   %6.1f <= rho <= %6.1f\n", i+1, zsumNeg[i]/countPos[i], rmin[i], rmax[i]);
       //addDisk(new GeomDet(subdet, -1, i+1, zsumNeg[i]/countNeg[i], rmin[i], rmax[i], radlen, xi));
 
-      GeomDet* disk = new GeomDet(Disk::build(Disk::PositionType(0,0,zsumNeg[i]/countPos[i]), Disk::RotationType(), SimpleDiskBounds(rmin[i], rmax[i], -20, 20)).get() );
+      GeomDet* disk = new GeomDet(Disk::build(Disk::PositionType(0,0,zsumNeg[i]/countNeg[i]), Disk::RotationType(), SimpleDiskBounds(rmin[i], rmax[i], -20, 20)).get() );
       if (radlen > 0) {
         (const_cast<Plane &>(disk->surface())).setMediumProperties(MediumProperties(radlen,xi));
       }
@@ -341,15 +341,13 @@ void PatternRecognitionbyKF<TILES>::makeTracksters_verbose(
     makeDisks(8, 26, geom);
     makeDisks(9, 21, geom);
   }
-
+  std::cout << "Done calcuating Absorbers" <<std::endl;
   // Sort needs to be implemented
 
   //auto ptrSort = [](const GeomDet *a, const GeomDet *b) -> bool { return (*a) < (*b); };
   //std::sort(disksPos_.begin(), disksPos_.end(), ptrSort);
   //std::sort(disksNeg_.begin(), disksNeg_.end(), ptrSort);
 
-
-  /*
   // Option 1: build from track
 
   edm::Event const &ev = input.ev;
@@ -361,22 +359,26 @@ void PatternRecognitionbyKF<TILES>::makeTracksters_verbose(
   std::cout << fts.position().x() << std::endl;
   std::cout << fts.position().y() << std::endl;
   std::cout << fts.position().z() << std::endl;
-  */
 
   // Option 2: from SeedingRegion
   // The tracks are chosen as they contain error information which the seedingregion does not.
   // This however means that the propagation to the first layer is done twice: once by the seedingregionproducer and again here in the next step.
 
+  /*
   edm::Event const &ev = input.ev;
-  edm::Ref<reco::TrackCollection> myRef(input.regions.front().collectionID);
+  std::cout << "Loaded Event" << std::endl;
+  //edm::Ref<reco::TrackCollection> myRef(input.regions.front().collectionID);
   edm::Handle<reco::TrackCollection> tracks_h_seed;
+  std::cout<<input.regions.front().collectionID<<std::endl;
   ev.get(input.regions.front().collectionID, tracks_h_seed);
   const reco::TrackCollection& tkx_seed = * tracks_h_seed;
-
+  std::cout << "Loaded TrackCollection Seed" << std::endl;
+  
   // Create FTS
-
+  std::cout << "Create FTS" <<std::endl;
   FreeTrajectoryState fts = trajectoryStateTransform::outerFreeState(tkx_seed.front(),bfield_.product());
   std::cout << "Has Error: " << fts.hasError()<<std::endl;
+  */
 
   // Propagate through all disks
 
@@ -386,6 +388,8 @@ void PatternRecognitionbyKF<TILES>::makeTracksters_verbose(
   PropagationDirection direction = alongMomentum;
   std::vector<GeomDet*> disks = (zside > 0? disksPos_ : disksNeg_);
   const GeomDet* disk = (zside > 0 ? disksPos_ : disksNeg_).front();
+  //std::cout << "Loaded first disk" <<std::endl;
+
 
   // Propagation step
 
@@ -397,11 +401,10 @@ void PatternRecognitionbyKF<TILES>::makeTracksters_verbose(
 
   unsigned int depth = 2;
   for(disk = nextDisk(disk, direction, disks); disk != nullptr; disk = nextDisk(disk, direction, disks), depth++){
-   //std::cout<<"Radlen and Xi of Disk: \t"<<disk->surface().mediumProperties().radLen() <<"\t" << disk->surface().mediumProperties().xi() << std::endl;
     tsos = prop.propagate(tsos, disk->surface());
-    points.push_back(tsos.globalPosition());
-    
+    points.push_back(tsos.globalPosition());  
   }
+
   /*
 
   if (input.regions.empty())
@@ -714,8 +717,8 @@ void PatternRecognitionbyKF<TILES>::energyRegressionAndID(const std::vector<reco
 template <typename TILES>
 void PatternRecognitionbyKF<TILES>::fillPSetDescription(edm::ParameterSetDescription &iDesc) {
   iDesc.add<int>("algo_verbosity", 0);
-  iDesc.add<std::string>("propagator", "RungeKuttaTrackerPropagator"); //PropagatorWithMaterial
-  //iDesc.add<std::string>("propagator", "PropagatorWithMaterial"); //PropagatorWithMaterial
+  //iDesc.add<std::string>("propagator", "RungeKuttaTrackerPropagator"); //PropagatorWithMaterial
+  iDesc.add<std::string>("propagator", "PropagatorWithMaterial"); //PropagatorWithMaterial
   iDesc.add<edm::InputTag>("tracks", edm::InputTag("generalTracks"));
   iDesc.add<std::string>("eid_input_name", "input");
   iDesc.add<std::string>("eid_output_name_energy", "output/regressed_energy");
@@ -723,6 +726,7 @@ void PatternRecognitionbyKF<TILES>::fillPSetDescription(edm::ParameterSetDescrip
   iDesc.add<double>("eid_min_cluster_energy", 1.);
   iDesc.add<int>("eid_n_layers", 50);
   iDesc.add<int>("eid_n_clusters", 10);
+  iDesc.add<std::string>("materialbudget", "Val"); //"Val", "AG", "custom"
 }
 
 template class ticl::PatternRecognitionbyKF<TICLLayerTiles>;
