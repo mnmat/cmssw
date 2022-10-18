@@ -27,6 +27,8 @@
 #include "TrackingTools/GeomPropagators/interface/Propagator.h"
 #include "TrackingTools/Records/interface/TrackingComponentsRecord.h"
 
+#include "Geometry/CommonTopologies/interface/HGCDiskGeomDet.h"
+
 namespace ticl {
   template <typename TILES>
   class PatternRecognitionbyKF final : public PatternRecognitionAlgoBaseT<TILES> {
@@ -34,9 +36,21 @@ namespace ticl {
     PatternRecognitionbyKF(const edm::ParameterSet& conf, edm::ConsumesCollector);
     ~PatternRecognitionbyKF() override = default;
 
-    const GeomDet * nextDisk(const GeomDet * from, 
+    void advanceOneLayer(const TrajectoryStateOnSurface &start, 
+                    const HGCDiskGeomDet * disk, 
+                    const std::vector<HGCDiskGeomDet *>  &disks, 
                     PropagationDirection direction, 
-                    const std::vector<GeomDet *> &vec) const;
+                    std::vector<TrajectoryStateOnSurface> &ret,
+                    bool &isSilicon);
+
+    const HGCDiskGeomDet * nextDisk(const HGCDiskGeomDet * from, 
+                    PropagationDirection direction, 
+                    const std::vector<HGCDiskGeomDet *> &vec,
+                    bool isSilicon) const;
+
+    const HGCDiskGeomDet * switchDisk(const HGCDiskGeomDet * from, 
+                  const std::vector<HGCDiskGeomDet *> &vec,
+                  bool isSilicon) const;
 
     void makeTracksters(const typename PatternRecognitionAlgoBaseT<TILES>::Inputs& input,
                         std::vector<Trackster>& result,
@@ -67,11 +81,16 @@ namespace ticl {
 
     // Declarations for Constructor
 
+
+    void dumpTiles(const TILES&) const;
+
     edm::ESGetToken<CaloGeometry, CaloGeometryRecord> caloGeomToken_;
     const std::string propName_;
+    const std::string propNameOppo_;
     //const std::string propNameRK_;
     edm::ESGetToken<MagneticField, IdealMagneticFieldRecord> bfieldtoken_;
     edm::ESGetToken<Propagator, TrackingComponentsRecord> propagatortoken_;
+    edm::ESGetToken<Propagator, TrackingComponentsRecord> propagatorOppoToken_;
     // edm::ESGetToken<Propagator, TrackingComponentsRecord> propagatortokenRK_;
     edm::EDGetTokenT<reco::TrackCollection> trackToken_;
 
@@ -85,6 +104,7 @@ namespace ticl {
 
     edm::ESHandle<MagneticField> bfield_;
     edm::ESHandle<Propagator> propagator_;
+    edm::ESHandle<Propagator> propagatorOppo_;
     //edm::ESHandle<Propagator> propagatorRK_;
 
     std::map<std::string, float> xi_;
@@ -94,19 +114,11 @@ namespace ticl {
 
     static const int eidNFeatures_ = 3;
 
-    std::vector<GeomDet *> disksPos_, disksNeg_;
+    std::vector<HGCDiskGeomDet *> disksPos_, disksNeg_;
 
-    void computeAbsorbers();
-    float combinedEdX(float w1, float a, float w2, float b){
-      return (w1 * a + w2 * b);
-    };
-    float combineX0(float w1, float a, float w2, float b){
-      float oneOver = (w1 / a + w2 / b);
-      return 1./oneOver;
-    };
     void makeDisks(int subdet, int disks, const CaloGeometry* geom_);
-    void addDisk(GeomDet *disk, int zside){
-      (zside > 0 ? disksPos_ : disksNeg_).push_back(disk);
+    void addDisk(HGCDiskGeomDet *disk) { 
+      (disk->zside() > 0 ? disksPos_ : disksNeg_).push_back(disk);
     }
 
 

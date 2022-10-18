@@ -31,6 +31,9 @@
 #include "TrackingTools/GeomPropagators/interface/Propagator.h"
 #include "TrackingTools/Records/interface/TrackingComponentsRecord.h"
 
+#include "RecoLocalCalo/HGCalRecAlgos/interface/RecHitTools.h"
+#include "Geometry/HGCalGeometry/interface/HGCalGeometry.h"
+
 using namespace ticl;
 
 template <typename TILES>
@@ -38,8 +41,10 @@ PatternRecognitionbyKF<TILES>::PatternRecognitionbyKF(const edm::ParameterSet &c
     : PatternRecognitionAlgoBaseT<TILES>(conf, iC),
       caloGeomToken_(iC.esConsumes<CaloGeometry, CaloGeometryRecord>()),
       propName_(conf.getParameter<std::string>("propagator")),
+      propNameOppo_(conf.getParameter<std::string>("propagatorOpposite")),
       bfieldtoken_(iC.esConsumes<MagneticField, IdealMagneticFieldRecord>()),
       propagatortoken_(iC.esConsumes<Propagator, TrackingComponentsRecord>(edm::ESInputTag("",propName_))),
+      propagatorOppoToken_(iC.esConsumes<Propagator, TrackingComponentsRecord>(edm::ESInputTag("",propNameOppo_))),
       trackToken_(iC.consumes<reco::TrackCollection>(conf.getParameter<edm::InputTag>("tracks"))),
       eidInputName_(conf.getParameter<std::string>("eid_input_name")),
       eidOutputNameEnergy_(conf.getParameter<std::string>("eid_output_name_energy")),
@@ -54,66 +59,56 @@ PatternRecognitionbyKF<TILES>::PatternRecognitionbyKF(const edm::ParameterSet &c
 
 };
 
-
 template<typename TILES>
-const GeomDet * PatternRecognitionbyKF<TILES>::nextDisk(const GeomDet * from, PropagationDirection direction, const std::vector<GeomDet *> &vec) const{
+const HGCDiskGeomDet * PatternRecognitionbyKF<TILES>::switchDisk(const HGCDiskGeomDet * from, const std::vector<HGCDiskGeomDet *> &vec, bool isSilicon) const{
   
-  auto it = std::find(vec.begin(), vec.end(), from);
+  auto it = std::find(vec.begin(), vec.end(),from);
   if (it == vec.end()) throw cms::Exception("LogicError", "nextDisk called with invalid starting disk");
-  if (direction == alongMomentum) {
-    if(*it == vec.back()) return nullptr;
-    return *(++it);    
-  } else {
-    if (it == vec.begin()) return nullptr;
-      return *(--it);
-  }
+  isSilicon? --it: ++it;
+  return *(it);
 }
+
 
 template<typename TILES>
-void PatternRecognitionbyKF<TILES>::computeAbsorbers(){
-  std::map<std::string, float> X0_;
-  std::map<std::string, float> lambda_;
-  std::map<std::string, float> ZoA_;
+const HGCDiskGeomDet * PatternRecognitionbyKF<TILES>::nextDisk(const HGCDiskGeomDet * from, PropagationDirection direction, const std::vector<HGCDiskGeomDet *> &vec, bool isSilicon) const{
 
-  X0_["Fe"] = 13.84;
-  X0_["Pb"] = 6.37;
-  X0_["Cu"] = 12.86;
-  X0_["W"] = 6.76;
-  X0_["WCu"] = combineX0(0.75, X0_["W"], 0.25, X0_["Cu"]);
-  //X0_["WCu"] = combinedEdX(0.75, X0_["W"], 0.25, X0_["Cu"]);
+  auto it = std::find(vec.begin(), vec.end(),from);
+  if (it == vec.end()) throw cms::Exception("LogicError", "nextDisk called with invalid starting disk");
+  int currentLayer = (*it)->layer();
 
-  lambda_["Fe"] = 132.1;
-  lambda_["Pb"] = 199.6;
-  lambda_["Cu"] = 137.3;
-  lambda_["W"] = 191.9;
-  lambda_["WCu"] = combineX0(0.75, lambda_["W"], 0.25, lambda_["Cu"]);
-  //lambda_["WCu"] = combinedEdX(0.75, lambda_["W"], 0.25, lambda_["Cu"]);
-
-  ZoA_["Fe"] = 0.466;
-  ZoA_["Pb"] = 0.396;
-  ZoA_["Cu"] = 0.456;
-  ZoA_["W"] = 0.403;
-  ZoA_["WCu"] = combinedEdX(0.75, ZoA_["W"], 0.25, ZoA_["Cu"]);
-
-  // see DataFormats/GeometrySurface/interface/MediumProperties.h
-  for(auto ij : X0_){
-    xi_[ij.first] = X0_[ij.first] * 0.307075 * ZoA_[ij.first] * 0.5;
-    std::cout << " " << ij.first << " xi = " << xi_[ij.first] << std::endl;
+  if (direction == alongMomentum){
+    if ((*it == vec.back()) || (*it == vec.rbegin()[1])) return nullptr;
+    for(int i = 0; i<2 ; i++){
+      if ((*it) == vec.back()) break;
+      ++it;
+      if(((*(it))->isSilicon() == isSilicon) && ((*(it))->layer()==currentLayer+1)) return *(it);
+     }
+  } else{
+    if (it == vec.begin()) return nullptr;
+    for(int i = 0; i<2 ; i++){
+      if ((it) == vec.begin()) break;
+      --it;
+      if(((*(it))->isSilicon() == isSilicon) && ((*(it))->layer()==currentLayer-1)) return *(it);
+    }
   }
-
-
-  //from TDR pag 18
-  //radlen = number of X0
-  //EE odd layers: 0.748 Pb + 0.068 Fe
-  //EE even layers: 0.648 WCu + 0.417 Cu
-
-  //FH (Had first 12) L28: 0.374 Pb + 0.034 Fe + 0.007 Cu + 2.277 Fe + 0.07 Cu
-  //FH (Had first 12) L>29: 0.2315 WCu + 1.992 Fe + 0.487 Cu
-
-  //BH (Had last 12): 0.2315 WCu + 3.87 Fe + 0.487 Cu
-
+  return nullptr;
 }
 
+
+template<typename TILES> void PatternRecognitionbyKF<TILES>::advanceOneLayer(const TrajectoryStateOnSurface &start, const HGCDiskGeomDet * disk, const std::vector<HGCDiskGeomDet *> &disks, PropagationDirection direction, std::vector<TrajectoryStateOnSurface> &ret, bool &isSilicon){
+
+  const Propagator &prop = (direction == alongMomentum ? *propagator_ : *propagatorOppo_);
+  TrajectoryStateOnSurface tsos = prop.propagate(start, disk->surface());
+  float r = sqrt(pow(tsos.globalPosition().x(),2)+pow(tsos.globalPosition().y(),2));
+
+  if (((disk->rmin() > r) && (!isSilicon)) || (((r > disk->rmax()) && (isSilicon)))) {
+    disk = switchDisk(disk, disks, isSilicon);
+    isSilicon = !isSilicon;
+    tsos = prop.propagate(start, disk->surface());
+    float r = sqrt(pow(tsos.globalPosition().x(),2)+pow(tsos.globalPosition().y(),2));
+  }
+  ret.push_back(tsos);  
+}
 
 template<typename TILES>
 void PatternRecognitionbyKF<TILES>::makeDisks(int subdet, int disks, const CaloGeometry* geom_) {
@@ -121,6 +116,9 @@ void PatternRecognitionbyKF<TILES>::makeDisks(int subdet, int disks, const CaloG
     // const CaloSubdetectorGeometry *subGeom = subdet < 5 ? geom_->getSubdetectorGeometry(DetId::Forward, subdet) :
     //                                                       geom_->getSubdetectorGeometry(DetId::Hcal, 2);
 
+
+
+  // FIXME: Load data from xml file or switch between cases
 
   std::vector<float> radlen_v{0.287578231425533,
     0.652574432663379,
@@ -217,98 +215,51 @@ void PatternRecognitionbyKF<TILES>::makeDisks(int subdet, int disks, const CaloG
     0.0009972693538724180,
     0.0009976091170762653};
 
-  const CaloSubdetectorGeometry *subGeom = geom_->getSubdetectorGeometry(DetId::Detector(subdet), ForwardSubdetector::ForwardEmpty);
 
-  std::vector<float>  rmax(disks, 0), rmin(disks, 9e9);
-  std::vector<double> zsumPos(disks), zsumNeg(disks);
-  std::vector<int>    countPos(disks), countNeg(disks);
-  const std::vector<DetId> & ids = subGeom->getValidDetIds();
-  //if (hgctracking::g_debuglevel > 0) std::cout << "on subdet " << subdet << " I got a total of " << ids.size() << " det ids " << std::endl;
+    const CaloSubdetectorGeometry *subGeom = geom_->getSubdetectorGeometry(DetId::Detector(subdet), ForwardSubdetector::ForwardEmpty);
+    auto geomEE = static_cast<const HGCalGeometry*>(subGeom);
+    const HGCalDDDConstants* ddd = &(geomEE->topology().dddConstants());
 
-  // This loops over all the valid DetIds of the geometry. This seems like a very roundabout way of getting 47 layers from millions of detids
+    std::vector<float>  rmax(disks, 0), rmin(disks, 9e9);
+    std::vector<double> zsumPos(disks), zsumNeg(disks);
+    std::vector<int> countPos(disks), countNeg(disks);
+    const std::vector<DetId> & ids = subGeom->getValidDetIds();
+    //if (hgctracking::g_debuglevel > 0) std::cout << "on subdet " << subdet << " I got a total of " << ids.size() << " det ids " << std::endl;
+  
+    for (auto & i : ids) {
+        const GlobalPoint & pos = rhtools_.getPosition(i); 
+        int layer = rhtools_.getLayer(i)-1;
+        float z = pos.z();
+        float rho = pos.perp();
+        int side = z > 0 ? +1 : -1;
 
-  for (auto & i : ids) {
-    const GlobalPoint & pos = geom_->getPosition(i); 
-    float z = pos.z();
-    float rho = pos.perp();
-    int side = z > 0 ? +1 : -1;
+        (side > 0 ? zsumPos : zsumNeg)[layer] += z;
+        (side > 0 ? countPos : countNeg)[layer]++;
+        if (rho > rmax[layer]) rmax[layer] = rho;
+        if (rho < rmin[layer]) rmin[layer] = rho;
+    }
 
-    int layer = std::numeric_limits<unsigned int>::max();
-    if (i.det() == DetId::HGCalEE)    layer = HGCSiliconDetId(i).layer() - 1;
-    else if(i.det() == DetId::HGCalHSi) layer = HGCSiliconDetId(i).layer() - 1;
-    else if (i.det() == DetId::HGCalHSc)  layer = HGCScintillatorDetId(i).layer() - 1;
 
-    (side > 0 ? zsumPos : zsumNeg)[layer] += z;
-    (side > 0 ? countPos : countNeg)[layer]++;
-    if (rho > rmax[layer]) rmax[layer] = rho;
-    if (rho < rmin[layer]) rmin[layer] = rho;
-  }
-  int j;
-  float n = 10.;
+  int layer = ddd->getLayerOffset();
   for (int i = 0; i < disks; ++i) {
-    float radlen=-1, xi=-1; // see DataFormats/GeometrySurface/interface/MediumProperties.h
-    if (materialbudget_ == "Val"){
-      if (subdet == 8){ 
-        j = 0;
-      }
-      else if (subdet == 9){
-        j = 26;
-      }
-      radlen = radlen_v[i+j]*n;
-      xi = xi_v[i+j]*n;
-    }
-    else if (materialbudget_ == "AG"){
-      switch(subdet) {
-        case 8:
-          if (i%2 == 0) {
-            radlen = 0.748 * xi_["Pb"] + 0.068 * xi_["Fe"] + 0.014 * xi_["Cu"]+n;
-            xi = radlen / (0.748 + 0.068 + 0.014) * 1.e-3;
-          }
-          else{
-            radlen = 0.648 * xi_["WCu"] + 0.417 * xi_["Cu"]+n;
-            xi = radlen / (0.648 + 0.417) * 1.e-3;
-          }
-          break;
-        case 9:
-          if (i == 0){
-            radlen = 0.374 * xi_["Pb"] + (0.007+0.07) * xi_["Cu"] + (0.034+2.277) * xi_["Fe"]+n;
-            xi = radlen / (0.374 + 0.007+0.07 + 0.034+2.277) * 1.e-3;
-          }
-          else if(i < 12){
-            radlen = 0.2315 * xi_["WCu"] + 0.487 * xi_["Cu"] + 1.992 * xi_["Fe"]+n;
-            xi = radlen / (0.2315 + 0.487 + 1.992) * 1.e-3;
-          }
-          else{
-            radlen = 0.2315 * xi_["WCu"] + 0.487 * xi_["Cu"] + 3.870 * xi_["Fe"]+n;
-            xi = radlen / (0.2315 + 0.487 + 3.870) * 1.e-3;
-          }
-          break;
-      }
-    }
+    float radlen=-1, xi=-1;
+    radlen = radlen_v[layer];
+    xi = xi_v[layer];
 
-    std::cout << radlen << std::endl;
-    std::cout << xi << std::endl;
     if (countPos[i]) {
       //printf("Positive disk %2d at z = %+7.2f   %6.1f <= rho <= %6.1f\n", i+1, zsumPos[i]/countPos[i], rmin[i], rmax[i]);
               //addDisk(new GeomDet(subdet, +1, i+1, zsumPos[i]/countPos[i], rmin[i], rmax[i], radlen, xi));
-
-      GeomDet* disk = new GeomDet(Disk::build(Disk::PositionType(0,0,zsumPos[i]/countPos[i]), Disk::RotationType(), SimpleDiskBounds(rmin[i], rmax[i], -20, 20)).get() );
-      if (radlen > 0) {
-        (const_cast<Plane &>(disk->surface())).setMediumProperties(MediumProperties(radlen,xi));
-      }
-      addDisk(disk, 1);
+      HGCDiskGeomDet* disk = new HGCDiskGeomDet(subdet, +1, layer, zsumPos[i]/countPos[i], rmin[i], rmax[i], radlen, xi);
+      addDisk(disk);
     }
     if (countNeg[i]) {
+
       //printf("Negative disk %2d at z = %+7.2f   %6.1f <= rho <= %6.1f\n", i+1, zsumNeg[i]/countPos[i], rmin[i], rmax[i]);
       //addDisk(new GeomDet(subdet, -1, i+1, zsumNeg[i]/countNeg[i], rmin[i], rmax[i], radlen, xi));
-
-      GeomDet* disk = new GeomDet(Disk::build(Disk::PositionType(0,0,zsumNeg[i]/countNeg[i]), Disk::RotationType(), SimpleDiskBounds(rmin[i], rmax[i], -20, 20)).get() );
-      if (radlen > 0) {
-        (const_cast<Plane &>(disk->surface())).setMediumProperties(MediumProperties(radlen,xi));
-      }
-
-      addDisk(disk, -1);
+      HGCDiskGeomDet* disk = new HGCDiskGeomDet(subdet, -1, layer, zsumNeg[i]/countNeg[i], rmin[i], rmax[i], radlen, xi);
+      addDisk(disk);  
     }
+    layer++;
   }
 }
 
@@ -331,22 +282,81 @@ void PatternRecognitionbyKF<TILES>::makeTracksters_verbose(
   // Initializing (maybe export to own function)
 
   edm::EventSetup const &es = input.es;
+  const TILES &tiles = input.tiles;
   bfield_ = es.getHandle(bfieldtoken_);
   propagator_ = es.getHandle(propagatortoken_);
-  const Propagator &prop = *propagator_;
+  propagatorOppo_ = es.getHandle(propagatorOppoToken_);
   const CaloGeometry* geom = &es.getData(caloGeomToken_);
+  rhtools_.setGeometry(*geom);
+  const std::vector<DetId> & ids = geom->getValidDetIds();
+  std::vector<TrajectoryStateOnSurface> traj;
 
-  computeAbsorbers();
+
+  // Print out random tiles
+
+  dumpTiles(tiles);
+
+  /*
+
+  std::vector<float> zpos;
+  std::vector<unsigned int> layers_si;
+  std::vector<unsigned int> layers_sci;
+  std::vector<unsigned int> layers;
+  int count;
+
+  for (auto & i : ids) {
+    count++;
+    const GlobalPoint & pos = geom->getPosition(i); 
+    float z = pos.z();
+    if(std::find(zpos.begin(), zpos.end(), z)==zpos.end()){
+      zpos.push_back(z);
+    }
+    unsigned int layer = rhtools_.getLayerWithOffset(i);
+    if(std::find(layers.begin(), layers.end(), layer)==layers.end()){
+      layers.push_back(layer);
+    }
+
+
+    if(rhtools_.isSilicon(i)){
+      if((std::find(layers_si.begin(), layers_si.end(), layer)==layers_si.end()) && (z<0)){
+        layers_si.push_back(layer);
+      }
+    }
+    else{
+      if(std::find(layers_sci.begin(), layers_sci.end(), layer)==layers_sci.end()){
+        layers_sci.push_back(layer);
+      }
+    }
+  }
+
+
+  std::cout << "Zpositions" << std::endl;
+
+  for(int i=0; i<int(zpos.size());i++){
+    std::cout << zpos[i] << std::endl;
+  }
+
+  std::cout << "LAyers" << std::endl;
+
+  for(int i=0; i<int(layers.size());i++){
+    std::cout << layers[i] << std::endl;
+  }
+
+  std::cout << "Number of cells for geometry: " << count << std::endl;
+
+  */
+
   if (disksPos_.size()==0){
     makeDisks(8, 26, geom);
     makeDisks(9, 21, geom);
-  }
-  std::cout << "Done calcuating Absorbers" <<std::endl;
-  // Sort needs to be implemented
+    makeDisks(10,21, geom);
 
-  //auto ptrSort = [](const GeomDet *a, const GeomDet *b) -> bool { return (*a) < (*b); };
-  //std::sort(disksPos_.begin(), disksPos_.end(), ptrSort);
-  //std::sort(disksNeg_.begin(), disksNeg_.end(), ptrSort);
+    auto ptrSort = [](const HGCDiskGeomDet *a, const HGCDiskGeomDet *b) -> bool { return (abs(a->position().z())) < (abs(b->position().z())); };
+    std::sort(disksPos_.begin(), disksPos_.end(), ptrSort);
+    std::sort(disksNeg_.begin(), disksNeg_.end(), ptrSort);
+
+  }
+
 
   // Option 1: build from track
 
@@ -354,11 +364,7 @@ void PatternRecognitionbyKF<TILES>::makeTracksters_verbose(
   edm::Handle<reco::TrackCollection> tracks_h;
   ev.getByToken(trackToken_,tracks_h);
   const reco::TrackCollection& tkx = *tracks_h;  
-
   FreeTrajectoryState fts = trajectoryStateTransform::outerFreeState(tkx.front(),bfield_.product());
-  std::cout << fts.position().x() << std::endl;
-  std::cout << fts.position().y() << std::endl;
-  std::cout << fts.position().z() << std::endl;
 
   // Option 2: from SeedingRegion
   // The tracks are chosen as they contain error information which the seedingregion does not.
@@ -386,25 +392,45 @@ void PatternRecognitionbyKF<TILES>::makeTracksters_verbose(
 
   int zside = fts.momentum().eta() > 0 ? +1 : -1;
   PropagationDirection direction = alongMomentum;
-  std::vector<GeomDet*> disks = (zside > 0? disksPos_ : disksNeg_);
-  const GeomDet* disk = (zside > 0 ? disksPos_ : disksNeg_).front();
-  //std::cout << "Loaded first disk" <<std::endl;
-
+  std::vector<HGCDiskGeomDet*> disks = (zside > 0? disksPos_ : disksNeg_);
+  const HGCDiskGeomDet* disk = (zside > 0 ? disksPos_ : disksNeg_).front();
+  bool isSilicon = true;
 
   // Propagation step
 
+  const Propagator &prop = (direction == alongMomentum ? *propagator_ : *propagatorOppo_); // FIXME; inconvenient to have to define the propagator here and in the advanceOneLAyer
   TrajectoryStateOnSurface tsos = prop.propagate(fts, disk->surface());
   GlobalPoint gp = tsos.globalPosition();
   points.push_back(gp);
 
+
   // Loop over all disks
 
   unsigned int depth = 2;
-  for(disk = nextDisk(disk, direction, disks); disk != nullptr; disk = nextDisk(disk, direction, disks), depth++){
-    tsos = prop.propagate(tsos, disk->surface());
-    points.push_back(tsos.globalPosition());  
+  for(disk = nextDisk(disk, direction, disks, isSilicon); disk != nullptr; disk = nextDisk(disk, direction, disks, isSilicon), depth++){
+    advanceOneLayer(tsos, disk, disks, direction, traj, isSilicon);
+    tsos = traj.back();
+    points.push_back(tsos.globalPosition());
   }
 
+  // Reverse direction
+
+  direction = oppositeToMomentum;
+  disk = (isSilicon ? disks.end()[-1] : disks.end()[-2]);
+
+  for(disk = nextDisk(disk, direction, disks, isSilicon); disk != nullptr; disk = nextDisk(disk, direction, disks, isSilicon), depth++){
+    if(disk->layer()==33) isSilicon=1;
+    advanceOneLayer(tsos, disk, disks, direction, traj, isSilicon);
+    tsos = traj.back();
+    points.push_back(tsos.globalPosition());
+  }
+  std::cout << "size points: " <<points.size() <<std::endl;
+
+  /*
+  for(int i = 0; i != 47; i++ ){
+    std::cout << points[i].x()<<","<<points[i].y()<<","<<points[i].z() << "," << points[points.size()-i-1].x()<< "," << points[points.size()-i-1].y() <<"," << points[points.size()-i-1].z() <<std::endl;
+  }
+  */
   /*
 
   if (input.regions.empty())
@@ -565,6 +591,32 @@ void PatternRecognitionbyKF<TILES>::makeTracksters_verbose(
 }
 
 template <typename TILES>
+void PatternRecognitionbyKF<TILES>::dumpTiles(const TILES &tiles) const {
+  std::cout << "Entered dumpTiles" << std::endl;
+  constexpr int nEtaBin = TILES::constants_type_t::nEtaBins;
+  constexpr int nPhiBin = TILES::constants_type_t::nPhiBins;
+  std::cout << nEtaBin << "\t" <<nPhiBin << std::endl;
+  auto lastLayerPerSide = static_cast<int>(rhtools_.lastLayer(false));
+  std::cout << lastLayerPerSide << std::endl;
+  int maxLayer = 2 * lastLayerPerSide - 1;
+  for (int layer = 0; layer <= maxLayer; layer++) {
+    for (int ieta = 0; ieta < nEtaBin; ieta++) {
+      auto offset = ieta * nPhiBin;
+      for (int phi = 0; phi < nPhiBin; phi++) {
+        int iphi = ((phi % nPhiBin + nPhiBin) % nPhiBin);
+        if (!tiles[layer][offset + iphi].empty()) {
+          std::cout << "Layer: " << layer << " ieta: " << ieta << " phi: " << phi
+                                                           << " " << tiles[layer][offset + iphi].size() << std::endl;
+
+        }
+      }
+    }
+  }
+}
+
+
+
+template <typename TILES>
 void PatternRecognitionbyKF<TILES>::energyRegressionAndID(const std::vector<reco::CaloCluster> &layerClusters,
                                                               const tensorflow::Session *eidSession,
                                                               std::vector<Trackster> &tracksters) {
@@ -719,6 +771,7 @@ void PatternRecognitionbyKF<TILES>::fillPSetDescription(edm::ParameterSetDescrip
   iDesc.add<int>("algo_verbosity", 0);
   //iDesc.add<std::string>("propagator", "RungeKuttaTrackerPropagator"); //PropagatorWithMaterial
   iDesc.add<std::string>("propagator", "PropagatorWithMaterial"); //PropagatorWithMaterial
+  iDesc.add<std::string>("propagatorOpposite", "PropagatorWithMaterialOpposite");
   iDesc.add<edm::InputTag>("tracks", edm::InputTag("generalTracks"));
   iDesc.add<std::string>("eid_input_name", "input");
   iDesc.add<std::string>("eid_output_name_energy", "output/regressed_energy");
