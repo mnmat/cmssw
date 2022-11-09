@@ -2,9 +2,9 @@ import FWCore.ParameterSet.Config as cms
 
 from RecoHGCal.TICL.TICLSeedingRegions_cff import ticlSeedingTrk
 from RecoHGCal.TICL.trackstersProducer_cfi import trackstersProducer as _trackstersProducer
-#from RecoHGCal.TICL.trackstersProducer_KF_cfi import trackstersProducer_KF as _trackstersProducer_KF
 from RecoHGCal.TICL.filteredLayerClustersProducer_cfi import filteredLayerClustersProducer as _filteredLayerClustersProducer
 from RecoHGCal.TICL.multiClustersFromTrackstersProducer_cfi import multiClustersFromTrackstersProducer as _multiClustersFromTrackstersProducer
+from RecoHGCal.TICL.ticlLayerTileProducer_cfi import ticlLayerTileProducer
 
 # CLUSTER FILTERING/MASKING
 
@@ -21,6 +21,7 @@ filteredLayerClustersKF = _filteredLayerClustersProducer.clone(
 ticlTrackstersKF = _trackstersProducer.clone(
     filtered_mask = "filteredLayerClustersKF:KF",
     original_mask = "ticlTrackstersHAD",
+    layer_clusters_tiles = "ticlRecHitTile:Test",
     seeding_regions = "ticlSeedingTrk",
     itername = "KF",
     patternRecognitionBy = "KF",
