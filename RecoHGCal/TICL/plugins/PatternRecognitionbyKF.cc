@@ -291,11 +291,6 @@ void PatternRecognitionbyKF<TILES>::makeTracksters_verbose(
   const std::vector<DetId> & ids = geom->getValidDetIds();
   std::vector<TrajectoryStateOnSurface> traj;
 
-
-  // Print out random tiles
-
-  dumpTiles(tiles);
-
   /*
 
   std::vector<float> zpos;
@@ -411,6 +406,88 @@ void PatternRecognitionbyKF<TILES>::makeTracksters_verbose(
     advanceOneLayer(tsos, disk, disks, direction, traj, isSilicon);
     tsos = traj.back();
     points.push_back(tsos.globalPosition());
+
+    // Get Rechits
+
+    float eta = tsos.globalPosition().eta();
+    float phi = tsos.globalPosition().phi();
+
+    float etaBinSize = (TILES::constants_type_t::maxEta - TILES::constants_type_t::minEta)/TILES::constants_type_t::nEtaBins;
+    float phiBinSize = 2*M_PI/TILES::constants_type_t::nPhiBins;
+    float etaMin = eta - etaBinSize;
+    float etaMax = eta + etaBinSize;
+    float phiMin = phi - phiBinSize;
+    float phiMax = phi + phiBinSize;
+    int nPhiBin = TILES::constants_type_t::nPhiBins;
+    int nEtaBin = TILES::constants_type_t::nEtaBins;
+
+    auto bins = tiles[depth].searchBoxEtaPhi(etaMin, etaMax, phiMin, phiMax);
+
+    // get function
+    for (int ieta = bins[0]; ieta < bins[1]; ieta++) {
+      auto offset = ieta * nPhiBin;
+      for (int phi = bins[2]; phi < bins[3]; phi++) {
+        int iphi = ((phi % nPhiBin + nPhiBin) % nPhiBin);
+        if (!tiles[depth][offset + iphi].empty()) {
+          std::cout << "Layer: " << depth << " ieta: " << ieta << " phi: " << phi
+                                                          << "Size: " << tiles[depth][offset + iphi].size() << std::endl;
+        }
+      }
+    }
+    //tiles[depth][tiles[depth].globalBin(eta,phi)]
+
+
+
+    // Update
+
+    //TrajectoryStateOnSurface updated = updator_->update(tm.forwardPredictedState(), *tm.recHit());
+
+    /*
+
+    // test Layertiles
+
+    //std::cout << "Depth: " << depth << std::endl;
+
+    float eta = tsos.globalPosition().eta();
+    float phi = tsos.globalPosition().phi();
+    //std::cout << "Eta: " << eta << "\t" <<"Phi: "<< phi <<std::endl;
+    tiles[depth];
+    
+    // Bin functions
+
+    std::cout << "EtaBin: " << tiles[depth].etaBin(eta) << std::endl;
+    std::cout << "PhiBin: " << tiles[depth].phiBin(phi) << std::endl;
+    std::cout << "GlobalBin: " << tiles[depth].globalBin(eta,phi) << std::endl;
+    std::cout << "GlobalBin: " << tiles[depth].globalBin(tiles[depth].etaBin(eta), tiles[depth].phiBin(phi)) << std::endl;
+
+    // Search Box
+
+    float etaBinSize = 0.1; //  TILES::nEtaBins;
+    float phiBinSize = 0.1; //TILES::nPhiBins;
+    float etaMin = eta - etaBinSize;
+    float etaMax = eta + etaBinSize;
+    float phiMin = phi - phiBinSize;
+    float phiMax = phi + phiBinSize;
+
+    auto bins = tiles[depth].searchBoxEtaPhi(etaMin, etaMax, phiMin, phiMax);
+
+    //std::cout << "Search: " << bins[0] << "\t" << bins[1] << "\t" << bins[2] << "\t" << bins[3] << std::endl;
+    float gbmax = tiles[depth].globalBin(bins[0], bins[2]);
+    float gbmin = tiles[depth].globalBin(bins[1], bins[3]);
+    //std::cout << "GlobalBinMin: " << tiles[depth].globalBin(bins[0], bins[2]) << std::endl;
+    //std::cout << "GlobalBinMax: " << tiles[depth].globalBin(bins[1], bins[3]) << std::endl;
+
+    // get function
+
+    for(int gb = gbmin; gb < gbmax; gb++){
+      auto arr = tiles[depth][gb];
+      if (!arr.empty()){
+        std::cout << "Depth: " << depth << "\t" << "Eta: " << eta << "\t" << "Phi: " << phi << "\t" << "Bin: " << gb << "\t" << "Size: " << arr.size() << std::endl;
+      }
+    }
+    //tiles[depth][tiles[depth].globalBin(eta,phi)]
+
+    */
   }
 
   // Reverse direction
@@ -425,6 +502,7 @@ void PatternRecognitionbyKF<TILES>::makeTracksters_verbose(
     points.push_back(tsos.globalPosition());
   }
   std::cout << "size points: " <<points.size() <<std::endl;
+  //dumpTiles(tiles);
 
   /*
   for(int i = 0; i != 47; i++ ){
@@ -599,6 +677,7 @@ void PatternRecognitionbyKF<TILES>::dumpTiles(const TILES &tiles) const {
   auto lastLayerPerSide = static_cast<int>(rhtools_.lastLayer(false));
   std::cout << lastLayerPerSide << std::endl;
   int maxLayer = 2 * lastLayerPerSide - 1;
+  int count = 0;
   for (int layer = 0; layer <= maxLayer; layer++) {
     for (int ieta = 0; ieta < nEtaBin; ieta++) {
       auto offset = ieta * nPhiBin;
@@ -606,12 +685,13 @@ void PatternRecognitionbyKF<TILES>::dumpTiles(const TILES &tiles) const {
         int iphi = ((phi % nPhiBin + nPhiBin) % nPhiBin);
         if (!tiles[layer][offset + iphi].empty()) {
           std::cout << "Layer: " << layer << " ieta: " << ieta << " phi: " << phi
-                                                           << " " << tiles[layer][offset + iphi].size() << std::endl;
-
+                                                         << " " << tiles[layer][offset + iphi].size() << std::endl;
+          count++;
         }
       }
     }
   }
+  std::cout << "Number of RecHits: " << count << std::endl;
 }
 
 

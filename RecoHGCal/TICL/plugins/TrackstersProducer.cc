@@ -57,6 +57,7 @@ private:
   const edm::EDGetTokenT<std::vector<float>> original_layerclusters_mask_token_;
   const edm::EDGetTokenT<edm::ValueMap<std::pair<float, float>>> clustersTime_token_;
   edm::EDGetTokenT<TICLLayerTiles> layer_clusters_tiles_token_;
+  edm::EDGetTokenT<TICLLayerTiles> rechit_tiles_token_;
   edm::EDGetTokenT<TICLLayerTilesHFNose> layer_clusters_tiles_hfnose_token_;
   const edm::EDGetTokenT<std::vector<TICLSeedingRegion>> seeding_regions_token_;
   const std::string itername_;
@@ -183,6 +184,7 @@ void TrackstersProducer::produce(edm::Event& evt, const edm::EventSetup& es) {
     myAlgoHFNose_->makeTracksters(inputHFNose, *result, seedToTrackstersAssociation);
 
   } else {
+    std::cout<<"Servus"<<std::endl;
     const auto& layer_clusters_tiles = evt.get(layer_clusters_tiles_token_);
     const typename PatternRecognitionAlgoBaseT<TICLLayerTiles>::Inputs input(
         evt, es, layerClusters, inputClusterMask, layerClustersTimes, layer_clusters_tiles, seeding_regions, tfSession_);
