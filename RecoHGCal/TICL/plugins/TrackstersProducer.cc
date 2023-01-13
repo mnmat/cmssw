@@ -105,7 +105,8 @@ TrackstersProducer::TrackstersProducer(const edm::ParameterSet& ps)
 
   produces<std::vector<Trackster>>();
   produces<std::vector<float>>();  // Mask to be applied at the next iteration
-  produces<std::vector<GlobalPoint>>("TEST").setBranchAlias("TEST");
+  produces<std::vector<GlobalPoint>>("Points Prop").setBranchAlias("Points Prop");
+  produces<std::vector<GlobalPoint>>("Points KF").setBranchAlias("Points KF");
 
 }
 
@@ -148,12 +149,15 @@ void TrackstersProducer::fillDescriptions(edm::ConfigurationDescriptions& descri
 }
 
 void TrackstersProducer::produce(edm::Event& evt, const edm::EventSetup& es) {
+
+  std::cout << "TrackstersProducer.cc says hello" << std::endl;
   auto result = std::make_unique<std::vector<Trackster>>();
   auto output_mask = std::make_unique<std::vector<float>>();
 
   // This was implemented to export the points of the KF
 
-  auto points = std::make_unique<std::vector<GlobalPoint>>();
+  auto points_prop = std::make_unique<std::vector<GlobalPoint>>();
+  auto points_kf = std::make_unique<std::vector<GlobalPoint>>();
 
   std::cout<<itername_<<std::endl;
 
@@ -202,7 +206,7 @@ void TrackstersProducer::produce(edm::Event& evt, const edm::EventSetup& es) {
     if(itername_!="KF"){
       myAlgo_->makeTracksters(input, *result, seedToTrackstersAssociation);
     } else {
-      myAlgo_->makeTracksters_verbose(input, *result, *points, seedToTrackstersAssociation);
+      myAlgo_->makeTracksters_verbose(input, *result, *points_kf,*points_prop, seedToTrackstersAssociation);
     }
 
     // ----------------------------------------------------------------
@@ -226,6 +230,7 @@ void TrackstersProducer::produce(edm::Event& evt, const edm::EventSetup& es) {
 
   evt.put(std::move(result));
   evt.put(std::move(output_mask));
-  evt.put(std::move(points),"TEST");
+  evt.put(std::move(points_prop),"Points Prop");
+  evt.put(std::move(points_kf),"Points KF");
 
 }

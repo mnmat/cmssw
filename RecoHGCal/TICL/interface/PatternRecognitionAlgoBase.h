@@ -54,7 +54,8 @@ namespace ticl {
 
     virtual void makeTracksters_verbose(const Inputs& input,
                                 std::vector<Trackster>& result,
-                                std::vector<GlobalPoint>& points,
+                                std::vector<GlobalPoint>& points_kf,
+                                std::vector<GlobalPoint>& points_prop,
                                 std::unordered_map<int, std::vector<int>>& seedToTracksterAssociation){};
 
     // --------------------------------------------------------------

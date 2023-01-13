@@ -34,6 +34,15 @@
 #include "RecoLocalCalo/HGCalRecAlgos/interface/RecHitTools.h"
 #include "Geometry/HGCalGeometry/interface/HGCalGeometry.h"
 
+#include "TrackingTools/KalmanUpdators/interface/Chi2MeasurementEstimatorBase.h"
+#include "TrackingTools/KalmanUpdators/interface/Chi2MeasurementEstimator.h"
+#include "TrackingTools/KalmanUpdators/interface/KFUpdator.h"
+#include "TrackingTools/PatternTools/interface/TrajectoryStateUpdator.h"
+
+#include "TrackingTools/PatternTools/interface/TrajMeasLessEstim.h"
+#include "DataFormats/TrackingRecHit/interface/InvalidTrackingRecHit.h"
+
+
 using namespace ticl;
 
 template <typename TILES>
@@ -45,7 +54,12 @@ PatternRecognitionbyKF<TILES>::PatternRecognitionbyKF(const edm::ParameterSet &c
       bfieldtoken_(iC.esConsumes<MagneticField, IdealMagneticFieldRecord>()),
       propagatortoken_(iC.esConsumes<Propagator, TrackingComponentsRecord>(edm::ESInputTag("",propName_))),
       propagatorOppoToken_(iC.esConsumes<Propagator, TrackingComponentsRecord>(edm::ESInputTag("",propNameOppo_))),
+      estimatorToken_(iC.esConsumes<Chi2MeasurementEstimatorBase, TrackingComponentsRecord>(edm::ESInputTag("","Chi2"))),
+      updatorToken_(iC.esConsumes<TrajectoryStateUpdator, TrackingComponentsRecord>(edm::ESInputTag("","KFUpdator"))),
       trackToken_(iC.consumes<reco::TrackCollection>(conf.getParameter<edm::InputTag>("tracks"))),
+      hgcalRecHitsEEToken_(iC.consumes<HGCRecHitCollection>(conf.getParameter<edm::InputTag>("HGCEEInput"))),
+      hgcalRecHitsFHToken_(iC.consumes<HGCRecHitCollection>(conf.getParameter<edm::InputTag>("HGCFHInput"))),
+      hgcalRecHitsBHToken_(iC.consumes<HGCRecHitCollection>(conf.getParameter<edm::InputTag>("HGCBHInput"))),
       eidInputName_(conf.getParameter<std::string>("eid_input_name")),
       eidOutputNameEnergy_(conf.getParameter<std::string>("eid_output_name_energy")),
       eidOutputNameId_(conf.getParameter<std::string>("eid_output_name_id")),
@@ -57,7 +71,58 @@ PatternRecognitionbyKF<TILES>::PatternRecognitionbyKF(const edm::ParameterSet &c
       std::cout << propName_ << std::endl;
       std::cout << materialbudget_ <<std::endl;
 
+
 };
+
+template<typename TILES>
+void PatternRecognitionbyKF<TILES>::calculateLocalError(DetId id, const HGCalDDDConstants* ddd){
+  if(rhtools_.isSilicon(id)){
+    float A;
+    if(rhtools_.getSiThickness(id) < 200) A = 1.18; // TODO: replace with non-hardcoded value; hardcoded value from TDR
+    else  A = 0.52; // TODO: replace with non-hardcoded value; hardcoded value from TDR
+    float a = sqrt(2*A/(3*sqrt(3)));
+    lerr[id].first = pow(a,4)*5*sqrt(3)/(16*A); // x
+    lerr[id].second = pow(a,4)*5*sqrt(3)/(16*A); // y 
+  }
+  else{
+    const GlobalPoint &pos = rhtools_.getPosition(id);
+    double r = sqrt(pos.x()*pos.x() + pos.y()*pos.y());
+    auto radiusLayer = ddd->getRadiusLayer(rhtools_.getLayer(id));
+    int idx = static_cast<int>(std::lower_bound(radiusLayer.begin(), radiusLayer.end(),r)-radiusLayer.begin());
+    float rmax = radiusLayer[idx];
+    float rmin = radiusLayer[idx-1];
+
+    double phi = rhtools_.getPhi(id) + M_PI; // radians [0, 2pi]
+    double dphi = rhtools_.getScintDEtaDPhi(id).second; // radians
+    double phimin = phi - 0.5*dphi;
+    double phimax = phi + 0.5*dphi;
+
+    double A = (rmax*rmax - rmin*rmin)*M_PI*dphi/(2*M_PI);
+
+    double ex2 = 1/(8*A) * (pow(rmax,4) - pow(rmin,4)) * (-phimin - sin(phimin)*cos(phimin) + phimax + sin(phimax)*cos(phimax));
+    double ex = 1/(3*A) * (pow(rmax,3) - pow(rmin,3)) * (sin(phimax) - sin(phimin));
+    double varx = ex2 - ex*ex;
+
+    double ey2 = 1/(8*A) * (pow(rmax,4) - pow(rmin,4)) * (-phimin + sin(phimin)*cos(phimin) + phimax - sin(phimax)*cos(phimax));
+    double ey = 1/(3*A) * (pow(rmax,3) - pow(rmin,3)) * (cos(phimin) - cos(phimax));
+    double vary = ey2 - ey*ey;
+
+    lerr[id].first = vary;
+    lerr[id].second = varx;
+    //std::cout << "Phi: " << phi << "\t DPhi: " << dphi << "\t r:" << rmin << "\t R:" << rmax << "\t varx: " << varx << "\t vary: " << vary<< std::endl;
+
+    /*
+    std::cout<< ddd->getTrFormN()<<std::endl;
+    auto lfb = ddd->getParameter()->layerFrontBH_;
+    for(auto it: lfb){
+      std::cout << it << std::endl;
+    }
+    */
+    //std::cout<<"First: "<<rhtools_.getScintDEtaDPhi(id).first<<"\t Second: "<<rhtools_.getScintDEtaDPhi(id).second<<std::endl;
+    //std::cout<< ddd->getParameter()->scintCellSize(rhtools_.getLayer(id))<<std::endl;
+    //std::cout << ddd->getTypeTrap(rhtools_.getLayer(id))<<std::endl;
+  }
+} 
 
 template<typename TILES>
 const HGCDiskGeomDet * PatternRecognitionbyKF<TILES>::switchDisk(const HGCDiskGeomDet * from, const std::vector<HGCDiskGeomDet *> &vec, bool isSilicon) const{
@@ -95,19 +160,65 @@ const HGCDiskGeomDet * PatternRecognitionbyKF<TILES>::nextDisk(const HGCDiskGeom
 }
 
 
-template<typename TILES> void PatternRecognitionbyKF<TILES>::advanceOneLayer(const TrajectoryStateOnSurface &start, const HGCDiskGeomDet * disk, const std::vector<HGCDiskGeomDet *> &disks, PropagationDirection direction, std::vector<TrajectoryStateOnSurface> &ret, bool &isSilicon){
+
+template<typename TILES>
+template<class Start> 
+std::vector<TempTrajectory>
+PatternRecognitionbyKF<TILES>::advanceOneLayer(const Start &start, const HGCDiskGeomDet * disk, const std::vector<HGCDiskGeomDet *> &disks, const TILES &tiles, PropagationDirection direction, bool &isSilicon, TempTrajectory traj){
+
+  std::vector<TempTrajectory> ret;
+
+  std::cout << "Disk: x = " << disk->position().x() << ", y = " << disk->position().y() << ", z = " << disk->position().z() << std::endl;
 
   const Propagator &prop = (direction == alongMomentum ? *propagator_ : *propagatorOppo_);
   TrajectoryStateOnSurface tsos = prop.propagate(start, disk->surface());
   float r = sqrt(pow(tsos.globalPosition().x(),2)+pow(tsos.globalPosition().y(),2));
-
+  std::cout << "First try propagtor finished" << std::endl;
   if (((disk->rmin() > r) && (!isSilicon)) || (((r > disk->rmax()) && (isSilicon)))) {
+    std::cout << "Switch Disk" << std::endl;
     disk = switchDisk(disk, disks, isSilicon);
     isSilicon = !isSilicon;
     tsos = prop.propagate(start, disk->surface());
     float r = sqrt(pow(tsos.globalPosition().x(),2)+pow(tsos.globalPosition().y(),2));
+    std::cout << "Exit Switch Disk" << std::endl;
   }
-  ret.push_back(tsos);  
+
+  std::cout << "Done propagating" << std::endl;
+  // Collect hits with estimate
+
+  std::cout <<  "Create Measurements" << std::endl;
+  int depth = disk->layer()+1;
+  auto meas = measurements(tsos, *estimator_, tiles, depth);
+  std::sort(meas.begin(), meas.end(),TrajMeasLessEstim());
+
+  if (meas.empty()){
+    std::cout << "No measurement found!!!!!!" << std::endl;
+  }
+
+  std::cout << "Done creating MEasurements" << std::endl;
+  std::cout << "Start updating" << std::endl;
+  for (const TrajectoryMeasurement &tm : meas){
+    TrajectoryStateOnSurface updated = updator_->update(tm.forwardPredictedState(),*tm.recHit());
+    ret.push_back(traj.foundHits() ? traj: TempTrajectory(traj.direction(),0));
+    ret.back().push(TrajectoryMeasurement(tm.forwardPredictedState(),
+                                          updated,
+                                          tm.recHit(),
+                                          tm.estimate()),
+                    tm.estimate());
+  }
+
+  if (meas.size() > 0){
+    return ret;
+  }
+
+  std::cout << "Done updating" << std::endl;
+
+  auto missing = TrackingRecHit::missing;
+  ret.push_back(traj.foundHits()? traj : TempTrajectory(traj.direction(),0));
+  ret.back().push(TrajectoryMeasurement(tsos, std::make_shared<InvalidTrackingRecHit>(*disk,missing)));
+
+  std::cout << "exit advanceOneLayer" <<std::endl;
+  return ret;
 }
 
 template<typename TILES>
@@ -227,6 +338,9 @@ void PatternRecognitionbyKF<TILES>::makeDisks(int subdet, int disks, const CaloG
     //if (hgctracking::g_debuglevel > 0) std::cout << "on subdet " << subdet << " I got a total of " << ids.size() << " det ids " << std::endl;
   
     for (auto & i : ids) {
+
+        calculateLocalError(i,ddd);
+
         const GlobalPoint & pos = rhtools_.getPosition(i); 
         int layer = rhtools_.getLayer(i)-1;
         float z = pos.z();
@@ -264,6 +378,96 @@ void PatternRecognitionbyKF<TILES>::makeDisks(int subdet, int disks, const CaloG
 }
 
 
+template <typename TILES>
+void PatternRecognitionbyKF<TILES>::fillHitMap(std::map<DetId,const HGCRecHit*>& hitMap,
+                                const HGCRecHitCollection& rechitsEE,
+                                const HGCRecHitCollection& rechitsFH,
+                                const HGCRecHitCollection& rechitsBH) const {
+  
+  hitMap.clear();
+  for (const auto& hit : rechitsEE) {
+    hitMap.emplace(hit.detid(), &hit);
+  }
+
+  for (const auto& hit : rechitsFH) {
+    hitMap.emplace(hit.detid(), &hit);
+  }
+
+  for (const auto& hit : rechitsBH) {
+    hitMap.emplace(hit.detid(), &hit);
+  }
+} // end of EfficiencyStudies::fillHitMap
+
+template <typename TILES>
+std::vector<TrajectoryMeasurement> PatternRecognitionbyKF<TILES>::measurements(
+      const TrajectoryStateOnSurface &tsos, 
+      const MeasurementEstimator &mest, 
+      const TILES &tiles, 
+      int depth){
+  
+  std::vector<TrajectoryMeasurement> ret;
+
+  // define search window and get bins
+
+  float eta = tsos.globalPosition().eta();
+  float phi = tsos.globalPosition().phi();
+
+  float etaMin = eta - etaBinSize;
+  float etaMax = eta + etaBinSize;
+  float phiMin = phi - phiBinSize;
+  float phiMax = phi + phiBinSize;
+
+  auto bins = tiles[depth].searchBoxEtaPhi(etaMin, etaMax, phiMin, phiMax);
+
+  // loop over candidates
+
+  for (int ieta = bins[0]; ieta < bins[1]; ieta++) {
+    auto offset = ieta * nPhiBin;
+    for (int phi = bins[2]; phi < bins[3]; phi++) {
+      int iphi = ((phi % nPhiBin + nPhiBin) % nPhiBin);
+      if (!tiles[depth][offset + iphi].empty()) {
+        for(auto hit: tiles[depth][offset + iphi]) {
+          //std::cout << "Layer: " << depth << " ieta: " << ieta << " phi: " << phi
+          //                                      << "Size: " << tiles[depth][offset + iphi].size() << std::endl;
+
+
+          auto it = hitMap.find(hit);
+
+          const auto rec = it->second;
+          auto detid = rec->detid();
+
+          //typedef TColl::const_iterator const_iterator;
+          //auto const_iterator =  it;
+          //objref = ref_type(handle, const_iterator)
+          GlobalPoint globalpoint = rhtools_.getPosition(it->first);
+          LocalPoint localpoint = tsos.surface().toLocal(globalpoint); // 
+          LocalError localerror = LocalError(lerr[detid].first, 0, lerr[detid].second); //xx, xy, yy
+
+          float energy = rec->energy();
+
+
+          std::cout << "Global point: "  << globalpoint << std::endl;
+          std::cout << "Local point: "  << localpoint << "\t" << "Local error:" << localerror << "\t" << "Energy: "<< energy <<  std::endl;
+
+
+          auto hitptr = std::make_shared<HGCTrackingRecHit>(detid,localpoint,localerror,energy);
+
+
+        // Test Estimator
+
+          auto mest_pair = mest.estimate(tsos, *hitptr);
+          std::cout << "Est Firs: " << mest_pair.first << "\t" <<"Est Second: " <<  mest_pair.second << std::endl;
+
+
+          if(mest_pair.first){
+            ret.emplace_back(tsos,hitptr,mest_pair.second);
+          }
+        }
+      }
+    }
+  }
+return ret;
+}
 
 template <typename TILES>
 void PatternRecognitionbyKF<TILES>::makeTracksters(
@@ -276,20 +480,30 @@ template <typename TILES>
 void PatternRecognitionbyKF<TILES>::makeTracksters_verbose(
     const typename PatternRecognitionAlgoBaseT<TILES>::Inputs &input,
     std::vector<Trackster> &result,
-    std::vector<GlobalPoint> &points,
+    std::vector<GlobalPoint> &points_kf,
+    std::vector<GlobalPoint> &points_prop,
     std::unordered_map<int, std::vector<int>> &seedToTracksterAssociation) {
 
   // Initializing (maybe export to own function)
+
+  std::cout << "Entered makeTracksters_verbose" << std::endl;
 
   edm::EventSetup const &es = input.es;
   const TILES &tiles = input.tiles;
   bfield_ = es.getHandle(bfieldtoken_);
   propagator_ = es.getHandle(propagatortoken_);
   propagatorOppo_ = es.getHandle(propagatorOppoToken_);
+  estimator_ = es.getHandle(estimatorToken_);
+  updator_ = es.getHandle(updatorToken_);
   const CaloGeometry* geom = &es.getData(caloGeomToken_);
   rhtools_.setGeometry(*geom);
   const std::vector<DetId> & ids = geom->getValidDetIds();
-  std::vector<TrajectoryStateOnSurface> traj;
+
+
+
+  edm::Handle<HGCRecHitCollection> ee_hits;
+  edm::Handle<HGCRecHitCollection> fh_hits;
+  edm::Handle<HGCRecHitCollection> bh_hits;
 
   /*
 
@@ -352,6 +566,9 @@ void PatternRecognitionbyKF<TILES>::makeTracksters_verbose(
 
   }
 
+  std::cout << disksPos_.size() <<std::endl;
+
+
 
   // Option 1: build from track
 
@@ -360,6 +577,15 @@ void PatternRecognitionbyKF<TILES>::makeTracksters_verbose(
   ev.getByToken(trackToken_,tracks_h);
   const reco::TrackCollection& tkx = *tracks_h;  
   FreeTrajectoryState fts = trajectoryStateTransform::outerFreeState(tkx.front(),bfield_.product());
+
+
+  // Get Rechits
+
+  ev.getByToken(hgcalRecHitsEEToken_, ee_hits);
+  ev.getByToken(hgcalRecHitsFHToken_, fh_hits);
+  ev.getByToken(hgcalRecHitsBHToken_, bh_hits);
+  fillHitMap(hitMap, *ee_hits, *fh_hits, *bh_hits);
+
 
   // Option 2: from SeedingRegion
   // The tracks are chosen as they contain error information which the seedingregion does not.
@@ -393,115 +619,116 @@ void PatternRecognitionbyKF<TILES>::makeTracksters_verbose(
 
   // Propagation step
 
-  const Propagator &prop = (direction == alongMomentum ? *propagator_ : *propagatorOppo_); // FIXME; inconvenient to have to define the propagator here and in the advanceOneLAyer
-  TrajectoryStateOnSurface tsos = prop.propagate(fts, disk->surface());
-  GlobalPoint gp = tsos.globalPosition();
-  points.push_back(gp);
+  //const Propagator &prop = (direction == alongMomentum ? *propagator_ : *propagatorOppo_); // FIXME; inconvenient to have to define the propagator here and in the advanceOneLAyer
+  //TrajectoryStateOnSurface tsos = prop.propagate(fts, disk->surface());
+  //GlobalPoint gp = tsos.globalPosition();
+
+  std::vector<TempTrajectory> traj = advanceOneLayer(fts, disk, disks, tiles, direction, isSilicon, TempTrajectory(direction,0));
+  TrajectoryStateOnSurface tsos_prop = traj.back().lastMeasurement().predictedState();
+  points_prop.push_back(tsos_prop.globalPosition());
+  TrajectoryStateOnSurface tsos_kf = traj.back().lastMeasurement().updatedState();
+  points_kf.push_back(tsos_kf.globalPosition());
+
+  std::vector<TempTrajectory> traj_prop;
+  std::vector<TempTrajectory> traj_kf;
+  traj_prop.push_back(traj.back());
+  traj_kf.push_back(traj.back());
+  std::cout << "Start Loop" << std::endl;
 
 
   // Loop over all disks
 
+  std::cout << "Forward propagation loop" << std::endl;
+
   unsigned int depth = 2;
   for(disk = nextDisk(disk, direction, disks, isSilicon); disk != nullptr; disk = nextDisk(disk, direction, disks, isSilicon), depth++){
-    advanceOneLayer(tsos, disk, disks, direction, traj, isSilicon);
-    tsos = traj.back();
-    points.push_back(tsos.globalPosition());
+    std::cout<< "Start iteration" << std::endl;
+    std::vector<TempTrajectory> newcands_prop;
 
-    // Get Rechits
+    std::cout << "Propagator Studies" << std::endl;
+    for(TempTrajectory & cand : traj_prop){
 
-    float eta = tsos.globalPosition().eta();
-    float phi = tsos.globalPosition().phi();
+      TrajectoryStateOnSurface start = cand.lastMeasurement().predictedState();
+      std::cout << "Get Info on trajectory" << std::endl;
+      std::cout << "Start: Isvalid = " << start.isValid()<< std::endl;
+      std::cout << "Start: x = " << start.globalPosition().x() << ", y = " << start.globalPosition().y() << ", z = " << start.globalPosition().z() << std::endl;
+      std::cout << "Print disk layer: " << disk->layer() << std::endl;
 
-    float etaBinSize = (TILES::constants_type_t::maxEta - TILES::constants_type_t::minEta)/TILES::constants_type_t::nEtaBins;
-    float phiBinSize = 2*M_PI/TILES::constants_type_t::nPhiBins;
-    float etaMin = eta - etaBinSize;
-    float etaMax = eta + etaBinSize;
-    float phiMin = phi - phiBinSize;
-    float phiMax = phi + phiBinSize;
-    int nPhiBin = TILES::constants_type_t::nPhiBins;
-    int nEtaBin = TILES::constants_type_t::nEtaBins;
+      std::vector<TempTrajectory> hisTrajs = advanceOneLayer(start, disk, disks, tiles, direction, isSilicon, cand);
 
-    auto bins = tiles[depth].searchBoxEtaPhi(etaMin, etaMax, phiMin, phiMax);
-
-    // get function
-    for (int ieta = bins[0]; ieta < bins[1]; ieta++) {
-      auto offset = ieta * nPhiBin;
-      for (int phi = bins[2]; phi < bins[3]; phi++) {
-        int iphi = ((phi % nPhiBin + nPhiBin) % nPhiBin);
-        if (!tiles[depth][offset + iphi].empty()) {
-          std::cout << "Layer: " << depth << " ieta: " << ieta << " phi: " << phi
-                                                          << "Size: " << tiles[depth][offset + iphi].size() << std::endl;
-        }
+      for(TempTrajectory & t : hisTrajs){
+        newcands_prop.push_back(t);
+        points_prop.push_back(t.lastMeasurement().predictedState().globalPosition());
+        break;
       }
     }
-    //tiles[depth][tiles[depth].globalBin(eta,phi)]
+    traj_prop.swap(newcands_prop);
+    std::cout << "KF Studies" << std::endl;
 
+    std::vector<TempTrajectory> newcands_kf;
+    for(TempTrajectory & cand : traj_kf){
 
-
-    // Update
-
-    //TrajectoryStateOnSurface updated = updator_->update(tm.forwardPredictedState(), *tm.recHit());
-
-    /*
-
-    // test Layertiles
-
-    //std::cout << "Depth: " << depth << std::endl;
-
-    float eta = tsos.globalPosition().eta();
-    float phi = tsos.globalPosition().phi();
-    //std::cout << "Eta: " << eta << "\t" <<"Phi: "<< phi <<std::endl;
-    tiles[depth];
-    
-    // Bin functions
-
-    std::cout << "EtaBin: " << tiles[depth].etaBin(eta) << std::endl;
-    std::cout << "PhiBin: " << tiles[depth].phiBin(phi) << std::endl;
-    std::cout << "GlobalBin: " << tiles[depth].globalBin(eta,phi) << std::endl;
-    std::cout << "GlobalBin: " << tiles[depth].globalBin(tiles[depth].etaBin(eta), tiles[depth].phiBin(phi)) << std::endl;
-
-    // Search Box
-
-    float etaBinSize = 0.1; //  TILES::nEtaBins;
-    float phiBinSize = 0.1; //TILES::nPhiBins;
-    float etaMin = eta - etaBinSize;
-    float etaMax = eta + etaBinSize;
-    float phiMin = phi - phiBinSize;
-    float phiMax = phi + phiBinSize;
-
-    auto bins = tiles[depth].searchBoxEtaPhi(etaMin, etaMax, phiMin, phiMax);
-
-    //std::cout << "Search: " << bins[0] << "\t" << bins[1] << "\t" << bins[2] << "\t" << bins[3] << std::endl;
-    float gbmax = tiles[depth].globalBin(bins[0], bins[2]);
-    float gbmin = tiles[depth].globalBin(bins[1], bins[3]);
-    //std::cout << "GlobalBinMin: " << tiles[depth].globalBin(bins[0], bins[2]) << std::endl;
-    //std::cout << "GlobalBinMax: " << tiles[depth].globalBin(bins[1], bins[3]) << std::endl;
-
-    // get function
-
-    for(int gb = gbmin; gb < gbmax; gb++){
-      auto arr = tiles[depth][gb];
-      if (!arr.empty()){
-        std::cout << "Depth: " << depth << "\t" << "Eta: " << eta << "\t" << "Phi: " << phi << "\t" << "Bin: " << gb << "\t" << "Size: " << arr.size() << std::endl;
+      TrajectoryStateOnSurface start = cand.lastMeasurement().updatedState();
+      std::vector<TempTrajectory> hisTrajs = advanceOneLayer(start, disk, disks, tiles, direction, isSilicon, cand);
+      for(TempTrajectory & t : hisTrajs){
+        newcands_kf.push_back(t);
+        points_kf.push_back(t.lastMeasurement().updatedState().globalPosition());
+        break;
       }
     }
-    //tiles[depth][tiles[depth].globalBin(eta,phi)]
-
-    */
+    traj_kf.swap(newcands_kf);
+    std::cout << "Print disk layer: " << disk->layer() << std::endl;
+    std::cout << "End iteration" << std::endl;
   }
+
+  std::cout << "Reverse propagation loop" << std::endl;
 
   // Reverse direction
 
   direction = oppositeToMomentum;
   disk = (isSilicon ? disks.end()[-1] : disks.end()[-2]);
 
+
   for(disk = nextDisk(disk, direction, disks, isSilicon); disk != nullptr; disk = nextDisk(disk, direction, disks, isSilicon), depth++){
     if(disk->layer()==33) isSilicon=1;
-    advanceOneLayer(tsos, disk, disks, direction, traj, isSilicon);
-    tsos = traj.back();
-    points.push_back(tsos.globalPosition());
+
+    std::vector<TempTrajectory> newcands_prop;
+
+    for(TempTrajectory & cand : traj_prop){
+
+      TrajectoryStateOnSurface start = cand.lastMeasurement().predictedState();
+
+      std::cout << "Get Info on trajectory" << std::endl;
+      std::cout << "Start: Isvalid = " << start.isValid()<< std::endl;
+      std::cout << "Start: x = " << start.globalPosition().x() << ", y = " << start.globalPosition().y() << ", z = " << start.globalPosition().z() << std::endl;
+      std::cout << "Print disk layer: " << disk->layer() << std::endl;
+      std::vector<TempTrajectory> hisTrajs = advanceOneLayer(start, disk, disks, tiles, direction, isSilicon, cand);
+
+      for(TempTrajectory & t : hisTrajs){
+        newcands_prop.push_back(t);
+        points_prop.push_back(t.lastMeasurement().predictedState().globalPosition());
+        break;
+      }
+    }
+    traj_prop.swap(newcands_prop);
+
+
+    std::vector<TempTrajectory> newcands_kf;
+    for(TempTrajectory & cand : traj_kf){
+
+      TrajectoryStateOnSurface start = cand.lastMeasurement().updatedState();
+      std::vector<TempTrajectory> hisTrajs = advanceOneLayer(start, disk, disks, tiles, direction, isSilicon, cand);
+
+      for(TempTrajectory & t : hisTrajs){
+        newcands_kf.push_back(t);
+        points_kf.push_back(t.lastMeasurement().updatedState().globalPosition());
+        break;
+      }
+    }
+    traj_kf.swap(newcands_kf);
+
   }
-  std::cout << "size points: " <<points.size() <<std::endl;
+  std::cout << "size points: " <<points_prop.size() <<std::endl;
   //dumpTiles(tiles);
 
   /*
@@ -852,6 +1079,7 @@ void PatternRecognitionbyKF<TILES>::fillPSetDescription(edm::ParameterSetDescrip
   //iDesc.add<std::string>("propagator", "RungeKuttaTrackerPropagator"); //PropagatorWithMaterial
   iDesc.add<std::string>("propagator", "PropagatorWithMaterial"); //PropagatorWithMaterial
   iDesc.add<std::string>("propagatorOpposite", "PropagatorWithMaterialOpposite");
+  iDesc.add<std::string>("estimator", "Chi2");
   iDesc.add<edm::InputTag>("tracks", edm::InputTag("generalTracks"));
   iDesc.add<std::string>("eid_input_name", "input");
   iDesc.add<std::string>("eid_output_name_energy", "output/regressed_energy");
@@ -860,6 +1088,9 @@ void PatternRecognitionbyKF<TILES>::fillPSetDescription(edm::ParameterSetDescrip
   iDesc.add<int>("eid_n_layers", 50);
   iDesc.add<int>("eid_n_clusters", 10);
   iDesc.add<std::string>("materialbudget", "Val"); //"Val", "AG", "custom"
+  iDesc.add<edm::InputTag>("HGCEEInput", edm::InputTag("HGCalRecHit", "HGCEERecHits"));
+  iDesc.add<edm::InputTag>("HGCFHInput", edm::InputTag("HGCalRecHit", "HGCHEFRecHits"));
+  iDesc.add<edm::InputTag>("HGCBHInput", edm::InputTag("HGCalRecHit", "HGCHEBRecHits"));
 }
 
 template class ticl::PatternRecognitionbyKF<TICLLayerTiles>;
