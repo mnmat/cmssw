@@ -215,6 +215,8 @@ void TICLLayerTileProducer::produce(edm::Event &evt, const edm::EventSetup &) {
 
       assert(layer >= 0);
 
+      objId = rhit->detid().rawId();
+
       if (doNose_){
         resultHFNose->fill(layer, eta, phi, objId);
       }
