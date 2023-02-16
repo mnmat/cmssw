@@ -42,6 +42,12 @@
 #include "TrackingTools/PatternTools/interface/TrajMeasLessEstim.h"
 #include "DataFormats/TrackingRecHit/interface/InvalidTrackingRecHit.h"
 
+#include "DataFormats/Provenance/interface/Provenance.h"
+#include "DataFormats/Provenance/interface/ProcessHistoryRegistry.h"
+
+#include "TrackingTools/TrajectoryState/interface/TrajectoryStateOnSurface.h"
+
+
 
 using namespace ticl;
 
@@ -81,8 +87,9 @@ void PatternRecognitionbyKF<TILES>::calculateLocalError(DetId id, const HGCalDDD
     if(rhtools_.getSiThickness(id) < 200) A = 1.18; // TODO: replace with non-hardcoded value; hardcoded value from TDR
     else  A = 0.52; // TODO: replace with non-hardcoded value; hardcoded value from TDR
     float a = sqrt(2*A/(3*sqrt(3)));
-    lerr[id].first = pow(a,4)*5*sqrt(3)/(16*A); // x
-    lerr[id].second = pow(a,4)*5*sqrt(3)/(16*A); // y 
+    double varx = pow(a,4)*5*sqrt(3)/(16*A); // x
+    double vary = pow(a,4)*5*sqrt(3)/(16*A); // y 
+    lerr[id] = LocalError(varx, 0, vary);
   }
   else{
     const GlobalPoint &pos = rhtools_.getPosition(id);
@@ -107,8 +114,8 @@ void PatternRecognitionbyKF<TILES>::calculateLocalError(DetId id, const HGCalDDD
     double ey = 1/(3*A) * (pow(rmax,3) - pow(rmin,3)) * (cos(phimin) - cos(phimax));
     double vary = ey2 - ey*ey;
 
-    lerr[id].first = vary;
-    lerr[id].second = varx;
+    double varxy = 1/(16*A)*(pow(rmax,4)-pow(rmin,4))*(cos(2*phimin)-cos(2*phimax)) - ex*ey;
+    lerr[id] = LocalError(varx, varxy, vary);
     //std::cout << "Phi: " << phi << "\t DPhi: " << dphi << "\t r:" << rmin << "\t R:" << rmax << "\t varx: " << varx << "\t vary: " << vary<< std::endl;
 
     /*
@@ -140,22 +147,22 @@ const HGCDiskGeomDet * PatternRecognitionbyKF<TILES>::nextDisk(const HGCDiskGeom
   auto it = std::find(vec.begin(), vec.end(),from);
   if (it == vec.end()) throw cms::Exception("LogicError", "nextDisk called with invalid starting disk");
   int currentLayer = (*it)->layer();
-
   if (direction == alongMomentum){
     if ((*it == vec.back()) || (*it == vec.rbegin()[1])) return nullptr;
-    for(int i = 0; i<2 ; i++){
+    for(int i = 0; i<3 ; i++){
       if ((*it) == vec.back()) break;
       ++it;
       if(((*(it))->isSilicon() == isSilicon) && ((*(it))->layer()==currentLayer+1)) return *(it);
      }
   } else{
     if (it == vec.begin()) return nullptr;
-    for(int i = 0; i<2 ; i++){
+    for(int i = 0; i<3 ; i++){
       if ((it) == vec.begin()) break;
       --it;
       if(((*(it))->isSilicon() == isSilicon) && ((*(it))->layer()==currentLayer-1)) return *(it);
     }
   }
+  std::cout << "Return nullptr" << std::endl;
   return nullptr;
 }
 
@@ -167,27 +174,27 @@ std::vector<TempTrajectory>
 PatternRecognitionbyKF<TILES>::advanceOneLayer(const Start &start, const HGCDiskGeomDet * disk, const std::vector<HGCDiskGeomDet *> &disks, const TILES &tiles, PropagationDirection direction, bool &isSilicon, TempTrajectory traj){
 
   std::vector<TempTrajectory> ret;
-
-  std::cout << "Disk: x = " << disk->position().x() << ", y = " << disk->position().y() << ", z = " << disk->position().z() << std::endl;
+  int depth = disk->layer()+1;
+  std::cout << "Layer: " << depth << std::endl;
 
   const Propagator &prop = (direction == alongMomentum ? *propagator_ : *propagatorOppo_);
   TrajectoryStateOnSurface tsos = prop.propagate(start, disk->surface());
+  std::cout << "IsValid: " << tsos.isValid() << std::endl;
+  if (!tsos.isValid()) return ret;
+  std::cout << "First Propagation done" << std::endl;
   float r = sqrt(pow(tsos.globalPosition().x(),2)+pow(tsos.globalPosition().y(),2));
-  std::cout << "First try propagtor finished" << std::endl;
   if (((disk->rmin() > r) && (!isSilicon)) || (((r > disk->rmax()) && (isSilicon)))) {
-    std::cout << "Switch Disk" << std::endl;
+    std::cout << "Entered Switchdisk" << std::endl;
+    std::cout << "Radius: " << disk->rmin() << "," << r << "," << disk->rmax() << std::endl;
     disk = switchDisk(disk, disks, isSilicon);
     isSilicon = !isSilicon;
     tsos = prop.propagate(start, disk->surface());
     float r = sqrt(pow(tsos.globalPosition().x(),2)+pow(tsos.globalPosition().y(),2));
-    std::cout << "Exit Switch Disk" << std::endl;
   }
 
-  std::cout << "Done propagating" << std::endl;
   // Collect hits with estimate
-
-  std::cout <<  "Create Measurements" << std::endl;
-  int depth = disk->layer()+1;
+  depth = disk->layer()+1;
+  std::cout << "Layer: " << depth << std::endl;
   auto meas = measurements(tsos, *estimator_, tiles, depth);
   std::sort(meas.begin(), meas.end(),TrajMeasLessEstim());
 
@@ -195,8 +202,6 @@ PatternRecognitionbyKF<TILES>::advanceOneLayer(const Start &start, const HGCDisk
     std::cout << "No measurement found!!!!!!" << std::endl;
   }
 
-  std::cout << "Done creating MEasurements" << std::endl;
-  std::cout << "Start updating" << std::endl;
   for (const TrajectoryMeasurement &tm : meas){
     TrajectoryStateOnSurface updated = updator_->update(tm.forwardPredictedState(),*tm.recHit());
     ret.push_back(traj.foundHits() ? traj: TempTrajectory(traj.direction(),0));
@@ -207,17 +212,12 @@ PatternRecognitionbyKF<TILES>::advanceOneLayer(const Start &start, const HGCDisk
                     tm.estimate());
   }
 
-  if (meas.size() > 0){
-    return ret;
-  }
-
-  std::cout << "Done updating" << std::endl;
+  if (meas.size() > 0) return ret;
 
   auto missing = TrackingRecHit::missing;
   ret.push_back(traj.foundHits()? traj : TempTrajectory(traj.direction(),0));
   ret.back().push(TrajectoryMeasurement(tsos, std::make_shared<InvalidTrackingRecHit>(*disk,missing)));
 
-  std::cout << "exit advanceOneLayer" <<std::endl;
   return ret;
 }
 
@@ -440,23 +440,23 @@ std::vector<TrajectoryMeasurement> PatternRecognitionbyKF<TILES>::measurements(
           //auto const_iterator =  it;
           //objref = ref_type(handle, const_iterator)
           GlobalPoint globalpoint = rhtools_.getPosition(it->first);
+          std::cout<< "Zpos: " << globalpoint.z() << std::endl;
           LocalPoint localpoint = tsos.surface().toLocal(globalpoint); // 
-          LocalError localerror = LocalError(lerr[detid].first, 0, lerr[detid].second); //xx, xy, yy
-
+  
           float energy = rec->energy();
 
 
-          std::cout << "Global point: "  << globalpoint << std::endl;
-          std::cout << "Local point: "  << localpoint << "\t" << "Local error:" << localerror << "\t" << "Energy: "<< energy <<  std::endl;
+          //std::cout << "Global point: "  << globalpoint << std::endl;
+          //std::cout << "Local point: "  << localpoint << "\t" << "Local error:" << localerror << "\t" << "Energy: "<< energy <<  std::endl;
 
 
-          auto hitptr = std::make_shared<HGCTrackingRecHit>(detid,localpoint,localerror,energy);
+          auto hitptr = std::make_shared<HGCTrackingRecHit>(detid,localpoint,lerr[detid],energy);
 
 
         // Test Estimator
 
           auto mest_pair = mest.estimate(tsos, *hitptr);
-          std::cout << "Est Firs: " << mest_pair.first << "\t" <<"Est Second: " <<  mest_pair.second << std::endl;
+          //std::cout << "Est Firs: " << mest_pair.first << "\t" <<"Est Second: " <<  mest_pair.second << std::endl;
 
 
           if(mest_pair.first){
@@ -482,13 +482,21 @@ void PatternRecognitionbyKF<TILES>::makeTracksters_verbose(
     std::vector<Trackster> &result,
     std::vector<GlobalPoint> &points_kf,
     std::vector<GlobalPoint> &points_prop,
+    std::vector<float>& xx_kf,
+    std::vector<float>& xy_kf,
+    std::vector<float>& yy_kf,
+    std::vector<float>& xx_prop,
+    std::vector<float>& xy_prop,
+    std::vector<float>& yy_prop,
+    float& abs_fail,
+    std::vector<float>& charge_kf,
     std::unordered_map<int, std::vector<int>> &seedToTracksterAssociation) {
 
   // Initializing (maybe export to own function)
 
-  std::cout << "Entered makeTracksters_verbose" << std::endl;
-
   edm::EventSetup const &es = input.es;
+  edm::Event const &ev = input.ev;
+
   const TILES &tiles = input.tiles;
   bfield_ = es.getHandle(bfieldtoken_);
   propagator_ = es.getHandle(propagatortoken_);
@@ -498,8 +506,6 @@ void PatternRecognitionbyKF<TILES>::makeTracksters_verbose(
   const CaloGeometry* geom = &es.getData(caloGeomToken_);
   rhtools_.setGeometry(*geom);
   const std::vector<DetId> & ids = geom->getValidDetIds();
-
-
 
   edm::Handle<HGCRecHitCollection> ee_hits;
   edm::Handle<HGCRecHitCollection> fh_hits;
@@ -552,7 +558,6 @@ void PatternRecognitionbyKF<TILES>::makeTracksters_verbose(
   }
 
   std::cout << "Number of cells for geometry: " << count << std::endl;
-
   */
 
   if (disksPos_.size()==0){
@@ -563,21 +568,52 @@ void PatternRecognitionbyKF<TILES>::makeTracksters_verbose(
     auto ptrSort = [](const HGCDiskGeomDet *a, const HGCDiskGeomDet *b) -> bool { return (abs(a->position().z())) < (abs(b->position().z())); };
     std::sort(disksPos_.begin(), disksPos_.end(), ptrSort);
     std::sort(disksNeg_.begin(), disksNeg_.end(), ptrSort);
-
   }
 
-  std::cout << disksPos_.size() <<std::endl;
+ // Option 2: from SeedingRegion
+  // The tracks are chosen as they contain error information which the seedingregion does not.
+  // This however means that the propagation to the first layer is done twice: once by the seedingregionproducer and again here in the next step.
+  /*
+  std::cout << "Getting Seed" << std::endl;
 
+  //std::cout<<input.regions.front().collectionID<<std::endl;
 
+  //edm::Ref<reco::TrackCollection> myRef(input.regions.front().collectionID);
+  edm::Handle<reco::TrackCollection> tracks_h_seed;
+  ev.get(input.regions.front().collectionID, tracks_h_seed);
+  const reco::TrackCollection& tkx_seed = * tracks_h_seed;
+  
+  // Create FTS
+  //std::cout << "Create FTS" <<std::endl;
+  //FreeTrajectoryState test = trajectoryStateTransform::outerFreeState(tkx_seed.front(),bfield_.product());
+  //std::cout << "Has Error: " << test.hasError()<<std::endl;
+  //std::cout << "Seeding Region: \t"<< "z: " << test.position().z() << std::endl;
+  */
+  
 
   // Option 1: build from track
-
-  edm::Event const &ev = input.ev;
   edm::Handle<reco::TrackCollection> tracks_h;
   ev.getByToken(trackToken_,tracks_h);
-  const reco::TrackCollection& tkx = *tracks_h;  
-  FreeTrajectoryState fts = trajectoryStateTransform::outerFreeState(tkx.front(),bfield_.product());
+  /*
+  const auto& provenance = *tracks_h.provenance();
+  const auto& processName = provenance.processName();
+  std::cout<<processName<<std::endl;
+  std::cout << "branch Name: \t" << provenance.branchName() << std::endl;
+  std::cout << "class name: \t" << provenance.className() << std::endl;
+  std::cout << "module name: \t" << provenance.moduleName() << std::endl;
+  std::cout << "module label: \t" << provenance.moduleLabel() << std::endl;
+  std::cout << "product instance name: \t" << provenance.productInstanceName() << std::endl;
+  std::cout << "friendly class name: \t" << provenance.friendlyClassName() << std::endl;
+  */
+  const reco::TrackCollection& tkx = *tracks_h; 
+  if (tkx.empty()){
+    std::cout << "No track found!!!! Exited PatternRecognitionbyKF" << std::endl; 
+    abs_fail+=1;
+    return;
+  }
 
+  FreeTrajectoryState fts = trajectoryStateTransform::outerFreeState(tkx.front(),bfield_.product());
+  std::cout << "x: " << fts.position().x() <<", y:" << fts.position().y()<<", z: " << fts.position().z() << std::endl;
 
   // Get Rechits
 
@@ -585,27 +621,6 @@ void PatternRecognitionbyKF<TILES>::makeTracksters_verbose(
   ev.getByToken(hgcalRecHitsFHToken_, fh_hits);
   ev.getByToken(hgcalRecHitsBHToken_, bh_hits);
   fillHitMap(hitMap, *ee_hits, *fh_hits, *bh_hits);
-
-
-  // Option 2: from SeedingRegion
-  // The tracks are chosen as they contain error information which the seedingregion does not.
-  // This however means that the propagation to the first layer is done twice: once by the seedingregionproducer and again here in the next step.
-
-  /*
-  edm::Event const &ev = input.ev;
-  std::cout << "Loaded Event" << std::endl;
-  //edm::Ref<reco::TrackCollection> myRef(input.regions.front().collectionID);
-  edm::Handle<reco::TrackCollection> tracks_h_seed;
-  std::cout<<input.regions.front().collectionID<<std::endl;
-  ev.get(input.regions.front().collectionID, tracks_h_seed);
-  const reco::TrackCollection& tkx_seed = * tracks_h_seed;
-  std::cout << "Loaded TrackCollection Seed" << std::endl;
-  
-  // Create FTS
-  std::cout << "Create FTS" <<std::endl;
-  FreeTrajectoryState fts = trajectoryStateTransform::outerFreeState(tkx_seed.front(),bfield_.product());
-  std::cout << "Has Error: " << fts.hasError()<<std::endl;
-  */
 
   // Propagate through all disks
 
@@ -623,65 +638,115 @@ void PatternRecognitionbyKF<TILES>::makeTracksters_verbose(
   //TrajectoryStateOnSurface tsos = prop.propagate(fts, disk->surface());
   //GlobalPoint gp = tsos.globalPosition();
 
+  std::cout << "Advance One Layer" << std::endl;
   std::vector<TempTrajectory> traj = advanceOneLayer(fts, disk, disks, tiles, direction, isSilicon, TempTrajectory(direction,0));
+  if (traj.empty()){
+    std::cout << "No track found!!!! Exited PatternRecognitionbyKF" << std::endl; 
+    abs_fail+=1;
+    return;
+  }
+  std::cout << "Exited Advance One Layer" << std::endl;
   TrajectoryStateOnSurface tsos_prop = traj.back().lastMeasurement().predictedState();
   points_prop.push_back(tsos_prop.globalPosition());
+  xx_prop.push_back(tsos_prop.localError().positionError().xx());
+  xy_prop.push_back(tsos_prop.localError().positionError().xy());
+  yy_prop.push_back(tsos_prop.localError().positionError().yy());
   TrajectoryStateOnSurface tsos_kf = traj.back().lastMeasurement().updatedState();
   points_kf.push_back(tsos_kf.globalPosition());
+  xx_kf.push_back(tsos_kf.localError().positionError().xx());
+  xy_kf.push_back(tsos_kf.localError().positionError().xy());
+  yy_kf.push_back(tsos_kf.localError().positionError().yy());
+
 
   std::vector<TempTrajectory> traj_prop;
   std::vector<TempTrajectory> traj_kf;
   traj_prop.push_back(traj.back());
   traj_kf.push_back(traj.back());
-  std::cout << "Start Loop" << std::endl;
-
 
   // Loop over all disks
 
-  std::cout << "Forward propagation loop" << std::endl;
+  std::cout << "Start KF" << std::endl;
 
   unsigned int depth = 2;
   for(disk = nextDisk(disk, direction, disks, isSilicon); disk != nullptr; disk = nextDisk(disk, direction, disks, isSilicon), depth++){
-    std::cout<< "Start iteration" << std::endl;
-    std::vector<TempTrajectory> newcands_prop;
-
-    std::cout << "Propagator Studies" << std::endl;
-    for(TempTrajectory & cand : traj_prop){
-
-      TrajectoryStateOnSurface start = cand.lastMeasurement().predictedState();
-      std::cout << "Get Info on trajectory" << std::endl;
-      std::cout << "Start: Isvalid = " << start.isValid()<< std::endl;
-      std::cout << "Start: x = " << start.globalPosition().x() << ", y = " << start.globalPosition().y() << ", z = " << start.globalPosition().z() << std::endl;
-      std::cout << "Print disk layer: " << disk->layer() << std::endl;
-
-      std::vector<TempTrajectory> hisTrajs = advanceOneLayer(start, disk, disks, tiles, direction, isSilicon, cand);
-
-      for(TempTrajectory & t : hisTrajs){
-        newcands_prop.push_back(t);
-        points_prop.push_back(t.lastMeasurement().predictedState().globalPosition());
-        break;
-      }
-    }
-    traj_prop.swap(newcands_prop);
-    std::cout << "KF Studies" << std::endl;
-
     std::vector<TempTrajectory> newcands_kf;
     for(TempTrajectory & cand : traj_kf){
 
       TrajectoryStateOnSurface start = cand.lastMeasurement().updatedState();
       std::vector<TempTrajectory> hisTrajs = advanceOneLayer(start, disk, disks, tiles, direction, isSilicon, cand);
       for(TempTrajectory & t : hisTrajs){
+        charge_kf.push_back(t.lastMeasurement().updatedState().charge());
         newcands_kf.push_back(t);
         points_kf.push_back(t.lastMeasurement().updatedState().globalPosition());
+        xx_kf.push_back(t.lastMeasurement().updatedState().localError().positionError().xx());
+        xy_kf.push_back(t.lastMeasurement().updatedState().localError().positionError().xy());
+        yy_kf.push_back(t.lastMeasurement().updatedState().localError().positionError().yy());
         break;
       }
     }
     traj_kf.swap(newcands_kf);
-    std::cout << "Print disk layer: " << disk->layer() << std::endl;
-    std::cout << "End iteration" << std::endl;
   }
 
-  std::cout << "Reverse propagation loop" << std::endl;
+  /*
+
+  // Reverse direction
+
+  direction = oppositeToMomentum;
+  disk = (isSilicon ? disks.end()[-1] : disks.end()[-2]);
+
+
+  for(disk = nextDisk(disk, direction, disks, isSilicon); disk != nullptr; disk = nextDisk(disk, direction, disks, isSilicon), depth++){
+    if(disk->layer()==33) isSilicon=1;
+    std::vector<TempTrajectory> newcands_kf;
+    for(TempTrajectory & cand : traj_kf){
+
+      TrajectoryStateOnSurface start = cand.lastMeasurement().updatedState();
+      std::vector<TempTrajectory> hisTrajs = advanceOneLayer(start, disk, disks, tiles, direction, isSilicon, cand);
+
+      for(TempTrajectory & t : hisTrajs){
+        newcands_kf.push_back(t);
+        points_kf.push_back(t.lastMeasurement().updatedState().globalPosition());    
+        xx_kf.push_back(t.lastMeasurement().updatedState().localError().positionError().xx());
+        xy_kf.push_back(t.lastMeasurement().updatedState().localError().positionError().xy());
+        yy_kf.push_back(t.lastMeasurement().updatedState().localError().positionError().yy());
+
+
+        break;
+      }
+    }
+    traj_kf.swap(newcands_kf);
+  }
+
+  */
+
+  std::cout << "Start Propagator" << std::endl;
+
+  direction = alongMomentum;
+  disk = (zside > 0 ? disksPos_ : disksNeg_).front();
+  isSilicon=1;
+  depth = 2;
+  for(disk = nextDisk(disk, direction, disks, isSilicon); disk != nullptr; disk = nextDisk(disk, direction, disks, isSilicon), depth++){
+    std::vector<TempTrajectory> newcands_prop;
+    for(TempTrajectory & cand : traj_prop){
+
+      TrajectoryStateOnSurface start = cand.lastMeasurement().predictedState();
+      std::cout <<"Propagator:" << start.globalPosition().z() << std::endl;
+      std::vector<TempTrajectory> hisTrajs = advanceOneLayer(start, disk, disks, tiles, direction, isSilicon, cand);
+
+      for(TempTrajectory & t : hisTrajs){
+        newcands_prop.push_back(t);
+        points_prop.push_back(t.lastMeasurement().predictedState().globalPosition());        
+        xx_prop.push_back(t.lastMeasurement().predictedState().localError().positionError().xx());
+        xy_prop.push_back(t.lastMeasurement().predictedState().localError().positionError().yy());
+        yy_prop.push_back(t.lastMeasurement().predictedState().localError().positionError().xy());
+        
+        break;
+      }
+    }
+    traj_prop.swap(newcands_prop);
+  }
+
+  /*
 
   // Reverse direction
 
@@ -697,39 +762,20 @@ void PatternRecognitionbyKF<TILES>::makeTracksters_verbose(
     for(TempTrajectory & cand : traj_prop){
 
       TrajectoryStateOnSurface start = cand.lastMeasurement().predictedState();
-
-      std::cout << "Get Info on trajectory" << std::endl;
-      std::cout << "Start: Isvalid = " << start.isValid()<< std::endl;
-      std::cout << "Start: x = " << start.globalPosition().x() << ", y = " << start.globalPosition().y() << ", z = " << start.globalPosition().z() << std::endl;
-      std::cout << "Print disk layer: " << disk->layer() << std::endl;
       std::vector<TempTrajectory> hisTrajs = advanceOneLayer(start, disk, disks, tiles, direction, isSilicon, cand);
 
       for(TempTrajectory & t : hisTrajs){
         newcands_prop.push_back(t);
-        points_prop.push_back(t.lastMeasurement().predictedState().globalPosition());
+        points_prop.push_back(t.lastMeasurement().predictedState().globalPosition());        
+        xx_prop.push_back(t.lastMeasurement().predictedState().localError().positionError().xx());
+        xy_prop.push_back(t.lastMeasurement().predictedState().localError().positionError().yy());
+        yy_prop.push_back(t.lastMeasurement().predictedState().localError().positionError().xy());
         break;
       }
     }
     traj_prop.swap(newcands_prop);
-
-
-    std::vector<TempTrajectory> newcands_kf;
-    for(TempTrajectory & cand : traj_kf){
-
-      TrajectoryStateOnSurface start = cand.lastMeasurement().updatedState();
-      std::vector<TempTrajectory> hisTrajs = advanceOneLayer(start, disk, disks, tiles, direction, isSilicon, cand);
-
-      for(TempTrajectory & t : hisTrajs){
-        newcands_kf.push_back(t);
-        points_kf.push_back(t.lastMeasurement().updatedState().globalPosition());
-        break;
-      }
-    }
-    traj_kf.swap(newcands_kf);
-
   }
-  std::cout << "size points: " <<points_prop.size() <<std::endl;
-  //dumpTiles(tiles);
+  */
 
   /*
   for(int i = 0; i != 47; i++ ){

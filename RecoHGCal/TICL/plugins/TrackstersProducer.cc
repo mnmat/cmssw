@@ -29,6 +29,9 @@
 #include "PhysicsTools/TensorFlow/interface/TensorFlow.h"
 #include "RecoTracker/FinalTrackSelectors/interface/TfGraphDefWrapper.h"
 
+#include "TrackingTools/TrajectoryState/interface/TrajectoryStateOnSurface.h"
+#include "TrackingTools/PatternTools/interface/TempTrajectory.h"
+
 using namespace ticl;
 
 class TrackstersProducer : public edm::stream::EDProducer<> {
@@ -107,7 +110,15 @@ TrackstersProducer::TrackstersProducer(const edm::ParameterSet& ps)
   produces<std::vector<float>>();  // Mask to be applied at the next iteration
   produces<std::vector<GlobalPoint>>("Points Prop").setBranchAlias("Points Prop");
   produces<std::vector<GlobalPoint>>("Points KF").setBranchAlias("Points KF");
-
+  produces<std::vector<Trajectory>>("TEST Producer").setBranchAlias("TEST Producer");
+  produces<std::vector<float>>("xx Prop").setBranchAlias("xx Prop");
+  produces<std::vector<float>>("xy Prop").setBranchAlias("xy Prop");
+  produces<std::vector<float>>("yy Prop").setBranchAlias("yy Prop");
+  produces<std::vector<float>>("xx KF").setBranchAlias("xx KF");
+  produces<std::vector<float>>("xy KF").setBranchAlias("xy KF");
+  produces<std::vector<float>>("yy KF").setBranchAlias("yy KF");
+  produces<float>("Abs Fail").setBranchAlias("Abs Fail");
+  produces<std::vector<float>>("Charge").setBranchAlias("Charge");
 }
 
 void TrackstersProducer::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
@@ -149,15 +160,25 @@ void TrackstersProducer::fillDescriptions(edm::ConfigurationDescriptions& descri
 }
 
 void TrackstersProducer::produce(edm::Event& evt, const edm::EventSetup& es) {
-
-  std::cout << "TrackstersProducer.cc says hello" << std::endl;
   auto result = std::make_unique<std::vector<Trackster>>();
   auto output_mask = std::make_unique<std::vector<float>>();
+  auto test = std::make_unique<std::vector<Trajectory>>();
 
   // This was implemented to export the points of the KF
 
   auto points_prop = std::make_unique<std::vector<GlobalPoint>>();
   auto points_kf = std::make_unique<std::vector<GlobalPoint>>();
+
+  auto xx_prop = std::make_unique<std::vector<float>>();
+  auto xy_prop = std::make_unique<std::vector<float>>();
+  auto yy_prop = std::make_unique<std::vector<float>>();
+  auto xx_kf = std::make_unique<std::vector<float>>();
+  auto xy_kf = std::make_unique<std::vector<float>>();
+  auto yy_kf = std::make_unique<std::vector<float>>();
+
+  auto abs_fail = std::make_unique<float>();
+  auto charge_kf = std::make_unique<std::vector<float>>();
+
 
   std::cout<<itername_<<std::endl;
 
@@ -206,7 +227,7 @@ void TrackstersProducer::produce(edm::Event& evt, const edm::EventSetup& es) {
     if(itername_!="KF"){
       myAlgo_->makeTracksters(input, *result, seedToTrackstersAssociation);
     } else {
-      myAlgo_->makeTracksters_verbose(input, *result, *points_kf,*points_prop, seedToTrackstersAssociation);
+      myAlgo_->makeTracksters_verbose(input, *result, *points_kf,*points_prop, *xx_kf, *xy_kf, *yy_kf, *xx_prop, *xy_prop, *yy_prop, *abs_fail,*charge_kf, seedToTrackstersAssociation);   
     }
 
     // ----------------------------------------------------------------
@@ -232,5 +253,13 @@ void TrackstersProducer::produce(edm::Event& evt, const edm::EventSetup& es) {
   evt.put(std::move(output_mask));
   evt.put(std::move(points_prop),"Points Prop");
   evt.put(std::move(points_kf),"Points KF");
-
+  evt.put(std::move(xx_prop),"xx Prop");
+  evt.put(std::move(xy_prop),"xy Prop");
+  evt.put(std::move(yy_prop),"yy Prop");
+  evt.put(std::move(xx_kf),"xx KF");
+  evt.put(std::move(xy_kf),"xy KF");
+  evt.put(std::move(yy_kf),"yy KF");
+  evt.put(std::move(test),"TEST Producer");
+  evt.put(std::move(abs_fail),"Abs Fail");
+  evt.put(std::move(charge_kf),"Charge");
 }
