@@ -16,6 +16,7 @@
 #include "RecoHGCal/TICL/interface/commons.h"
 #include "FWCore/Framework/interface/ConsumesCollector.h"
 #include "PhysicsTools/TensorFlow/interface/TensorFlow.h"
+#include "TrackingTools/TrajectoryState/interface/TrajectoryStateOnSurface.h"
 
 namespace edm {
   class Event;
@@ -57,6 +58,14 @@ namespace ticl {
                                 std::vector<Trackster>& result,
                                 std::vector<GlobalPoint>& points_kf,
                                 std::vector<GlobalPoint>& points_prop,
+                                std::vector<float>& xx_kf,
+                                std::vector<float>& xy_kf,
+                                std::vector<float>& yy_kf,
+                                std::vector<float>& xx_prop,
+                                std::vector<float>& xy_prop,
+                                std::vector<float>& yy_prop,
+                                float& abs_fail,
+                                std::vector<float>& charge_kf,
                                 std::unordered_map<int, std::vector<int>>& seedToTracksterAssociation){};
 
     // --------------------------------------------------------------
