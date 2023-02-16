@@ -23,6 +23,8 @@
 #include "DataFormats/Common/interface/RefProd.h"
 #include "DataFormats/Common/interface/Ref.h"
 #include "DataFormats/Common/interface/RefVector.h"
+#include "DataFormats/Provenance/interface/Provenance.h"
+
 
 #include "TrackingTools/GeomPropagators/interface/Propagator.h"
 #include "TrackingTools/Records/interface/TrackingComponentsRecord.h"
@@ -37,6 +39,8 @@
 #include "TrackingTools/PatternTools/interface/TrajectoryStateUpdator.h"
 
 #include "Geometry/HGCalCommonData/interface/HGCalDDDConstants.h"
+#include "TrackingTools/TrajectoryState/interface/TrajectoryStateOnSurface.h"
+
 
 namespace ticl {
   template <typename TILES>
@@ -82,8 +86,15 @@ namespace ticl {
                         std::vector<Trackster>& result,
                         std::vector<GlobalPoint>& points_kf,
                         std::vector<GlobalPoint>& points_prop,
+                        std::vector<float>& xx_kf,
+                        std::vector<float>& xy_kf,
+                        std::vector<float>& yy_kf,
+                        std::vector<float>& xx_prop,
+                        std::vector<float>& xy_prop,
+                        std::vector<float>& yy_prop,
+                        float& abs_fail,
+                        std::vector<float>& charge_kf,
                         std::unordered_map<int, std::vector<int>>& seedToTracksterAssociation) override;
-
 
 /*
 
@@ -152,7 +163,7 @@ namespace ticl {
     int nPhiBin = TILES::constants_type_t::nPhiBins;
     int nEtaBin = TILES::constants_type_t::nEtaBins;
 
-    std::map<DetId,std::pair<float,float>> lerr;
+    std::map<DetId,LocalError> lerr;
 
     std::vector<HGCDiskGeomDet *> disksPos_, disksNeg_;
 
