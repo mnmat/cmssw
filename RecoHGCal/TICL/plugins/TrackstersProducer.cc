@@ -29,6 +29,9 @@
 #include "PhysicsTools/TensorFlow/interface/TensorFlow.h"
 #include "PhysicsTools/TensorFlow/interface/TfGraphDefWrapper.h"
 
+#include "TrackingTools/TrajectoryState/interface/TrajectoryStateOnSurface.h"
+#include "TrackingTools/PatternTools/interface/TempTrajectory.h"
+
 using namespace ticl;
 
 class TrackstersProducer : public edm::stream::EDProducer<> {
@@ -57,6 +60,7 @@ private:
   const edm::EDGetTokenT<std::vector<float>> original_layerclusters_mask_token_;
   const edm::EDGetTokenT<edm::ValueMap<std::pair<float, float>>> clustersTime_token_;
   edm::EDGetTokenT<TICLLayerTiles> layer_clusters_tiles_token_;
+  edm::EDGetTokenT<TICLLayerTiles> rechit_tiles_token_;
   edm::EDGetTokenT<TICLLayerTilesHFNose> layer_clusters_tiles_hfnose_token_;
   const edm::EDGetTokenT<std::vector<TICLSeedingRegion>> seeding_regions_token_;
   const std::string itername_;
@@ -104,6 +108,17 @@ TrackstersProducer::TrackstersProducer(const edm::ParameterSet& ps)
 
   produces<std::vector<Trackster>>();
   produces<std::vector<float>>();  // Mask to be applied at the next iteration
+  produces<std::vector<GlobalPoint>>("Points Prop").setBranchAlias("Points Prop");
+  produces<std::vector<GlobalPoint>>("Points KF").setBranchAlias("Points KF");
+  produces<std::vector<Trajectory>>("TEST Producer").setBranchAlias("TEST Producer");
+  produces<std::vector<float>>("xx Prop").setBranchAlias("xx Prop");
+  produces<std::vector<float>>("xy Prop").setBranchAlias("xy Prop");
+  produces<std::vector<float>>("yy Prop").setBranchAlias("yy Prop");
+  produces<std::vector<float>>("xx KF").setBranchAlias("xx KF");
+  produces<std::vector<float>>("xy KF").setBranchAlias("xy KF");
+  produces<std::vector<float>>("yy KF").setBranchAlias("yy KF");
+  produces<float>("Abs Fail").setBranchAlias("Abs Fail");
+  produces<std::vector<float>>("Charge").setBranchAlias("Charge");
 }
 
 void TrackstersProducer::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
@@ -114,8 +129,8 @@ void TrackstersProducer::fillDescriptions(edm::ConfigurationDescriptions& descri
   desc.add<edm::InputTag>("filtered_mask", edm::InputTag("filteredLayerClusters", "iterationLabelGoesHere"));
   desc.add<edm::InputTag>("original_mask", edm::InputTag("hgcalLayerClusters", "InitialLayerClustersMask"));
   desc.add<edm::InputTag>("time_layerclusters", edm::InputTag("hgcalLayerClusters", "timeLayerCluster"));
-  desc.add<edm::InputTag>("layer_clusters_tiles", edm::InputTag("ticlLayerTileProducer"));
-  desc.add<edm::InputTag>("layer_clusters_hfnose_tiles", edm::InputTag("ticlLayerTileHFNose"));
+  desc.add<edm::InputTag>("layer_clusters_tiles", edm::InputTag("ticlLayerTileProducer", "Test"));
+  desc.add<edm::InputTag>("layer_clusters_hfnose_tiles", edm::InputTag("ticlLayerTileHFNose", "Test"));
   desc.add<edm::InputTag>("seeding_regions", edm::InputTag("ticlSeedingRegionProducer"));
   desc.add<std::string>("patternRecognitionBy", "CA");
   desc.add<std::string>("itername", "unknown");
@@ -131,6 +146,11 @@ void TrackstersProducer::fillDescriptions(edm::ConfigurationDescriptions& descri
   pluginDescClue3D.addNode(edm::PluginDescription<PatternRecognitionFactory>("type", "CLUE3D", true));
   desc.add<edm::ParameterSetDescription>("pluginPatternRecognitionByCLUE3D", pluginDescClue3D);
 
+  // KF Plugin
+  edm::ParameterSetDescription pluginDescKF;
+  pluginDescKF.addNode(edm::PluginDescription<PatternRecognitionFactory>("type", "KF", true));
+  desc.add<edm::ParameterSetDescription>("pluginPatternRecognitionByKF", pluginDescKF);
+
   // FastJet Plugin
   edm::ParameterSetDescription pluginDescFastJet;
   pluginDescFastJet.addNode(edm::PluginDescription<PatternRecognitionFactory>("type", "FastJet", true));
@@ -142,6 +162,27 @@ void TrackstersProducer::fillDescriptions(edm::ConfigurationDescriptions& descri
 void TrackstersProducer::produce(edm::Event& evt, const edm::EventSetup& es) {
   auto result = std::make_unique<std::vector<Trackster>>();
   auto output_mask = std::make_unique<std::vector<float>>();
+  auto test = std::make_unique<std::vector<Trajectory>>();
+
+  // This was implemented to export the points of the KF
+
+  auto points_prop = std::make_unique<std::vector<GlobalPoint>>();
+  auto points_kf = std::make_unique<std::vector<GlobalPoint>>();
+
+  auto xx_prop = std::make_unique<std::vector<float>>();
+  auto xy_prop = std::make_unique<std::vector<float>>();
+  auto yy_prop = std::make_unique<std::vector<float>>();
+  auto xx_kf = std::make_unique<std::vector<float>>();
+  auto xy_kf = std::make_unique<std::vector<float>>();
+  auto yy_kf = std::make_unique<std::vector<float>>();
+
+  auto abs_fail = std::make_unique<float>();
+  auto charge_kf = std::make_unique<std::vector<float>>();
+
+
+  std::cout<<itername_<<std::endl;
+
+  // ----------
 
   const std::vector<float>& original_layerclusters_mask = evt.get(original_layerclusters_mask_token_);
   const auto& layerClusters = evt.get(clusters_token_);
@@ -170,15 +211,27 @@ void TrackstersProducer::produce(edm::Event& evt, const edm::EventSetup& es) {
                                                                                          layer_clusters_hfnose_tiles,
                                                                                          seeding_regions,
                                                                                          tfSession_);
-
     myAlgoHFNose_->makeTracksters(inputHFNose, *result, seedToTrackstersAssociation);
 
   } else {
+    std::cout<<"Servus"<<std::endl;
     const auto& layer_clusters_tiles = evt.get(layer_clusters_tiles_token_);
     const typename PatternRecognitionAlgoBaseT<TICLLayerTiles>::Inputs input(
         evt, es, layerClusters, inputClusterMask, layerClustersTimes, layer_clusters_tiles, seeding_regions, tfSession_);
 
-    myAlgo_->makeTracksters(input, *result, seedToTrackstersAssociation);
+
+    // myAlgo_->makeTracksters(input, *result, seedToTrackstersAssociation); uncomment me!
+
+    // Delete Me! This was implemented to export the points of the KF
+
+    if(itername_!="KF"){
+      myAlgo_->makeTracksters(input, *result, seedToTrackstersAssociation);
+    } else {
+      myAlgo_->makeTracksters_verbose(input, *result, *points_kf,*points_prop, *xx_kf, *xy_kf, *yy_kf, *xx_prop, *xy_prop, *yy_prop, *abs_fail,*charge_kf, seedToTrackstersAssociation);   
+    }
+
+    // ----------------------------------------------------------------
+
   }
   // Now update the global mask and put it into the event
   output_mask->reserve(original_layerclusters_mask.size());
@@ -198,4 +251,15 @@ void TrackstersProducer::produce(edm::Event& evt, const edm::EventSetup& es) {
 
   evt.put(std::move(result));
   evt.put(std::move(output_mask));
+  evt.put(std::move(points_prop),"Points Prop");
+  evt.put(std::move(points_kf),"Points KF");
+  evt.put(std::move(xx_prop),"xx Prop");
+  evt.put(std::move(xy_prop),"xy Prop");
+  evt.put(std::move(yy_prop),"yy Prop");
+  evt.put(std::move(xx_kf),"xx KF");
+  evt.put(std::move(xy_kf),"xy KF");
+  evt.put(std::move(yy_kf),"yy KF");
+  evt.put(std::move(test),"TEST Producer");
+  evt.put(std::move(abs_fail),"Abs Fail");
+  evt.put(std::move(charge_kf),"Charge");
 }

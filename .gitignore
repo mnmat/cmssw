@@ -1,3 +1,7 @@
+hgcal_private/
+Playground/
+HGCTracking/
+Analyzer/
 __init__.py
 *.pyc
 .*.swp

@@ -1,0 +1,18 @@
+01-Jun-2022 11:43:57 CEST  Initiating request to open file file:/afs/cern.ch/user/m/mmatthew/CMSSW_12_3_0_pre5/src/hgcal_private/production/Eta_16/singlemuon_flatEGun_hgcalCenter/step3/step3_singlemuon_e100GeV_nopu.root
+01-Jun-2022 11:44:21 CEST  Successfully opened file file:/afs/cern.ch/user/m/mmatthew/CMSSW_12_3_0_pre5/src/hgcal_private/production/Eta_16/singlemuon_flatEGun_hgcalCenter/step3/step3_singlemuon_e100GeV_nopu.root
+
+TrksIdx: 0
+ bary: (10.6407,-194.901,463.461) baryEta: 1.59954 baryPhi: -1.51625
+ raw_energy: 1.13398 raw_em_energy: 0
+ raw_pt: 0.430689 raw_em_pt: 0
+ seedIdx: 0
+ Probs: (h):0.6464 (gam):0.2913 (e):0.0604 (pi0):0.0004 (h0):0.0004 (!):0.0004 (mu):0.0004 (?):0.0003 
+
+ time: -99+/--1 vertices: 11 average usage: 1
+ link connections: 0
+ Seeding Track:
+   p: 100.642 pt: 39.0459 charge: -1 eta: 1.60003 outerEta: 1.6 phi: -1.53695 outerPhi: -1.51002
+ Best CaloParticles Matches:
+   0(0.000432394):13 simCl size:1 energy:99.9979 pt:38.7968 momentum:(1.30924,-38.7747,92.1649)
+
+01-Jun-2022 11:44:48 CEST  Closed file file:/afs/cern.ch/user/m/mmatthew/CMSSW_12_3_0_pre5/src/hgcal_private/production/Eta_16/singlemuon_flatEGun_hgcalCenter/step3/step3_singlemuon_e100GeV_nopu.root
