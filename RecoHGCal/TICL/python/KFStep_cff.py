@@ -13,14 +13,12 @@ filteredLayerClustersKF = _filteredLayerClustersProducer.clone(
     min_cluster_size = 2, # inclusive
     algo_number = 8,
     iteration_label = "KF",
-    LayerClustersInputMask = "ticlTrackstersHAD"
 )
 
 # PATTERN RECOGNITION
 
 ticlTrackstersKF = _trackstersProducer.clone(
     filtered_mask = "filteredLayerClustersKF:KF",
-    original_mask = "ticlTrackstersHAD",
     layer_clusters_tiles = "ticlRecHitTile:Test",
     seeding_regions = "ticlSeedingTrk",
     itername = "KF",
@@ -33,4 +31,3 @@ ticlTrackstersKF = _trackstersProducer.clone(
 ticlKFStepTask = cms.Task(ticlSeedingTrk
     ,filteredLayerClustersKF
     ,ticlTrackstersKF)
-
