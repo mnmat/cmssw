@@ -65,7 +65,10 @@ namespace ticl {
                                 std::vector<float>& xy_prop,
                                 std::vector<float>& yy_prop,
                                 float& abs_fail,
-                                std::vector<float>& charge_kf,
+                                std::vector<int>& charge_kf,
+                                std::vector<int>& charge_prop,
+                                std::vector<int>& detID_kf,
+                                std::vector<int>& detID_prop,
                                 std::unordered_map<int, std::vector<int>>& seedToTracksterAssociation){};
 
     // --------------------------------------------------------------

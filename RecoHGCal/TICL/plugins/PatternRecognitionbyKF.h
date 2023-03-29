@@ -42,6 +42,7 @@
 #include "TrackingTools/TrajectoryState/interface/TrajectoryStateOnSurface.h"
 
 
+
 namespace ticl {
   template <typename TILES>
   class PatternRecognitionbyKF final : public PatternRecognitionAlgoBaseT<TILES> {
@@ -93,7 +94,10 @@ namespace ticl {
                         std::vector<float>& xy_prop,
                         std::vector<float>& yy_prop,
                         float& abs_fail,
-                        std::vector<float>& charge_kf,
+                        std::vector<int>& charge_kf,
+                        std::vector<int>& charge_prop,
+                        std::vector<int>& detID_kf,
+                        std::vector<int>& detID_prop,
                         std::unordered_map<int, std::vector<int>>& seedToTracksterAssociation) override;
 
 /*
@@ -118,6 +122,9 @@ namespace ticl {
     void dumpTiles(const TILES&) const;
 
     edm::ESGetToken<CaloGeometry, CaloGeometryRecord> caloGeomToken_;
+    const int test_;
+    const std::vector<double> radlen_;
+    const std::vector<double> xi_;
     const std::string propName_;
     const std::string propNameOppo_;
     //const std::string propNameRK_;
@@ -147,8 +154,6 @@ namespace ticl {
     edm::ESHandle<Propagator> propagatorOppo_;
 
     //edm::ESHandle<Propagator> propagatorRK_;
-
-    std::map<std::string, float> xi_;
 
     hgcal::RecHitTools rhtools_;
     tensorflow::Session* eidSession_;

@@ -1,5 +1,5 @@
-// Author: Marco Rovere - marco.rovere@cern.ch
-// Date: 04/2021
+// Author: Mark Matthewman - mark.matthewman@cern.ch
+// Date: 05/2022
 #include <algorithm>
 #include <set>
 #include <vector>
@@ -47,14 +47,14 @@
 
 #include "TrackingTools/TrajectoryState/interface/TrajectoryStateOnSurface.h"
 
-
-
 using namespace ticl;
 
 template <typename TILES>
 PatternRecognitionbyKF<TILES>::PatternRecognitionbyKF(const edm::ParameterSet &conf, edm::ConsumesCollector iC)
     : PatternRecognitionAlgoBaseT<TILES>(conf, iC),
       caloGeomToken_(iC.esConsumes<CaloGeometry, CaloGeometryRecord>()),
+      radlen_(conf.getParameter<std::vector<double>>("radlen")),
+      xi_(conf.getParameter<std::vector<double>>("xi")),
       propName_(conf.getParameter<std::string>("propagator")),
       propNameOppo_(conf.getParameter<std::string>("propagatorOpposite")),
       bfieldtoken_(iC.esConsumes<MagneticField, IdealMagneticFieldRecord>()),
@@ -65,26 +65,14 @@ PatternRecognitionbyKF<TILES>::PatternRecognitionbyKF(const edm::ParameterSet &c
       trackToken_(iC.consumes<reco::TrackCollection>(conf.getParameter<edm::InputTag>("tracks"))),
       hgcalRecHitsEEToken_(iC.consumes<HGCRecHitCollection>(conf.getParameter<edm::InputTag>("HGCEEInput"))),
       hgcalRecHitsFHToken_(iC.consumes<HGCRecHitCollection>(conf.getParameter<edm::InputTag>("HGCFHInput"))),
-      hgcalRecHitsBHToken_(iC.consumes<HGCRecHitCollection>(conf.getParameter<edm::InputTag>("HGCBHInput"))),
-      eidInputName_(conf.getParameter<std::string>("eid_input_name")),
-      eidOutputNameEnergy_(conf.getParameter<std::string>("eid_output_name_energy")),
-      eidOutputNameId_(conf.getParameter<std::string>("eid_output_name_id")),
-      eidMinClusterEnergy_(conf.getParameter<double>("eid_min_cluster_energy")),
-      eidNLayers_(conf.getParameter<int>("eid_n_layers")),
-      eidNClusters_(conf.getParameter<int>("eid_n_clusters")),
-      materialbudget_(conf.getParameter<std::string>("materialbudget")){
-
-      std::cout << propName_ << std::endl;
-      std::cout << materialbudget_ <<std::endl;
-
-
+      hgcalRecHitsBHToken_(iC.consumes<HGCRecHitCollection>(conf.getParameter<edm::InputTag>("HGCBHInput"))){
 };
 
 template<typename TILES>
 void PatternRecognitionbyKF<TILES>::calculateLocalError(DetId id, const HGCalDDDConstants* ddd){
   if(rhtools_.isSilicon(id)){
     float A;
-    if(rhtools_.getSiThickness(id) < 200) A = 1.18; // TODO: replace with non-hardcoded value; hardcoded value from TDR
+    if(rhtools_.getSiThickness(id) > 150) A = 1.18; // TODO: replace with non-hardcoded value; hardcoded value from TDR
     else  A = 0.52; // TODO: replace with non-hardcoded value; hardcoded value from TDR
     float a = sqrt(2*A/(3*sqrt(3)));
     double varx = pow(a,4)*5*sqrt(3)/(16*A); // x
@@ -116,18 +104,6 @@ void PatternRecognitionbyKF<TILES>::calculateLocalError(DetId id, const HGCalDDD
 
     double varxy = 1/(16*A)*(pow(rmax,4)-pow(rmin,4))*(cos(2*phimin)-cos(2*phimax)) - ex*ey;
     lerr[id] = LocalError(varx, varxy, vary);
-    //std::cout << "Phi: " << phi << "\t DPhi: " << dphi << "\t r:" << rmin << "\t R:" << rmax << "\t varx: " << varx << "\t vary: " << vary<< std::endl;
-
-    /*
-    std::cout<< ddd->getTrFormN()<<std::endl;
-    auto lfb = ddd->getParameter()->layerFrontBH_;
-    for(auto it: lfb){
-      std::cout << it << std::endl;
-    }
-    */
-    //std::cout<<"First: "<<rhtools_.getScintDEtaDPhi(id).first<<"\t Second: "<<rhtools_.getScintDEtaDPhi(id).second<<std::endl;
-    //std::cout<< ddd->getParameter()->scintCellSize(rhtools_.getLayer(id))<<std::endl;
-    //std::cout << ddd->getTypeTrap(rhtools_.getLayer(id))<<std::endl;
   }
 } 
 
@@ -175,13 +151,10 @@ PatternRecognitionbyKF<TILES>::advanceOneLayer(const Start &start, const HGCDisk
 
   std::vector<TempTrajectory> ret;
   int depth = disk->layer()+1;
-  std::cout << "Layer: " << depth << std::endl;
 
   const Propagator &prop = (direction == alongMomentum ? *propagator_ : *propagatorOppo_);
   TrajectoryStateOnSurface tsos = prop.propagate(start, disk->surface());
-  std::cout << "IsValid: " << tsos.isValid() << std::endl;
   if (!tsos.isValid()) return ret;
-  std::cout << "First Propagation done" << std::endl;
   float r = sqrt(pow(tsos.globalPosition().x(),2)+pow(tsos.globalPosition().y(),2));
   if (((disk->rmin() > r) && (!isSilicon)) || (((r > disk->rmax()) && (isSilicon)))) {
     std::cout << "Entered Switchdisk" << std::endl;
@@ -194,7 +167,6 @@ PatternRecognitionbyKF<TILES>::advanceOneLayer(const Start &start, const HGCDisk
 
   // Collect hits with estimate
   depth = disk->layer()+1;
-  std::cout << "Layer: " << depth << std::endl;
   auto meas = measurements(tsos, *estimator_, tiles, depth);
   std::sort(meas.begin(), meas.end(),TrajMeasLessEstim());
 
@@ -227,106 +199,6 @@ void PatternRecognitionbyKF<TILES>::makeDisks(int subdet, int disks, const CaloG
     // const CaloSubdetectorGeometry *subGeom = subdet < 5 ? geom_->getSubdetectorGeometry(DetId::Forward, subdet) :
     //                                                       geom_->getSubdetectorGeometry(DetId::Hcal, 2);
 
-
-
-  // FIXME: Load data from xml file or switch between cases
-
-  std::vector<float> radlen_v{0.287578231425533,
-    0.652574432663379,
-    0.519126219884760,
-    0.629329696701607,
-    0.470164608944423,
-    0.656926010668083,
-    0.505405478217971,
-    0.645561815316222,
-    0.476905911172138,
-    0.657129361462176,
-    0.494426335907814,
-    0.661767816723196,
-    0.476697696751714,
-    0.656792486637129,
-    0.488911438964815,
-    0.659428797546396,
-    0.519388799886432,
-    0.636443052965693,
-    0.690440833716593,
-    0.656083145894548,
-    0.710648981189018,
-    0.654738292372854,
-    0.711716272998115,
-    0.659031423898539,
-    0.708941939031308,
-    0.661965595922196,
-    2.868636061036860,
-    2.988866189877523,
-    2.989715911253076,
-    2.991436303780332,
-    2.989599621564430,
-    3.002821764306962,
-    2.990356629240060,
-    2.989573639239810,
-    2.988685711688429,
-    2.989414475081340,
-    2.990114765024607,
-    4.164871621966520,
-    4.144585482635521,
-    4.058009456314032,
-    4.137460795188776,
-    4.138177409380636,
-    4.129951519389949,
-    4.060009792683141,
-    4.133359022913795,
-    4.134560408406477,
-    4.13575162757734};
-  std::vector<float> xi_v{0.0005110512059408830,
-    0.0006831878206769110,
-    0.0004973065046027600,
-    0.0007055116075429950,
-    0.0004840811987581450,
-    0.0006815847792258840,
-    0.000498840698299919,
-    0.0006929527987818480,
-    0.0004884872008263560,
-    0.0006792860873528980,
-    0.0005021346124779450,
-    0.0006831033295305010,
-    0.0004904917404416280,
-    0.0006787315453395390,
-    0.0005011512213829390,
-    0.0006806752816281460,
-    0.0004986591763045000,
-    0.0007028556604867630,
-    0.0004469247382095310,
-    0.0006784016152473840,
-    0.0004576588817242630,
-    0.0006788591171105650,
-    0.00045805568196347000,
-    0.0006806926713052890,
-    0.00045644714532507900,
-    0.0006829423776194960,
-    0.0010145335633696400,
-    0.0009952585774521000,
-    0.00099472493124547,
-    0.00099461390470062,
-    0.000994829170470436,
-    0.0009973866163567710,
-    0.000994978298107381,
-    0.0009940245879949960,
-    0.0009951150189777040,
-    0.0009946645572410690,
-    0.0009948166566158740,
-    0.0010016131009442000,
-    0.0009996724454001690,
-    0.0009927229142128690,
-    0.0009989274416790460,
-    0.000998695705935224,
-    0.0009987097209326370,
-    0.0009919024127419550,
-    0.000998719611624487,
-    0.0009972693538724180,
-    0.0009976091170762653};
-
-
     const CaloSubdetectorGeometry *subGeom = geom_->getSubdetectorGeometry(DetId::Detector(subdet), ForwardSubdetector::ForwardEmpty);
     auto geomEE = static_cast<const HGCalGeometry*>(subGeom);
     const HGCalDDDConstants* ddd = &(geomEE->topology().dddConstants());
@@ -338,7 +210,6 @@ void PatternRecognitionbyKF<TILES>::makeDisks(int subdet, int disks, const CaloG
     //if (hgctracking::g_debuglevel > 0) std::cout << "on subdet " << subdet << " I got a total of " << ids.size() << " det ids " << std::endl;
   
     for (auto & i : ids) {
-
         calculateLocalError(i,ddd);
 
         const GlobalPoint & pos = rhtools_.getPosition(i); 
@@ -353,24 +224,14 @@ void PatternRecognitionbyKF<TILES>::makeDisks(int subdet, int disks, const CaloG
         if (rho < rmin[layer]) rmin[layer] = rho;
     }
 
-
-  int layer = ddd->getLayerOffset();
+  int layer = ddd->getLayerOffset(); // FIXME: Can be made less stupid
   for (int i = 0; i < disks; ++i) {
-    float radlen=-1, xi=-1;
-    radlen = radlen_v[layer];
-    xi = xi_v[layer];
-
     if (countPos[i]) {
-      //printf("Positive disk %2d at z = %+7.2f   %6.1f <= rho <= %6.1f\n", i+1, zsumPos[i]/countPos[i], rmin[i], rmax[i]);
-              //addDisk(new GeomDet(subdet, +1, i+1, zsumPos[i]/countPos[i], rmin[i], rmax[i], radlen, xi));
-      HGCDiskGeomDet* disk = new HGCDiskGeomDet(subdet, +1, layer, zsumPos[i]/countPos[i], rmin[i], rmax[i], radlen, xi);
+      HGCDiskGeomDet* disk = new HGCDiskGeomDet(subdet, +1, layer, zsumPos[i]/countPos[i], rmin[i], rmax[i], radlen_[layer], xi_[layer]);
       addDisk(disk);
     }
     if (countNeg[i]) {
-
-      //printf("Negative disk %2d at z = %+7.2f   %6.1f <= rho <= %6.1f\n", i+1, zsumNeg[i]/countPos[i], rmin[i], rmax[i]);
-      //addDisk(new GeomDet(subdet, -1, i+1, zsumNeg[i]/countNeg[i], rmin[i], rmax[i], radlen, xi));
-      HGCDiskGeomDet* disk = new HGCDiskGeomDet(subdet, -1, layer, zsumNeg[i]/countNeg[i], rmin[i], rmax[i], radlen, xi);
+      HGCDiskGeomDet* disk = new HGCDiskGeomDet(subdet, -1, layer, zsumNeg[i]/countNeg[i], rmin[i], rmax[i], radlen_[layer], xi_[layer]);
       addDisk(disk);  
     }
     layer++;
@@ -440,7 +301,6 @@ std::vector<TrajectoryMeasurement> PatternRecognitionbyKF<TILES>::measurements(
           //auto const_iterator =  it;
           //objref = ref_type(handle, const_iterator)
           GlobalPoint globalpoint = rhtools_.getPosition(it->first);
-          std::cout<< "Zpos: " << globalpoint.z() << std::endl;
           LocalPoint localpoint = tsos.surface().toLocal(globalpoint); // 
   
           float energy = rec->energy();
@@ -453,14 +313,27 @@ std::vector<TrajectoryMeasurement> PatternRecognitionbyKF<TILES>::measurements(
           auto hitptr = std::make_shared<HGCTrackingRecHit>(detid,localpoint,lerr[detid],energy);
 
 
+
         // Test Estimator
 
           auto mest_pair = mest.estimate(tsos, *hitptr);
           //std::cout << "Est Firs: " << mest_pair.first << "\t" <<"Est Second: " <<  mest_pair.second << std::endl;
 
 
+          int testid = -2011376540;
           if(mest_pair.first){
             ret.emplace_back(tsos,hitptr,mest_pair.second);
+            //int rawid = ret.back().recHit()->rawId();
+            //std::cout << "TrackingRecHit valid?: " << ret.back().recHit()->isValid() << std::endl;
+            //std::cout << "Raw ID: " << rawid << std::endl;
+            //std::cout << "Type RawID" << typeid(testid).name() << std::endl;
+            //auto geographicalId = ret.back().recHit()->geographicalId();
+            //std::cout << "Got GeographicalID" << std::endl;
+            //std::cout << testid << std::endl;
+            auto testgeom = rhtools_.getSubdetectorGeometry(testid);
+            std::cout << "Got SubdetectorGeometry" << std::endl;
+            //std::cout <<"Compare Geographical ID and DetID: " << (rawid == detid) << std::endl;
+            if (rhtools_.isSilicon(testid)) std::cout << "Silicon Thickness of GeographicalID: " <<rhtools_.getSiThickness(testid) << std::endl;
           }
         }
       }
@@ -489,7 +362,10 @@ void PatternRecognitionbyKF<TILES>::makeTracksters_verbose(
     std::vector<float>& xy_prop,
     std::vector<float>& yy_prop,
     float& abs_fail,
-    std::vector<float>& charge_kf,
+    std::vector<int>& charge_kf,
+    std::vector<int>& charge_prop,
+    std::vector<int>& detID_kf,
+    std::vector<int>& detID_prop,
     std::unordered_map<int, std::vector<int>> &seedToTracksterAssociation) {
 
   // Initializing (maybe export to own function)
@@ -638,25 +514,29 @@ void PatternRecognitionbyKF<TILES>::makeTracksters_verbose(
   //TrajectoryStateOnSurface tsos = prop.propagate(fts, disk->surface());
   //GlobalPoint gp = tsos.globalPosition();
 
-  std::cout << "Advance One Layer" << std::endl;
   std::vector<TempTrajectory> traj = advanceOneLayer(fts, disk, disks, tiles, direction, isSilicon, TempTrajectory(direction,0));
   if (traj.empty()){
     std::cout << "No track found!!!! Exited PatternRecognitionbyKF" << std::endl; 
     abs_fail+=1;
     return;
   }
-  std::cout << "Exited Advance One Layer" << std::endl;
-  TrajectoryStateOnSurface tsos_prop = traj.back().lastMeasurement().predictedState();
+  auto lm = traj.back().lastMeasurement();
+  TrajectoryStateOnSurface tsos_prop = lm.predictedState();
   points_prop.push_back(tsos_prop.globalPosition());
   xx_prop.push_back(tsos_prop.localError().positionError().xx());
   xy_prop.push_back(tsos_prop.localError().positionError().xy());
   yy_prop.push_back(tsos_prop.localError().positionError().yy());
-  TrajectoryStateOnSurface tsos_kf = traj.back().lastMeasurement().updatedState();
+  charge_prop.push_back(tsos_prop.charge());
+  detID_prop.push_back(lm.recHit()->geographicalId());
+  TrajectoryStateOnSurface tsos_kf = lm.updatedState();
   points_kf.push_back(tsos_kf.globalPosition());
   xx_kf.push_back(tsos_kf.localError().positionError().xx());
   xy_kf.push_back(tsos_kf.localError().positionError().xy());
   yy_kf.push_back(tsos_kf.localError().positionError().yy());
-
+  charge_kf.push_back(tsos_kf.charge());
+  detID_kf.push_back(lm.recHit()->geographicalId().rawId());
+  //std::cout<<"GeographicalId: "<<(lm.recHit()->geographicalId().rawId())<<std::endl;
+  //energy_kf.push_back(((dynamic_cast<const HGCTrackingRecHit&>(*lm.recHit())).energy()));
 
   std::vector<TempTrajectory> traj_prop;
   std::vector<TempTrajectory> traj_kf;
@@ -664,8 +544,6 @@ void PatternRecognitionbyKF<TILES>::makeTracksters_verbose(
   traj_kf.push_back(traj.back());
 
   // Loop over all disks
-
-  std::cout << "Start KF" << std::endl;
 
   unsigned int depth = 2;
   for(disk = nextDisk(disk, direction, disks, isSilicon); disk != nullptr; disk = nextDisk(disk, direction, disks, isSilicon), depth++){
@@ -675,12 +553,16 @@ void PatternRecognitionbyKF<TILES>::makeTracksters_verbose(
       TrajectoryStateOnSurface start = cand.lastMeasurement().updatedState();
       std::vector<TempTrajectory> hisTrajs = advanceOneLayer(start, disk, disks, tiles, direction, isSilicon, cand);
       for(TempTrajectory & t : hisTrajs){
-        charge_kf.push_back(t.lastMeasurement().updatedState().charge());
+        auto lm = t.lastMeasurement();
+        charge_kf.push_back(lm.updatedState().charge());
         newcands_kf.push_back(t);
-        points_kf.push_back(t.lastMeasurement().updatedState().globalPosition());
-        xx_kf.push_back(t.lastMeasurement().updatedState().localError().positionError().xx());
-        xy_kf.push_back(t.lastMeasurement().updatedState().localError().positionError().xy());
-        yy_kf.push_back(t.lastMeasurement().updatedState().localError().positionError().yy());
+        points_kf.push_back(lm.updatedState().globalPosition());
+        xx_kf.push_back(lm.updatedState().localError().positionError().xx());
+        xy_kf.push_back(lm.updatedState().localError().positionError().xy());
+        yy_kf.push_back(lm.updatedState().localError().positionError().yy());
+        detID_kf.push_back(lm.recHit()->geographicalId());
+        //std::cout<<"GeographicalId: "<<(lm.recHit()->geographicalId().rawId())<<std::endl;
+        //energy_kf.push_back(((dynamic_cast<const HGCTrackingRecHit&>(*lm.recHit())).energy()));
         break;
       }
     }
@@ -719,8 +601,6 @@ void PatternRecognitionbyKF<TILES>::makeTracksters_verbose(
 
   */
 
-  std::cout << "Start Propagator" << std::endl;
-
   direction = alongMomentum;
   disk = (zside > 0 ? disksPos_ : disksNeg_).front();
   isSilicon=1;
@@ -730,15 +610,18 @@ void PatternRecognitionbyKF<TILES>::makeTracksters_verbose(
     for(TempTrajectory & cand : traj_prop){
 
       TrajectoryStateOnSurface start = cand.lastMeasurement().predictedState();
-      std::cout <<"Propagator:" << start.globalPosition().z() << std::endl;
       std::vector<TempTrajectory> hisTrajs = advanceOneLayer(start, disk, disks, tiles, direction, isSilicon, cand);
 
       for(TempTrajectory & t : hisTrajs){
+        auto lm = t.lastMeasurement();
         newcands_prop.push_back(t);
-        points_prop.push_back(t.lastMeasurement().predictedState().globalPosition());        
-        xx_prop.push_back(t.lastMeasurement().predictedState().localError().positionError().xx());
-        xy_prop.push_back(t.lastMeasurement().predictedState().localError().positionError().yy());
-        yy_prop.push_back(t.lastMeasurement().predictedState().localError().positionError().xy());
+        charge_prop.push_back(lm.predictedState().charge());
+
+        points_prop.push_back(lm.predictedState().globalPosition());        
+        xx_prop.push_back(lm.predictedState().localError().positionError().xx());
+        xy_prop.push_back(lm.predictedState().localError().positionError().yy());
+        yy_prop.push_back(lm.predictedState().localError().positionError().xy());
+        detID_prop.push_back(lm.recHit()->geographicalId());
         
         break;
       }
@@ -967,173 +850,16 @@ void PatternRecognitionbyKF<TILES>::dumpTiles(const TILES &tiles) const {
   std::cout << "Number of RecHits: " << count << std::endl;
 }
 
-
-
-template <typename TILES>
-void PatternRecognitionbyKF<TILES>::energyRegressionAndID(const std::vector<reco::CaloCluster> &layerClusters,
-                                                              const tensorflow::Session *eidSession,
-                                                              std::vector<Trackster> &tracksters) {
-  // Energy regression and particle identification strategy:
-  //
-  // 1. Set default values for regressed energy and particle id for each trackster.
-  // 2. Store indices of tracksters whose total sum of cluster energies is above the
-  //    eidMinClusterEnergy_ (GeV) treshold. Inference is not applied for soft tracksters.
-  // 3. When no trackster passes the selection, return.
-  // 4. Create input and output tensors. The batch dimension is determined by the number of
-  //    selected tracksters.
-  // 5. Fill input tensors with layer cluster features. Per layer, clusters are ordered descending
-  //    by energy. Given that tensor data is contiguous in memory, we can use pointer arithmetic to
-  //    fill values, even with batching.
-  // 6. Zero-fill features for empty clusters in each layer.
-  // 7. Batched inference.
-  // 8. Assign the regressed energy and id probabilities to each trackster.
-  //
-  // Indices used throughout this method:
-  // i -> batch element / trackster
-  // j -> layer
-  // k -> cluster
-  // l -> feature
-
-  // set default values per trackster, determine if the cluster energy threshold is passed,
-  // and store indices of hard tracksters
-  std::vector<int> tracksterIndices;
-  std::cout<<"energyRegressionAndID" <<std::endl;
-  for (int i = 0; i < static_cast<int>(tracksters.size()); i++) {
-    // calculate the cluster energy sum (2)
-    // note: after the loop, sumClusterEnergy might be just above the threshold which is enough to
-    // decide whether to run inference for the trackster or not
-    float sumClusterEnergy = 0.;
-    std::cout << "Regressed Energy" << tracksters[i].regressed_energy() <<std::endl;
-    for (const unsigned int &vertex : tracksters[i].vertices()) {
-      sumClusterEnergy += static_cast<float>(layerClusters[vertex].energy());
-      // there might be many clusters, so try to stop early
-      if (sumClusterEnergy >= eidMinClusterEnergy_) {
-        // set default values (1)
-        tracksters[i].setRegressedEnergy(0.f);
-        tracksters[i].zeroProbabilities();
-        tracksterIndices.push_back(i);
-        break;
-      }
-    }
-  }
-
-  std::cout << "Regressed Energy" << tracksters.size() <<std::endl;
-
-  // do nothing when no trackster passes the selection (3)
-  int batchSize = static_cast<int>(tracksterIndices.size());
-  if (batchSize == 0) {
-    return;
-  }
-
-  // create input and output tensors (4)
-  tensorflow::TensorShape shape({batchSize, eidNLayers_, eidNClusters_, eidNFeatures_});
-  tensorflow::Tensor input(tensorflow::DT_FLOAT, shape);
-  tensorflow::NamedTensorList inputList = {{eidInputName_, input}};
-
-  std::vector<tensorflow::Tensor> outputs;
-  std::vector<std::string> outputNames;
-  if (!eidOutputNameEnergy_.empty()) {
-    outputNames.push_back(eidOutputNameEnergy_);
-  }
-  if (!eidOutputNameId_.empty()) {
-    outputNames.push_back(eidOutputNameId_);
-  }
-
-  // fill input tensor (5)
-  for (int i = 0; i < batchSize; i++) {
-    const Trackster &trackster = tracksters[tracksterIndices[i]];
-
-    // per layer, we only consider the first eidNClusters_ clusters in terms of energy, so in order
-    // to avoid creating large / nested structures to do the sorting for an unknown number of total
-    // clusters, create a sorted list of layer cluster indices to keep track of the filled clusters
-    std::vector<int> clusterIndices(trackster.vertices().size());
-    for (int k = 0; k < (int)trackster.vertices().size(); k++) {
-      clusterIndices[k] = k;
-    }
-    sort(clusterIndices.begin(), clusterIndices.end(), [&layerClusters, &trackster](const int &a, const int &b) {
-      return layerClusters[trackster.vertices(a)].energy() > layerClusters[trackster.vertices(b)].energy();
-    });
-
-    // keep track of the number of seen clusters per layer
-    std::vector<int> seenClusters(eidNLayers_);
-
-    // loop through clusters by descending energy
-    for (const int &k : clusterIndices) {
-      // get features per layer and cluster and store the values directly in the input tensor
-      const reco::CaloCluster &cluster = layerClusters[trackster.vertices(k)];
-      int j = rhtools_.getLayerWithOffset(cluster.hitsAndFractions()[0].first) - 1;
-      if (j < eidNLayers_ && seenClusters[j] < eidNClusters_) {
-        // get the pointer to the first feature value for the current batch, layer and cluster
-        float *features = &input.tensor<float, 4>()(i, j, seenClusters[j], 0);
-
-        // fill features
-        *(features++) = float(cluster.energy() / float(trackster.vertex_multiplicity(k)));
-        *(features++) = float(std::abs(cluster.eta()));
-        *(features) = float(cluster.phi());
-
-        // increment seen clusters
-        seenClusters[j]++;
-      }
-    }
-
-    // zero-fill features of empty clusters in each layer (6)
-    for (int j = 0; j < eidNLayers_; j++) {
-      for (int k = seenClusters[j]; k < eidNClusters_; k++) {
-        float *features = &input.tensor<float, 4>()(i, j, k, 0);
-        for (int l = 0; l < eidNFeatures_; l++) {
-          *(features++) = 0.f;
-        }
-      }
-    }
-  }
-
-  // run the inference (7)
-  tensorflow::run(const_cast<tensorflow::Session *>(eidSession), inputList, outputNames, &outputs);
-
-  // store regressed energy per trackster (8)
-
-// get the pointer to the energy tensor, dimension is batch x 1
-	//float *energy = outputs[0].flat<float>().data();
-
-
-  float *energy;
-  float e = 654321.0f;
-  energy = &e;
-  for (const int &i : tracksterIndices) {
-    tracksters[i].setRegressedEnergy(*(energy++));
-  }
-
-  // store id probabilities per trackster (8)
-  // get the pointer to the id probability tensor, dimension is batch x id_probabilities.size()
-  int probsIdx = eidOutputNameEnergy_.empty() ? 0 : 1;
-  //float *probs = outputs[probsIdx].flat<float>().data();
-  float *probs;
-  float val=0.42f;
-  probs=&val;
-
-  for (const int &i : tracksterIndices) {
-    tracksters[i].setProbabilities(probs);
-    probs += tracksters[i].id_probabilities().size();
-  }
-  std::cout<<"End of PID and EREG" <<std::endl;
-
-}
-
 template <typename TILES>
 void PatternRecognitionbyKF<TILES>::fillPSetDescription(edm::ParameterSetDescription &iDesc) {
   iDesc.add<int>("algo_verbosity", 0);
   //iDesc.add<std::string>("propagator", "RungeKuttaTrackerPropagator"); //PropagatorWithMaterial
+  iDesc.add<std::vector<double>>("radlen",{});
+  iDesc.add<std::vector<double>>("xi",{});
   iDesc.add<std::string>("propagator", "PropagatorWithMaterial"); //PropagatorWithMaterial
   iDesc.add<std::string>("propagatorOpposite", "PropagatorWithMaterialOpposite");
   iDesc.add<std::string>("estimator", "Chi2");
   iDesc.add<edm::InputTag>("tracks", edm::InputTag("generalTracks"));
-  iDesc.add<std::string>("eid_input_name", "input");
-  iDesc.add<std::string>("eid_output_name_energy", "output/regressed_energy");
-  iDesc.add<std::string>("eid_output_name_id", "output/id_probabilities");
-  iDesc.add<double>("eid_min_cluster_energy", 1.);
-  iDesc.add<int>("eid_n_layers", 50);
-  iDesc.add<int>("eid_n_clusters", 10);
-  iDesc.add<std::string>("materialbudget", "Val"); //"Val", "AG", "custom"
   iDesc.add<edm::InputTag>("HGCEEInput", edm::InputTag("HGCalRecHit", "HGCEERecHits"));
   iDesc.add<edm::InputTag>("HGCFHInput", edm::InputTag("HGCalRecHit", "HGCHEFRecHits"));
   iDesc.add<edm::InputTag>("HGCBHInput", edm::InputTag("HGCalRecHit", "HGCHEBRecHits"));
