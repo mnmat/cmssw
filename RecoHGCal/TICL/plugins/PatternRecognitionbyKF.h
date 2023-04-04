@@ -4,43 +4,28 @@
 #ifndef __RecoHGCal_TICL_PRbyKF_H__
 #define __RecoHGCal_TICL_PRbyKF_H__
 #include <memory>  // unique_ptr
-#include "RecoHGCal/TICL/interface/PatternRecognitionAlgoBase.h"
-#include "RecoLocalCalo/HGCalRecAlgos/interface/RecHitTools.h"
 
 #include "DataFormats/TrackReco/interface/Track.h"
 #include "DataFormats/TrackReco/interface/TrackFwd.h"
+#include "DataFormats/HGCRecHit/interface/HGCRecHitCollections.h"
 
-#include "TrackingTools/TrajectoryState/interface/TrajectoryStateTransform.h"
+#include "Geometry/CommonTopologies/interface/HGCDiskGeomDet.h"
+#include "Geometry/HGCalGeometry/interface/HGCalGeometry.h"
 
 #include "MagneticField/Records/interface/IdealMagneticFieldRecord.h"
 #include "MagneticField/Engine/interface/MagneticField.h"
 
-#include "TrackingTools/PatternTools/interface/Trajectory.h"
+#include "RecoHGCal/TICL/interface/PatternRecognitionAlgoBase.h"
+
+#include "RecoLocalCalo/HGCalRecAlgos/interface/RecHitTools.h"
+
+#include "TrackingTools/TrajectoryState/interface/TrajectoryStateOnSurface.h"
+#include "TrackingTools/PatternTools/interface/TrajectoryStateUpdator.h"
 #include "TrackingTools/PatternTools/interface/TempTrajectory.h"
-
-#include "DataFormats/Common/interface/Ptr.h"
-#include "DataFormats/Common/interface/PtrVector.h"
-#include "DataFormats/Common/interface/RefProd.h"
-#include "DataFormats/Common/interface/Ref.h"
-#include "DataFormats/Common/interface/RefVector.h"
-#include "DataFormats/Provenance/interface/Provenance.h"
-
-
 #include "TrackingTools/GeomPropagators/interface/Propagator.h"
 #include "TrackingTools/Records/interface/TrackingComponentsRecord.h"
-
-#include "Geometry/CommonTopologies/interface/HGCDiskGeomDet.h"
-#include "DataFormats/HGCTrackingRecHit/interface/HGCTrackingRecHit.h"
-
-#include "DataFormats/HGCRecHit/interface/HGCRecHitCollections.h"
 #include "TrackingTools/KalmanUpdators/interface/Chi2MeasurementEstimatorBase.h"
 #include "TrackingTools/KalmanUpdators/interface/Chi2MeasurementEstimator.h"
-
-#include "TrackingTools/PatternTools/interface/TrajectoryStateUpdator.h"
-
-#include "Geometry/HGCalCommonData/interface/HGCalDDDConstants.h"
-#include "TrackingTools/TrajectoryState/interface/TrajectoryStateOnSurface.h"
-
 
 
 namespace ticl {
@@ -50,137 +35,83 @@ namespace ticl {
     PatternRecognitionbyKF(const edm::ParameterSet& conf, edm::ConsumesCollector);
     ~PatternRecognitionbyKF() override = default;
 
-    template<class Start>
-    std::vector<TempTrajectory>
-    advanceOneLayer(const Start &start, 
-                    const HGCDiskGeomDet * disk, 
-                    const std::vector<HGCDiskGeomDet *>  &disks, 
-                    const TILES &tiles,
-                    PropagationDirection direction, 
-                    bool &isSilicon,
-                    TempTrajectory traj);
-
-    const HGCDiskGeomDet * nextDisk(const HGCDiskGeomDet * from, 
-                    PropagationDirection direction, 
-                    const std::vector<HGCDiskGeomDet *> &vec,
-                    bool isSilicon) const;
-
-    const HGCDiskGeomDet * switchDisk(const HGCDiskGeomDet * from, 
-                  const std::vector<HGCDiskGeomDet *> &vec,
-                  bool isSilicon) const;
- 
-    virtual void fillHitMap(std::map<DetId, const HGCRecHit*>& hitMap,
-        const HGCRecHitCollection& recHitsEE,
-        const HGCRecHitCollection& recHitsFH,
-        const HGCRecHitCollection& recHitsBH) const;
-          
-
-    void calculateLocalError(DetId id,
-        const HGCalDDDConstants* ddd);
-
     void makeTracksters(const typename PatternRecognitionAlgoBaseT<TILES>::Inputs& input,
                         std::vector<Trackster>& result,
                         std::unordered_map<int, std::vector<int>>& seedToTracksterAssociation) override;
 
-
     void makeTracksters_verbose(const typename PatternRecognitionAlgoBaseT<TILES>::Inputs& input,
-                        std::vector<Trackster>& result,
-                        std::vector<GlobalPoint>& points_kf,
-                        std::vector<GlobalPoint>& points_prop,
-                        std::vector<float>& xx_kf,
-                        std::vector<float>& xy_kf,
-                        std::vector<float>& yy_kf,
-                        std::vector<float>& xx_prop,
-                        std::vector<float>& xy_prop,
-                        std::vector<float>& yy_prop,
-                        float& abs_fail,
-                        std::vector<int>& charge_kf,
-                        std::vector<int>& charge_prop,
-                        std::vector<int>& detID_kf,
-                        std::vector<int>& detID_prop,
-                        std::unordered_map<int, std::vector<int>>& seedToTracksterAssociation) override;
-
-/*
-
-    void makeTracksters(const typename PatternRecognitionAlgoBaseKFT<TILES>::Inputs& input,
-                    std::vector<Trackster>& result,
-                    std::vector<GlobalPoint>& points,
-                    std::unordered_map<int, std::vector<int>>& seedToTracksterAssociation);
-
-*/
-    void energyRegressionAndID(const std::vector<reco::CaloCluster>& layerClusters,
-                               const tensorflow::Session*,
-                               std::vector<Trackster>& result);
+                        std::vector<KFHit>& kfhits,
+                        std::vector<KFHit>& prophits,
+                        float& abs_fail) override;
 
     static void fillPSetDescription(edm::ParameterSetDescription& iDesc);
 
   private:
-
     // Declarations for Constructor
-
-
-    void dumpTiles(const TILES&) const;
-
     edm::ESGetToken<CaloGeometry, CaloGeometryRecord> caloGeomToken_;
-    const int test_;
     const std::vector<double> radlen_;
     const std::vector<double> xi_;
     const std::string propName_;
     const std::string propNameOppo_;
-    //const std::string propNameRK_;
     edm::ESGetToken<MagneticField, IdealMagneticFieldRecord> bfieldtoken_;
     edm::ESGetToken<Propagator, TrackingComponentsRecord> propagatortoken_;
     edm::ESGetToken<Propagator, TrackingComponentsRecord> propagatorOppoToken_;
     edm::ESGetToken<Chi2MeasurementEstimatorBase, TrackingComponentsRecord> estimatorToken_;
     edm::ESGetToken<TrajectoryStateUpdator, TrackingComponentsRecord> updatorToken_;
-    // edm::ESGetToken<Propagator, TrackingComponentsRecord> propagatortokenRK_;
     edm::EDGetTokenT<reco::TrackCollection> trackToken_;
     edm::EDGetTokenT<HGCRecHitCollection> hgcalRecHitsEEToken_; 
     edm::EDGetTokenT<HGCRecHitCollection> hgcalRecHitsFHToken_;
     edm::EDGetTokenT<HGCRecHitCollection> hgcalRecHitsBHToken_;
-
-    const std::string eidInputName_;
-    const std::string eidOutputNameEnergy_;
-    const std::string eidOutputNameId_;
-    const float eidMinClusterEnergy_;
-    const int eidNLayers_;
-    const int eidNClusters_;
-    const std::string materialbudget_;
-
     edm::ESHandle<MagneticField> bfield_;
     edm::ESHandle<Propagator> propagator_;
     edm::ESHandle<Chi2MeasurementEstimatorBase> estimator_;
     edm::ESHandle<TrajectoryStateUpdator> updator_;
     edm::ESHandle<Propagator> propagatorOppo_;
+    uint32_t geomCacheId_;
 
-    //edm::ESHandle<Propagator> propagatorRK_;
-
+    // Instance Variables
     hgcal::RecHitTools rhtools_;
-    tensorflow::Session* eidSession_;
-
-    static const int eidNFeatures_ = 3;
     std::map<DetId, const HGCRecHit*> hitMap;
-
-    //TILE constants
+    std::map<DetId,LocalError> lerr;
+    std::vector<HGCDiskGeomDet *> disksPos_, disksNeg_;
 
     float etaBinSize = (TILES::constants_type_t::maxEta - TILES::constants_type_t::minEta)/TILES::constants_type_t::nEtaBins;
     float phiBinSize = 2*M_PI/TILES::constants_type_t::nPhiBins;
     int nPhiBin = TILES::constants_type_t::nPhiBins;
     int nEtaBin = TILES::constants_type_t::nEtaBins;
 
-    std::map<DetId,LocalError> lerr;
-
-    std::vector<HGCDiskGeomDet *> disksPos_, disksNeg_;
-
+    //Member Functions
+    void dumpTiles(const TILES&) const;
     void makeDisks(int subdet, int disks, const CaloGeometry* geom_);
     void addDisk(HGCDiskGeomDet *disk) { 
       (disk->zside() > 0 ? disksPos_ : disksNeg_).push_back(disk);
     }
-
-    std::vector<TrajectoryMeasurement> measurements(const TrajectoryStateOnSurface &tsos, const MeasurementEstimator &mest, const TILES &tiles, int depth);
-
-
+    std::vector<TrajectoryMeasurement> measurements(const TrajectoryStateOnSurface &tsos, 
+      const MeasurementEstimator &mest, 
+      const TILES &tiles, 
+      int depth);
+    template<class Start>
+    std::vector<TempTrajectory> advanceOneLayer(const Start &start, 
+      const HGCDiskGeomDet * disk, 
+      const std::vector<HGCDiskGeomDet *>  &disks, 
+      const TILES &tiles,
+      PropagationDirection direction, 
+      bool &isSilicon,
+      TempTrajectory traj);
+    const HGCDiskGeomDet * nextDisk(const HGCDiskGeomDet * from, 
+      PropagationDirection direction, 
+      const std::vector<HGCDiskGeomDet *> &vec,
+      bool isSilicon) const;
+    const HGCDiskGeomDet * switchDisk(const HGCDiskGeomDet * from, 
+      const std::vector<HGCDiskGeomDet *> &vec,
+      bool isSilicon) const;
+    virtual void fillHitMap(std::map<DetId, const HGCRecHit*>& hitMap,
+        const HGCRecHitCollection& recHitsEE,
+        const HGCRecHitCollection& recHitsFH,
+        const HGCRecHitCollection& recHitsBH) const;
+    void calculateLocalError(DetId id,
+        const HGCalGeometry* hgcalgeom);
+    void init(const edm::Event& evt, const edm::EventSetup& es);
   };
-
 }  // namespace ticl
 #endif
