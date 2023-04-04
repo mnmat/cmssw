@@ -8,6 +8,7 @@
 #include <vector>
 #include "DataFormats/CaloRecHit/interface/CaloCluster.h"
 #include "DataFormats/HGCalReco/interface/Trackster.h"
+#include "DataFormats/HGCalReco/interface/KFHit.h"
 #include "DataFormats/HGCalReco/interface/TICLLayerTile.h"
 #include "DataFormats/HGCalReco/interface/TICLSeedingRegion.h"
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
@@ -55,24 +56,9 @@ namespace ticl {
     // Delete me! This was implemented to export the points of the KF
 
     virtual void makeTracksters_verbose(const Inputs& input,
-                                std::vector<Trackster>& result,
-                                std::vector<GlobalPoint>& points_kf,
-                                std::vector<GlobalPoint>& points_prop,
-                                std::vector<float>& xx_kf,
-                                std::vector<float>& xy_kf,
-                                std::vector<float>& yy_kf,
-                                std::vector<float>& xx_prop,
-                                std::vector<float>& xy_prop,
-                                std::vector<float>& yy_prop,
-                                float& abs_fail,
-                                std::vector<int>& charge_kf,
-                                std::vector<int>& charge_prop,
-                                std::vector<int>& detID_kf,
-                                std::vector<int>& detID_prop,
-                                std::unordered_map<int, std::vector<int>>& seedToTracksterAssociation){};
-
-    // --------------------------------------------------------------
-
+                                std::vector<KFHit>& kfhits,
+                                std::vector<KFHit>& prophits,
+                                float& abs_fail){};
 
     virtual void makeTracksters(const Inputs& input,
                                 std::vector<Trackster>& result,
