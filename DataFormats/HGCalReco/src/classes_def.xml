@@ -54,4 +54,10 @@
   <class name="std::vector<TICLCandidate>" />
   <class name="edm::Wrapper<TICLCandidate>" />
   <class name="edm::Wrapper<std::vector<TICLCandidate> >" />
+  <class name="KFHit"/>
+  <class name="std::vector<KFHit>"/>
+  <class name="edm::Wrapper<std::vector<KFHit>>"/>
 </lcgdict>
+
+
+

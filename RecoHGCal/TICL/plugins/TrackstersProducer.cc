@@ -18,6 +18,7 @@
 #include "DataFormats/ParticleFlowReco/interface/PFCluster.h"
 
 #include "DataFormats/HGCalReco/interface/Trackster.h"
+#include "DataFormats/HGCalReco/interface/KFHit.h"
 #include "DataFormats/HGCalReco/interface/TICLLayerTile.h"
 #include "DataFormats/HGCalReco/interface/TICLSeedingRegion.h"
 
@@ -110,23 +111,9 @@ TrackstersProducer::TrackstersProducer(const edm::ParameterSet& ps)
 
   produces<std::vector<Trackster>>();
   produces<std::vector<float>>();  // Mask to be applied at the next iteration
-  produces<std::vector<GlobalPoint>>("Points Prop").setBranchAlias("Points Prop");
-  produces<std::vector<GlobalPoint>>("Points KF").setBranchAlias("Points KF");
-  produces<std::vector<Trajectory>>("TEST Producer").setBranchAlias("TEST Producer");
-  produces<std::vector<float>>("xx Prop").setBranchAlias("xx Prop");
-  produces<std::vector<float>>("xy Prop").setBranchAlias("xy Prop");
-  produces<std::vector<float>>("yy Prop").setBranchAlias("yy Prop");
-  produces<std::vector<float>>("xx KF").setBranchAlias("xx KF");
-  produces<std::vector<float>>("xy KF").setBranchAlias("xy KF");
-  produces<std::vector<float>>("yy KF").setBranchAlias("yy KF");
-  produces<std::vector<int>>("charge KF").setBranchAlias("charge KF");
-  produces<std::vector<int>>("charge Prop").setBranchAlias("charge Prop");
-  produces<std::vector<int>>("detID KF").setBranchAlias("detID KF");
-  produces<std::vector<int>>("detID Prop").setBranchAlias("detID Prop");
-  produces<std::vector<float>>("energy KF").setBranchAlias("energy KF");
-
-
   produces<float>("Abs Fail").setBranchAlias("Abs Fail");
+  produces<std::vector<KFHit>>("KFHits").setBranchAlias("KFHits");
+  produces<std::vector<KFHit>>("PropHits").setBranchAlias("PropHits");
   }
 
 void TrackstersProducer::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
@@ -170,32 +157,11 @@ void TrackstersProducer::fillDescriptions(edm::ConfigurationDescriptions& descri
 void TrackstersProducer::produce(edm::Event& evt, const edm::EventSetup& es) {
   auto result = std::make_unique<std::vector<Trackster>>();
   auto output_mask = std::make_unique<std::vector<float>>();
-  auto test = std::make_unique<std::vector<Trajectory>>();
-
-  // This was implemented to export the points of the KF
-
-  auto points_prop = std::make_unique<std::vector<GlobalPoint>>();
-  auto points_kf = std::make_unique<std::vector<GlobalPoint>>();
-
-  auto xx_prop = std::make_unique<std::vector<float>>();
-  auto xy_prop = std::make_unique<std::vector<float>>();
-  auto yy_prop = std::make_unique<std::vector<float>>();
-  auto xx_kf = std::make_unique<std::vector<float>>();
-  auto xy_kf = std::make_unique<std::vector<float>>();
-  auto yy_kf = std::make_unique<std::vector<float>>();
-
-  auto charge_kf = std::make_unique<std::vector<int>>(); 
-  auto charge_prop = std::make_unique<std::vector<int>>(); 
-
-  auto detID_kf = std::make_unique<std::vector<int>>();
-  auto detID_prop = std::make_unique<std::vector<int>>();
-  //auto energy_kf = std::make_unique<std::vector<float>>();
   auto abs_fail = std::make_unique<float>();
-
+  auto kfhits = std::make_unique<std::vector<KFHit>>();
+  auto prophits = std::make_unique<std::vector<KFHit>>();
 
   std::cout<<itername_<<std::endl;
-
-  // ----------
 
   const std::vector<float>& original_layerclusters_mask = evt.get(original_layerclusters_mask_token_);
   const auto& layerClusters = evt.get(clusters_token_);
@@ -232,17 +198,12 @@ void TrackstersProducer::produce(edm::Event& evt, const edm::EventSetup& es) {
         evt, es, layerClusters, inputClusterMask, layerClustersTimes, layer_clusters_tiles, seeding_regions, tfSession_);
 
 
-    // myAlgo_->makeTracksters(input, *result, seedToTrackstersAssociation); uncomment me!
-
-    // Delete Me! This was implemented to export the points of the KF
-
-    if(itername_!="KF"){
-      myAlgo_->makeTracksters(input, *result, seedToTrackstersAssociation);
+    // TODO(mmatthew): Delete if conditions once correct function definition for KF is found
+    if(itername_ == "KF"){ 
+      myAlgo_->makeTracksters_verbose(input,*kfhits, *prophits, *abs_fail);   
     } else {
-      myAlgo_->makeTracksters_verbose(input, *result, *points_kf,*points_prop, *xx_kf, *xy_kf, *yy_kf, *xx_prop, *xy_prop, *yy_prop, *abs_fail,*charge_kf, *charge_prop, *detID_kf,*detID_prop, seedToTrackstersAssociation);   
+      myAlgo_->makeTracksters(input, *result, seedToTrackstersAssociation);
     }
-
-    // ----------------------------------------------------------------
 
   }
   // Now update the global mask and put it into the event
@@ -263,19 +224,7 @@ void TrackstersProducer::produce(edm::Event& evt, const edm::EventSetup& es) {
 
   evt.put(std::move(result));
   evt.put(std::move(output_mask));
-  evt.put(std::move(points_prop),"Points Prop");
-  evt.put(std::move(points_kf),"Points KF");
-  evt.put(std::move(xx_prop),"xx Prop");
-  evt.put(std::move(xy_prop),"xy Prop");
-  evt.put(std::move(yy_prop),"yy Prop");
-  evt.put(std::move(charge_prop), "charge Prop");
-  evt.put(std::move(xx_kf),"xx KF");
-  evt.put(std::move(xy_kf),"xy KF");
-  evt.put(std::move(yy_kf),"yy KF");
-  evt.put(std::move(charge_kf), "charge KF");
-  evt.put(std::move(detID_kf), "detID KF");
-  evt.put(std::move(detID_prop), "detID Prop");
-  //evt.put(std::move(energy_kf), "energy KF");
-  evt.put(std::move(test),"TEST Producer");
   evt.put(std::move(abs_fail),"Abs Fail");
+  evt.put(std::move(kfhits),"KFHits");
+  evt.put(std::move(prophits),"PropHits");
   }
