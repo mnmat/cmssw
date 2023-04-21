@@ -1,0 +1,7 @@
+23293.0_CloseByParticleGun+2026D94/
+25219.0_SingleMuPt100Extended+2026D99/
+Analyzer/
+*__pycache*
+PlayGround/
+hgcal_private/
+runall-report-step123-.log

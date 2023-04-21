@@ -53,16 +53,16 @@ namespace ticl {
           : ev(eV), es(eS), layerClusters(lC), mask(mS), layerClustersTime(lT), tiles(tL), regions(rG), tfSession(tS) {}
     };
     
-    // Delete me! This was implemented to export the points of the KF
-
-    virtual void makeTracksters_verbose(const Inputs& input,
+    // (mmatthew): makeTrajectories used only by PatternRecognitionByKF. 
+    // TODO: combine with makeTracksters as pure virtual function
+    virtual void makeTrajectories(const Inputs& input,
                                 std::vector<KFHit>& kfhits,
                                 std::vector<KFHit>& prophits,
                                 float& abs_fail){};
 
     virtual void makeTracksters(const Inputs& input,
                                 std::vector<Trackster>& result,
-                                std::unordered_map<int, std::vector<int>>& seedToTracksterAssociation) = 0;
+                                std::unordered_map<int, std::vector<int>>& seedToTracksterAssociation){};
 
   protected:
     int algo_verbosity_;

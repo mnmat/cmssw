@@ -19,6 +19,9 @@ struct KFHit
 {  
     explicit KFHit(TrajectoryStateOnSurface tsos, uint32_t id): 
         center(tsos.globalPosition()),
+        localError(tsos.localError().matrix()),
+        cartesianError(tsos.cartesianError().matrix()),
+        curvilinearError(tsos.curvilinearError().matrix()),
         xx(tsos.localError().positionError().xx()),
         xy(tsos.localError().positionError().xy()),
         yy(tsos.localError().positionError().yy()),
@@ -28,6 +31,9 @@ struct KFHit
     KFHit(){}
 
     GlobalPoint center;
+    AlgebraicSymMatrix55 localError;
+    AlgebraicSymMatrix66 cartesianError;
+    AlgebraicSymMatrix55 curvilinearError;
     float xx;
     float xy;
     float yy;

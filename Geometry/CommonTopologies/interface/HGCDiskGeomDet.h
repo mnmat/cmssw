@@ -1,7 +1,7 @@
 #ifndef RecoHGCal_HGCTracking_HGCDiskGeomDet_h
 #define RecoHGCal_HGCTracking_HGCDiskGeomDet_h
 
-/// Class corresponding to one layer of HGC
+// (mmatthew) Wrapper class for GeomDet corresponding to one layer of HGCal. Used by PatternRecognitionByKF.
 
 #include "Geometry/CommonDetUnit/interface/GeomDet.h"
 #include "DataFormats/ForwardDetId/interface/HGCSiliconDetId.h"

@@ -35,11 +35,7 @@ namespace ticl {
     PatternRecognitionbyKF(const edm::ParameterSet& conf, edm::ConsumesCollector);
     ~PatternRecognitionbyKF() override = default;
 
-    void makeTracksters(const typename PatternRecognitionAlgoBaseT<TILES>::Inputs& input,
-                        std::vector<Trackster>& result,
-                        std::unordered_map<int, std::vector<int>>& seedToTracksterAssociation) override;
-
-    void makeTracksters_verbose(const typename PatternRecognitionAlgoBaseT<TILES>::Inputs& input,
+    void makeTrajectories(const typename PatternRecognitionAlgoBaseT<TILES>::Inputs& input,
                         std::vector<KFHit>& kfhits,
                         std::vector<KFHit>& prophits,
                         float& abs_fail) override;
@@ -68,6 +64,7 @@ namespace ticl {
     edm::ESHandle<TrajectoryStateUpdator> updator_;
     edm::ESHandle<Propagator> propagatorOppo_;
     uint32_t geomCacheId_;
+    int rescale_;
 
     // Instance Variables
     hgcal::RecHitTools rhtools_;

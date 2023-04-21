@@ -200,7 +200,7 @@ void TrackstersProducer::produce(edm::Event& evt, const edm::EventSetup& es) {
 
     // TODO(mmatthew): Delete if conditions once correct function definition for KF is found
     if(itername_ == "KF"){ 
-      myAlgo_->makeTracksters_verbose(input,*kfhits, *prophits, *abs_fail);   
+      myAlgo_->makeTrajectories(input,*kfhits, *prophits, *abs_fail);   
     } else {
       myAlgo_->makeTracksters(input, *result, seedToTrackstersAssociation);
     }
