@@ -34,8 +34,6 @@ TICL_FEVT = cms.PSet(
     )
 TICL_FEVT.outputCommands.extend(TICL_RECO.outputCommands)
 
-print("RecoHGCalEventContents!!!!!!!!!!!!")
-
 def customiseHGCalOnlyEventContent(process):
     print("customiseHGCalOnlyEventContent!!!!!!!!!!!!")
     def cleanOutputAndSet(outputModule, ticl_outputCommads):
