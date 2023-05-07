@@ -28,12 +28,12 @@ ticlIterationsTask = cms.Task(
     ticlCLUE3DHighStepTask
 )
 
-from Configuration.ProcessModifiers.kf_cff import kf
+from Configuration.ProcessModifiers.hgcal_ticl_kf_cff import hgcal_ticl_kf
 ticlRecHitTile = ticlLayerTileProducer.clone(
     isLC = False
 )
 ticlRecHitTileTask = cms.Task(ticlRecHitTile)
-kf.toModify(ticlIterationsTask, func=lambda x : x.add(ticlRecHitTileTask, ticlKFStepTask))
+hgcal_ticl_kf.toModify(ticlIterationsTask, func=lambda x : x.add(ticlRecHitTileTask, ticlKFStepTask))
 
 from Configuration.ProcessModifiers.clue3D_cff import clue3D
 clue3D.toModify(ticlIterationsTask, func=lambda x : x.add(ticlCLUE3DHighStepTask,ticlCLUE3DLowStepTask))
