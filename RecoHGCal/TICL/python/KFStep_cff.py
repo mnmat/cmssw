@@ -7,6 +7,7 @@ from RecoHGCal.TICL.multiClustersFromTrackstersProducer_cfi import multiClusters
 from RecoHGCal.TICL.ticlLayerTileProducer_cfi import ticlLayerTileProducer
 
 # CLUSTER FILTERING/MASKING
+# Layer Clusters not used by Kalman Filter implementation but necessary for TracksterProducer. Masking strategy a work in progress!
 
 filteredLayerClustersKF = _filteredLayerClustersProducer.clone(
     clusterFilter = "ClusterFilterByAlgoAndSize",
