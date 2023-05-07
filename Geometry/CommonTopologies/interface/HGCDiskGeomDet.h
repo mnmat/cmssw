@@ -1,11 +1,9 @@
 #ifndef RecoHGCal_HGCTracking_HGCDiskGeomDet_h
 #define RecoHGCal_HGCTracking_HGCDiskGeomDet_h
 
-// (mmatthew) Wrapper class for GeomDet corresponding to one layer of HGCal. Used by PatternRecognitionByKF.
+// Wrapper class for GeomDet corresponding to one layer of HGCal. Used by PatternRecognitionByKF.
 
-#include "Geometry/CommonDetUnit/interface/GeomDet.h"
-#include "DataFormats/ForwardDetId/interface/HGCSiliconDetId.h"
-#include "DataFormats/ForwardDetId/interface/HGCScintillatorDetId.h"
+#include "Geometry/CommonTopologies/interface/GeomDet.h"
 #include "FWCore/Utilities/interface/Exception.h"
 
 class HGCDiskGeomDet : public GeomDet {
@@ -17,7 +15,7 @@ class HGCDiskGeomDet : public GeomDet {
         int layer() const { return layer_; }
         float rmin() const { return rmin_; }
         float rmax() const { return rmax_; }
-        bool isSilicon() const {
+        bool isSilicon() const { // The enum values were taken from DataFormats/DetId/interface/DetId.h
             if(subdet_ == 8 || subdet_ == 9){
                 return true;
             }
