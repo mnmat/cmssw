@@ -54,7 +54,7 @@ PatternRecognitionbyKF<TILES>::PatternRecognitionbyKF(const edm::ParameterSet &c
       hgcalRecHitsFHToken_(iC.consumes<HGCRecHitCollection>(conf.getParameter<edm::InputTag>("HGCFHInput"))),
       hgcalRecHitsBHToken_(iC.consumes<HGCRecHitCollection>(conf.getParameter<edm::InputTag>("HGCBHInput"))),
       geomCacheId_(0),
-      rescale_(conf.getParameter<int>("rescale")){
+      rescaleFTSError_(conf.getParameter<int>("rescaleFTSError")){
 };
 
 template<typename TILES>
@@ -158,8 +158,8 @@ PatternRecognitionbyKF<TILES>::advanceOneLayer(const Start &start,
   }
 
   // Collect hits with estimate
-  int depth = disk->layer()+1;
-  auto meas = measurements(tsos, *estimator_, tiles, depth);
+  int layer = disk->layer()+1;
+  auto meas = measurements(tsos, *estimator_, tiles, layer);
   std::sort(meas.begin(), meas.end(),TrajMeasLessEstim());
 
   for (const TrajectoryMeasurement &tm : meas){
@@ -181,15 +181,16 @@ PatternRecognitionbyKF<TILES>::advanceOneLayer(const Start &start,
 }
 
 template<typename TILES>
-void PatternRecognitionbyKF<TILES>::makeDisks(int subdet, int disks, const CaloGeometry* geom_) {
+void PatternRecognitionbyKF<TILES>::makeDisks(int subdet, const CaloGeometry* geom_) {
 
     const CaloSubdetectorGeometry *subGeom = geom_->getSubdetectorGeometry(DetId::Detector(subdet), ForwardSubdetector::ForwardEmpty);
     auto geomEE = static_cast<const HGCalGeometry*>(subGeom);
     const HGCalDDDConstants* ddd = &(geomEE->topology().dddConstants());
+    int numdisks = ddd->lastLayer(true);
 
-    std::vector<float>  rmax(disks, 0), rmin(disks, 9e9);
-    std::vector<double> zsumPos(disks), zsumNeg(disks);
-    std::vector<int> countPos(disks), countNeg(disks);
+    std::vector<float>  rmax(numdisks, 0), rmin(numdisks, 9e9);
+    std::vector<double> zsumPos(numdisks), zsumNeg(numdisks);
+    std::vector<int> countPos(numdisks), countNeg(numdisks);
     const std::vector<DetId> & ids = subGeom->getValidDetIds();
   
     for (auto & i : ids) {
@@ -208,7 +209,7 @@ void PatternRecognitionbyKF<TILES>::makeDisks(int subdet, int disks, const CaloG
     }
 
   int layer = ddd->getLayerOffset(); // FIXME: Can be made less stupid
-  for (int i = 0; i < disks; ++i) {
+  for (int i = 0; i < numdisks; ++i) {
     if (countPos[i]) {
       HGCDiskGeomDet* disk = new HGCDiskGeomDet(subdet, +1, layer, zsumPos[i]/countPos[i], rmin[i], rmax[i], radlen_[layer], xi_[layer]);
       addDisk(disk);
@@ -247,7 +248,7 @@ std::vector<TrajectoryMeasurement> PatternRecognitionbyKF<TILES>::measurements(
       const TrajectoryStateOnSurface &tsos, 
       const MeasurementEstimator &mest, 
       const TILES &tiles, 
-      int depth){
+      int layer){
   
   std::vector<TrajectoryMeasurement> ret;
 
@@ -261,7 +262,7 @@ std::vector<TrajectoryMeasurement> PatternRecognitionbyKF<TILES>::measurements(
   float phiMin = phi - phiBinSize;
   float phiMax = phi + phiBinSize;
 
-  auto bins = tiles[depth].searchBoxEtaPhi(etaMin, etaMax, phiMin, phiMax);
+  auto bins = tiles[layer].searchBoxEtaPhi(etaMin, etaMax, phiMin, phiMax);
 
   // loop over candidates
 
@@ -269,8 +270,8 @@ std::vector<TrajectoryMeasurement> PatternRecognitionbyKF<TILES>::measurements(
     auto offset = ieta * nPhiBin;
     for (int phi = bins[2]; phi < bins[3]; phi++) {
       int iphi = ((phi % nPhiBin + nPhiBin) % nPhiBin);
-      if (!tiles[depth][offset + iphi].empty()) {
-        for(auto hit: tiles[depth][offset + iphi]) {
+      if (!tiles[layer][offset + iphi].empty()) {
+        for(auto hit: tiles[layer][offset + iphi]) {
           const auto rec = hitMap.find(hit)->second;
           float energy = rec->energy();
 
@@ -299,9 +300,23 @@ void PatternRecognitionbyKF<TILES>::init(
       const CaloGeometry* geom = &es.getData(caloGeomToken_);
       rhtools_.setGeometry(*geom);
 
-      makeDisks(8, 26, geom);
-      makeDisks(9, 21, geom);
-      makeDisks(10,21, geom);
+      // Get Subdetector IDs
+      int hgcalEEId = DetId::HGCalEE;
+      int hgcalHSiId = DetId::HGCalHSi;
+      int hgcalHScId = DetId::HGCalHSc;
+
+      std::cout << hgcalEEId << std::endl;
+      std::cout << hgcalHSiId << std::endl;
+      std::cout << hgcalHScId << std::endl;
+
+      std::cout << rhtools_.lastLayerEE() << std::endl;
+      std::cout << rhtools_.lastLayerFH() << std::endl;
+      std::cout << rhtools_.firstLayerBH() << std::endl;
+      std::cout << rhtools_.lastLayerBH() << std::endl;
+
+      makeDisks(hgcalEEId, geom);
+      makeDisks(hgcalHSiId, geom);
+      makeDisks(hgcalHScId, geom);
 
       auto ptrSort = [](const HGCDiskGeomDet *a, const HGCDiskGeomDet *b) -> bool { return (abs(a->position().z())) < (abs(b->position().z())); };
       std::sort(disksPos_.begin(), disksPos_.end(), ptrSort);
@@ -349,7 +364,11 @@ void PatternRecognitionbyKF<TILES>::makeTrajectories(
   }
 
   FreeTrajectoryState fts = trajectoryStateTransform::outerFreeState(tkx.front(),bfield_.product());
-  std::cout << "Rescale Factor: None" << std::endl;
+  std::cout << "Unscaled Error: " << fts.curvilinearError().matrix()[0][0] << std::endl;
+  if (rescaleFTSError_!=1){
+    //TODO: Message Logging for Error
+    fts.rescaleError(rescaleFTSError_);
+  }
   // Propagate through all disks
 
   // Get first disk
@@ -387,10 +406,10 @@ void PatternRecognitionbyKF<TILES>::makeTrajectories(
 
   // Loop over all disks
 
-  unsigned int depth = 2;
-  for(disk = nextDisk(disk, direction, disks, isSilicon); disk != nullptr; disk = nextDisk(disk, direction, disks, isSilicon), depth++){
+  unsigned int layer = 2;
+  for(disk = nextDisk(disk, direction, disks, isSilicon); disk != nullptr; disk = nextDisk(disk, direction, disks, isSilicon), layer++){
     std::vector<TempTrajectory> newcands_kf;
-    std::cout << depth << std::endl;
+    std::cout << layer << std::endl;
     for(TempTrajectory & cand : traj_kf){
 
       TrajectoryStateOnSurface start = cand.lastMeasurement().updatedState();
@@ -412,8 +431,8 @@ void PatternRecognitionbyKF<TILES>::makeTrajectories(
   direction = alongMomentum;
   disk = (zside > 0 ? disksPos_ : disksNeg_).front();
   isSilicon=1;
-  depth = 2;
-  for(disk = nextDisk(disk, direction, disks, isSilicon); disk != nullptr; disk = nextDisk(disk, direction, disks, isSilicon), depth++){
+  layer = 2;
+  for(disk = nextDisk(disk, direction, disks, isSilicon); disk != nullptr; disk = nextDisk(disk, direction, disks, isSilicon), layer++){
     std::vector<TempTrajectory> newcands_prop;
     for(TempTrajectory & cand : traj_prop){
 
@@ -484,7 +503,7 @@ void PatternRecognitionbyKF<TILES>::fillPSetDescription(edm::ParameterSetDescrip
   iDesc.add<edm::InputTag>("HGCEEInput", edm::InputTag("HGCalRecHit", "HGCEERecHits"));
   iDesc.add<edm::InputTag>("HGCFHInput", edm::InputTag("HGCalRecHit", "HGCHEFRecHits"));
   iDesc.add<edm::InputTag>("HGCBHInput", edm::InputTag("HGCalRecHit", "HGCHEBRecHits"));
-  iDesc.add<int>("rescale",1);
+  iDesc.add<int>("rescaleFTSError",1);
 }
 
 template class ticl::PatternRecognitionbyKF<TICLLayerTiles>;

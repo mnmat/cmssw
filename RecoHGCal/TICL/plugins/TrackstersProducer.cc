@@ -63,7 +63,6 @@ private:
   const edm::EDGetTokenT<std::vector<float>> original_layerclusters_mask_token_;
   const edm::EDGetTokenT<edm::ValueMap<std::pair<float, float>>> clustersTime_token_;
   edm::EDGetTokenT<TICLLayerTiles> layer_clusters_tiles_token_;
-  edm::EDGetTokenT<TICLLayerTiles> rechit_tiles_token_;
   edm::EDGetTokenT<TICLLayerTilesHFNose> layer_clusters_tiles_hfnose_token_;
   const edm::EDGetTokenT<std::vector<TICLSeedingRegion>> seeding_regions_token_;
   const std::string itername_;
@@ -124,8 +123,8 @@ void TrackstersProducer::fillDescriptions(edm::ConfigurationDescriptions& descri
   desc.add<edm::InputTag>("filtered_mask", edm::InputTag("filteredLayerClusters", "iterationLabelGoesHere"));
   desc.add<edm::InputTag>("original_mask", edm::InputTag("hgcalLayerClusters", "InitialLayerClustersMask"));
   desc.add<edm::InputTag>("time_layerclusters", edm::InputTag("hgcalLayerClusters", "timeLayerCluster"));
-  desc.add<edm::InputTag>("layer_clusters_tiles", edm::InputTag("ticlLayerTileProducer", "Test"));
-  desc.add<edm::InputTag>("layer_clusters_hfnose_tiles", edm::InputTag("ticlLayerTileHFNose", "Test"));
+  desc.add<edm::InputTag>("layer_clusters_tiles", edm::InputTag("ticlLayerTileProducer", "RecHitTiles"));
+  desc.add<edm::InputTag>("layer_clusters_hfnose_tiles", edm::InputTag("ticlLayerTileHFNose", "RecHitTilesHFNose"));
   desc.add<edm::InputTag>("seeding_regions", edm::InputTag("ticlSeedingRegionProducer"));
   desc.add<std::string>("patternRecognitionBy", "CA");
   desc.add<std::string>("itername", "unknown");

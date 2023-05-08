@@ -1,4 +1,4 @@
-// Author: Marco Rovere - marco.rovere@cern.ch
+// Author: Mark Matthewman - mark.matthewman@cern.ch
 // Date: 04/2021
 
 #ifndef __RecoHGCal_TICL_PRbyKF_H__
@@ -64,7 +64,7 @@ namespace ticl {
     edm::ESHandle<TrajectoryStateUpdator> updator_;
     edm::ESHandle<Propagator> propagatorOppo_;
     uint32_t geomCacheId_;
-    int rescale_;
+    int rescaleFTSError_;
 
     // Instance Variables
     hgcal::RecHitTools rhtools_;
@@ -79,7 +79,7 @@ namespace ticl {
 
     //Member Functions
     void dumpTiles(const TILES&) const;
-    void makeDisks(int subdet, int disks, const CaloGeometry* geom_);
+    void makeDisks(int subdet, const CaloGeometry* geom_);
     void addDisk(HGCDiskGeomDet *disk) { 
       (disk->zside() > 0 ? disksPos_ : disksNeg_).push_back(disk);
     }
