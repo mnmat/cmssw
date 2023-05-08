@@ -13,7 +13,7 @@ process.maxEvents = cms.untracked.PSet( input = cms.untracked.int32(1) )
 process.source = cms.Source("PoolSource",
     # replace 'myfile.root' with the source file you want to use
     fileNames = cms.untracked.vstring(
-        'file:/afs/cern.ch/user/m/mmatthew/CMSSW_12_3_0_pre5/src/hgcal_private/production/Eta_16/singlemuon_flatEGun_hgcalCenter/step3/step3_singlemuon_e100GeV_nopu.root'
+        'file:step3.root'
     )
 )
 
@@ -38,4 +38,3 @@ setattr(process.MessageLogger.files, label, dict())
 setattr(process.MessageLogger.files, label, messageLogger[main_key])
 
 process.p = cms.Path(process.ticlDebugger+process.caloParticleDebugger)
-
