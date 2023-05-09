@@ -112,9 +112,14 @@ const HGCDiskGeomDet * PatternRecognitionbyKF<TILES>::nextDisk(const HGCDiskGeom
                                                               PropagationDirection direction, 
                                                               const std::vector<HGCDiskGeomDet *> &vec, 
                                                               bool isSilicon) const{
+
   auto it = std::find(vec.begin(), vec.end(),from);
   if (it == vec.end()) throw cms::Exception("LogicError", "nextDisk called with invalid starting disk");
   int currentLayer = (*it)->layer();
+
+  // disks object contains 61 disks corresponding to the z position of the silicon and scintillator layer (has a slight offset).
+  // So in the mixed section, a layer has two disks: Silicon and Scintillator. nextDisk() finds the correct disk
+  // based on the isSilicon condition by looping through the disks up until the subsequent layer. 
   if (direction == alongMomentum){
     if ((*it == vec.back()) || (*it == vec.rbegin()[1])) return nullptr; // if disk last silicon OR last scintillator disk
     while ((*it)->layer()<currentLayer+2){
@@ -141,8 +146,7 @@ PatternRecognitionbyKF<TILES>::advanceOneLayer(const Start &start,
                                               const std::vector<HGCDiskGeomDet *> &disks, 
                                               const TILES &tiles, PropagationDirection direction, 
                                               bool &isSilicon, 
-                                              TempTrajectory traj){
-                                
+                                              TempTrajectory traj){                                
                                             
   std::vector<TempTrajectory> ret;
 
@@ -150,6 +154,8 @@ PatternRecognitionbyKF<TILES>::advanceOneLayer(const Start &start,
   const Propagator &prop = (direction == alongMomentum ? *propagator_ : *propagatorOppo_);
   TrajectoryStateOnSurface tsos = prop.propagate(start, disk->surface());
   if (!tsos.isValid()) return ret;
+  // Check if propagated state falls within boundaries of disk. 
+  // If not, change the target disk type (Silicon or Scintillator) using switchDisk() and repeat propagation step.
   float r = sqrt(pow(tsos.globalPosition().x(),2)+pow(tsos.globalPosition().y(),2));
   if (((disk->rmin() > r) && (!isSilicon)) || (((r > disk->rmax()) && (isSilicon)))) {
     disk = switchDisk(disk, disks, isSilicon);
