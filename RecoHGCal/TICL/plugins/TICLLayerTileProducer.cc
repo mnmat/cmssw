@@ -30,10 +30,8 @@ public:
   static void fillDescriptions(edm::ConfigurationDescriptions &descriptions);
 
 private:
-  virtual void fillRecHits(std::vector<const HGCRecHit*>& recHits,
-      const HGCRecHitCollection& recHitsEE,
-      const HGCRecHitCollection& recHitsFH,
-      const HGCRecHitCollection& recHitsBH) const;
+  template<typename T> void fillRecHitTiles(T& result, 
+      const HGCRecHitCollection& recHits);
 
   edm::EDGetTokenT<std::vector<reco::CaloCluster>> clusters_token_;
   edm::EDGetTokenT<std::vector<reco::CaloCluster>> clusters_HFNose_token_;
@@ -47,21 +45,20 @@ private:
   bool doNose_;
 };
 
-void TICLLayerTileProducer::fillRecHits(std::vector<const HGCRecHit*>& recHits,
-                                const HGCRecHitCollection& rechitsEE,
-                                const HGCRecHitCollection& rechitsFH,
-                                const HGCRecHitCollection& rechitsBH) const {
-  recHits.clear();
-  for (const auto& hit : rechitsEE) {
-    recHits.push_back(&hit);
-  }
+template<typename T> void TICLLayerTileProducer::fillRecHitTiles(T& result, const HGCRecHitCollection& rechits){
+  for (auto const &hit: rechits){
+    int layer = rhtools_.getLayerWithOffset(hit.detid());
+    float eta = rhtools_.getEta(hit.detid());
+    float phi = rhtools_.getPhi(hit.detid());
+    int hitId = hit.detid().rawId();
 
-  for (const auto& hit : rechitsFH) {
-    recHits.push_back(&hit);
-  }
+    assert(layer >= 0);
 
-  for (const auto& hit : rechitsBH) {
-    recHits.push_back(&hit);
+    result.fill(layer, eta, phi, hitId);
+
+    //LogDebug("TICLLayerTileProducer") << "Adding RecHitId: " << hitId << " into bin [eta,phi]: [ "
+    //                              << (*result)[layer].etaBin(eta) << ", " << (*result)[layer].phiBin(phi)
+    //                              << "] for layer: " << layer << std::endl;
   }
 }
 
@@ -98,7 +95,6 @@ void TICLLayerTileProducer::produce(edm::Event &evt, const edm::EventSetup &) {
   edm::Handle<HGCRecHitCollection> ee_hits;
   edm::Handle<HGCRecHitCollection> fh_hits;
   edm::Handle<HGCRecHitCollection> bh_hits;
-  std::vector<const HGCRecHit*> recHits;
 
   if (isLC_){
     doNose_ ? evt.getByToken(clusters_HFNose_token_, cluster_h) : evt.getByToken(clusters_token_, cluster_h);
@@ -121,25 +117,10 @@ void TICLLayerTileProducer::produce(edm::Event &evt, const edm::EventSetup &) {
     evt.getByToken(hgcalRecHitsEEToken_, ee_hits);
     evt.getByToken(hgcalRecHitsFHToken_, fh_hits);
     evt.getByToken(hgcalRecHitsBHToken_, bh_hits);
-    fillRecHits(recHits, *ee_hits, *fh_hits, *bh_hits);
 
-    int rhitId = 0;
-    for (auto const &rhit : recHits) {
-      int layer = rhtools_.getLayerWithOffset(rhit->detid());
-      float eta = rhtools_.getEta(rhit->detid());
-      float phi = rhtools_.getPhi(rhit->detid());
-
-      assert(layer >= 0);
-
-      rhitId = rhit->detid().rawId();
-
-      doNose_ ? resultHFNose->fill(layer, eta, phi, rhitId) : result->fill(layer, eta, phi, rhitId);
-
-      LogDebug("TICLLayerTileProducer") << "Adding RecHitId: " << rhitId << " into bin [eta,phi]: [ "
-                                        << (*result)[layer].etaBin(eta) << ", " << (*result)[layer].phiBin(phi)
-                                        << "] for layer: " << layer << std::endl;
-      rhitId++;
-    }
+    doNose_ ? fillRecHitTiles<TICLLayerTilesHFNose>(*resultHFNose, *ee_hits) : fillRecHitTiles<TICLLayerTiles>(*result, *ee_hits);
+    doNose_ ? fillRecHitTiles<TICLLayerTilesHFNose>(*resultHFNose, *fh_hits) : fillRecHitTiles<TICLLayerTiles>(*result, *fh_hits);
+    doNose_ ? fillRecHitTiles<TICLLayerTilesHFNose>(*resultHFNose, *bh_hits) : fillRecHitTiles<TICLLayerTiles>(*result, *bh_hits);
   }
 
   if (doNose_){
