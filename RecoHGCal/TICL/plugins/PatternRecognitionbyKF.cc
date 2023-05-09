@@ -10,6 +10,7 @@
 #include "DataFormats/TrajectorySeed/interface/PropagationDirection.h"
 #include "DataFormats/TrackReco/interface/Track.h"
 #include "DataFormats/TrackingRecHit/interface/InvalidTrackingRecHit.h"
+#include "DataFormats/TrackingRecHit/interface/TrackingRecHit.h"
 #include "DataFormats/HGCTrackingRecHit/interface/HGCTrackingRecHit.h"
 
 #include "FWCore/Framework/interface/Event.h"
@@ -208,7 +209,7 @@ void PatternRecognitionbyKF<TILES>::makeDisks(int subdet, const CaloGeometry* ge
         if (rho < rmin[layer]) rmin[layer] = rho;
     }
 
-  int layer = ddd->getLayerOffset(); // FIXME: Can be made less stupid
+  int layer = ddd->firstLayer(); // FIXME: Can be made less stupid
   for (int i = 0; i < numdisks; ++i) {
     if (countPos[i]) {
       HGCDiskGeomDet* disk = new HGCDiskGeomDet(subdet, +1, layer, zsumPos[i]/countPos[i], rmin[i], rmax[i], radlen_[layer], xi_[layer]);
@@ -409,7 +410,7 @@ void PatternRecognitionbyKF<TILES>::makeTrajectories(
   unsigned int layer = 2;
   for(disk = nextDisk(disk, direction, disks, isSilicon); disk != nullptr; disk = nextDisk(disk, direction, disks, isSilicon), layer++){
     std::vector<TempTrajectory> newcands_kf;
-    std::cout << layer << std::endl;
+    std::cout << "Not using PropagatorWithMaterial!!!!!" << std::endl;
     for(TempTrajectory & cand : traj_kf){
 
       TrajectoryStateOnSurface start = cand.lastMeasurement().updatedState();
@@ -496,7 +497,8 @@ void PatternRecognitionbyKF<TILES>::fillPSetDescription(edm::ParameterSetDescrip
   //iDesc.add<std::string>("propagator", "RungeKuttaTrackerPropagator"); // RungeKutta Propagator
   iDesc.add<std::vector<double>>("radlen",{});
   iDesc.add<std::vector<double>>("xi",{});
-  iDesc.add<std::string>("propagator", "PropagatorWithMaterial"); // Analytical Propagator 
+  //iDesc.add<std::string>("propagator", "PropagatorWithMaterial"); // Analytical Propagator 
+  iDesc.add<std::string>("propagator", "AnalyticalPropagator"); // Analytical Propagator 
   iDesc.add<std::string>("propagatorOpposite", "PropagatorWithMaterialOpposite");
   iDesc.add<std::string>("estimator", "Chi2");
   iDesc.add<edm::InputTag>("tracks", edm::InputTag("generalTracks"));

@@ -30,10 +30,6 @@ public:
   static void fillDescriptions(edm::ConfigurationDescriptions &descriptions);
 
 private:
-  virtual void fillHitMap(std::map<DetId, const HGCRecHit*>& hitMap,
-      const HGCRecHitCollection& recHitsEE,
-      const HGCRecHitCollection& recHitsFH,
-      const HGCRecHitCollection& recHitsBH) const;
   virtual void fillRecHits(std::vector<const HGCRecHit*>& recHits,
       const HGCRecHitCollection& recHitsEE,
       const HGCRecHitCollection& recHitsFH,
@@ -67,25 +63,7 @@ void TICLLayerTileProducer::fillRecHits(std::vector<const HGCRecHit*>& recHits,
   for (const auto& hit : rechitsBH) {
     recHits.push_back(&hit);
   }
-} // end of EfficiencyStudies::fillHitMap
-
-void TICLLayerTileProducer::fillHitMap(std::map<DetId,const HGCRecHit*>& hitMap,
-                                const HGCRecHitCollection& rechitsEE,
-                                const HGCRecHitCollection& rechitsFH,
-                                const HGCRecHitCollection& rechitsBH) const {
-  hitMap.clear();
-  for (const auto& hit : rechitsEE) {
-    hitMap.emplace(hit.detid(), &hit);
-  }
-
-  for (const auto& hit : rechitsFH) {
-    hitMap.emplace(hit.detid(), &hit);
-  }
-
-  for (const auto& hit : rechitsBH) {
-    hitMap.emplace(hit.detid(), &hit);
-  }
-} // end of EfficiencyStudies::fillHitMap
+}
 
 TICLLayerTileProducer::TICLLayerTileProducer(const edm::ParameterSet &ps)
     : detector_(ps.getParameter<std::string>("detector")), 
@@ -113,8 +91,6 @@ void TICLLayerTileProducer::beginRun(edm::Run const &, edm::EventSetup const &es
 
 void TICLLayerTileProducer::produce(edm::Event &evt, const edm::EventSetup &) {
 
-  std::cout << "in TICLLayerTileProducer.cc, start putting RecHits in event" << std::endl;
-
   auto result = std::make_unique<TICLLayerTiles>();
   auto resultHFNose = std::make_unique<TICLLayerTilesHFNose>();
   
@@ -122,7 +98,6 @@ void TICLLayerTileProducer::produce(edm::Event &evt, const edm::EventSetup &) {
   edm::Handle<HGCRecHitCollection> ee_hits;
   edm::Handle<HGCRecHitCollection> fh_hits;
   edm::Handle<HGCRecHitCollection> bh_hits;
-  std::map<DetId, const HGCRecHit*> hitMap;
   std::vector<const HGCRecHit*> recHits;
 
   if (isLC_){
@@ -146,10 +121,9 @@ void TICLLayerTileProducer::produce(edm::Event &evt, const edm::EventSetup &) {
     evt.getByToken(hgcalRecHitsEEToken_, ee_hits);
     evt.getByToken(hgcalRecHitsFHToken_, fh_hits);
     evt.getByToken(hgcalRecHitsBHToken_, bh_hits);
-    fillHitMap(hitMap, *ee_hits, *fh_hits, *bh_hits);
     fillRecHits(recHits, *ee_hits, *fh_hits, *bh_hits);
 
-    int objId = 0;
+    int rhitId = 0;
     for (auto const &rhit : recHits) {
       int layer = rhtools_.getLayerWithOffset(rhit->detid());
       float eta = rhtools_.getEta(rhit->detid());
@@ -157,18 +131,14 @@ void TICLLayerTileProducer::produce(edm::Event &evt, const edm::EventSetup &) {
 
       assert(layer >= 0);
 
-      objId = rhit->detid().rawId();
+      rhitId = rhit->detid().rawId();
 
-      if (doNose_){
-        resultHFNose->fill(layer, eta, phi, objId);
-      }
-      else {
-        result->fill(layer, eta, phi, objId);
-      }
-      LogDebug("TICLLayerTileProducer") << "Adding layerClusterId: " << objId << " into bin [eta,phi]: [ "
+      doNose_ ? resultHFNose->fill(layer, eta, phi, rhitId) : result->fill(layer, eta, phi, rhitId);
+
+      LogDebug("TICLLayerTileProducer") << "Adding RecHitId: " << rhitId << " into bin [eta,phi]: [ "
                                         << (*result)[layer].etaBin(eta) << ", " << (*result)[layer].phiBin(phi)
                                         << "] for layer: " << layer << std::endl;
-      objId++;
+      rhitId++;
     }
   }
 
