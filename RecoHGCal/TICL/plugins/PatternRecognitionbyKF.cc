@@ -112,9 +112,14 @@ const HGCDiskGeomDet * PatternRecognitionbyKF<TILES>::nextDisk(const HGCDiskGeom
                                                               PropagationDirection direction, 
                                                               const std::vector<HGCDiskGeomDet *> &vec, 
                                                               bool isSilicon) const{
+
   auto it = std::find(vec.begin(), vec.end(),from);
   if (it == vec.end()) throw cms::Exception("LogicError", "nextDisk called with invalid starting disk");
   int currentLayer = (*it)->layer();
+
+  // disks object contains 61 disks corresponding to the z position of the silicon and scintillator layer (has a slight offset).
+  // So in the mixed section, a layer has two disks: Silicon and Scintillator. nextDisk() finds the correct disk
+  // based on the isSilicon condition by looping through the disks up until the subsequent layer. 
   if (direction == alongMomentum){
     if ((*it == vec.back()) || (*it == vec.rbegin()[1])) return nullptr; // if disk last silicon OR last scintillator disk
     while ((*it)->layer()<currentLayer+2){
@@ -141,20 +146,18 @@ PatternRecognitionbyKF<TILES>::advanceOneLayer(const Start &start,
                                               const std::vector<HGCDiskGeomDet *> &disks, 
                                               const TILES &tiles, PropagationDirection direction, 
                                               bool &isSilicon, 
-                                              TempTrajectory traj){
-                                
+                                              TempTrajectory traj){                                
                                             
   std::vector<TempTrajectory> ret;
-
-  std::cout<<"Enter AdvanceOneLayer" << std::endl;
   const Propagator &prop = (direction == alongMomentum ? *propagator_ : *propagatorOppo_);
   TrajectoryStateOnSurface tsos = prop.propagate(start, disk->surface());
   if (!tsos.isValid()) return ret;
+  // Check if propagated state falls within boundaries of disk. 
+  // If not, change the target disk type (Silicon or Scintillator) using switchDisk() and repeat propagation step.
   float r = sqrt(pow(tsos.globalPosition().x(),2)+pow(tsos.globalPosition().y(),2));
-  if (((disk->rmin() > r) && (!isSilicon)) || (((r > disk->rmax()) && (isSilicon)))) {
+  if ((((disk->rmin() > r) && (!isSilicon)) || (((r > disk->rmax()) && (isSilicon)))) && (int(disk->layer()) >= int(rhtools_.firstLayerBH()))) {
     disk = switchDisk(disk, disks, isSilicon);
     isSilicon = !isSilicon;
-    std::cout << "Enter Switch Disk" << std::endl;
     tsos = prop.propagate(start, disk->surface());
   }
 
@@ -306,15 +309,6 @@ void PatternRecognitionbyKF<TILES>::init(
       int hgcalHSiId = DetId::HGCalHSi;
       int hgcalHScId = DetId::HGCalHSc;
 
-      std::cout << hgcalEEId << std::endl;
-      std::cout << hgcalHSiId << std::endl;
-      std::cout << hgcalHScId << std::endl;
-
-      std::cout << rhtools_.lastLayerEE() << std::endl;
-      std::cout << rhtools_.lastLayerFH() << std::endl;
-      std::cout << rhtools_.firstLayerBH() << std::endl;
-      std::cout << rhtools_.lastLayerBH() << std::endl;
-
       makeDisks(hgcalEEId, geom);
       makeDisks(hgcalHSiId, geom);
       makeDisks(hgcalHScId, geom);
@@ -359,13 +353,13 @@ void PatternRecognitionbyKF<TILES>::makeTrajectories(
 
   const reco::TrackCollection& tkx = *tracks_h; 
   if (tkx.empty()){
-    std::cout << "No track found!!!! Exited PatternRecognitionbyKF" << std::endl; 
+    std::cout << "No track found!!!! Exited PatternRecognitionbyKF" << std::endl;
     abs_fail+=1;
     return;
   }
 
   FreeTrajectoryState fts = trajectoryStateTransform::outerFreeState(tkx.front(),bfield_.product());
-  std::cout << "Unscaled Error: " << fts.curvilinearError().matrix()[0][0] << std::endl;
+  edm::LogInfo("PatternRecognitionbyKF") << "Unscaled Error: " << fts.curvilinearError().matrix()[0][0] << std::endl;
   if (rescaleFTSError_!=1){
     //TODO: Message Logging for Error
     fts.rescaleError(rescaleFTSError_);
@@ -381,10 +375,7 @@ void PatternRecognitionbyKF<TILES>::makeTrajectories(
   bool isSilicon = true;
 
   // Propagation step
-
-
-  std::cout << "Eta: " << fts.position().eta() << std::endl;
-  std::cout << "Particle: " << sqrt(pow(fts.position().x(),2)+pow(fts.position().y(),2)) << ", Disk limit" << disk->rmin() << std::endl;
+  
   std::vector<TempTrajectory> traj = advanceOneLayer(fts, disk, disks, tiles, direction, isSilicon, TempTrajectory(direction,0));
   if (traj.empty()){
     std::cout << "No track found!!!! Exited PatternRecognitionbyKF" << std::endl; 
@@ -410,9 +401,7 @@ void PatternRecognitionbyKF<TILES>::makeTrajectories(
   unsigned int layer = 2;
   for(disk = nextDisk(disk, direction, disks, isSilicon); disk != nullptr; disk = nextDisk(disk, direction, disks, isSilicon), layer++){
     std::vector<TempTrajectory> newcands_kf;
-    std::cout << "Not using PropagatorWithMaterial!!!!!" << std::endl;
     for(TempTrajectory & cand : traj_kf){
-
       TrajectoryStateOnSurface start = cand.lastMeasurement().updatedState();
       std::vector<TempTrajectory> hisTrajs = advanceOneLayer(start, disk, disks, tiles, direction, isSilicon, cand);
       for(TempTrajectory & t : hisTrajs){
@@ -445,17 +434,6 @@ void PatternRecognitionbyKF<TILES>::makeTrajectories(
         newcands_prop.push_back(t);
         TrajectoryStateOnSurface tsos_prop = lm.predictedState();
         KFHit *prophit = new KFHit(tsos_prop, lm.recHit()->geographicalId());
-
-        /*
-        std::cout << "-------------- Error -----------" << std::endl;
-        std::cout << "Local Error," <<tsos_prop.localError().matrix()[0][0] << "," << tsos_prop.localError().matrix()[1][1] << "," << tsos_prop.localError().matrix()[2][2] << ","
-                  << tsos_prop.localError().matrix()[3][3] << "," << tsos_prop.localError().matrix()[4][4] << "," << tsos_prop.localError().matrix()[5][5] << std::endl;
-        std::cout << "Global Error," << tsos_prop.cartesianError().matrix()[0][0] << ","<< tsos_prop.cartesianError().matrix()[1][1] << ","<< tsos_prop.cartesianError().matrix()[2][2] << ","
-                  << tsos_prop.cartesianError().matrix()[3][3] << ","<< tsos_prop.cartesianError().matrix()[4][4] << "," << tsos_prop.cartesianError().matrix()[5][5] <<std::endl;
-        std::cout << "Curvilinear Error ," << tsos_prop.curvilinearError().matrix()[0][0] << ","<< tsos_prop.curvilinearError().matrix()[1][1] << ","<< tsos_prop.curvilinearError().matrix()[2][2] << ","
-                  << tsos_prop.curvilinearError().matrix()[3][3] << ","<< tsos_prop.curvilinearError().matrix()[4][4] << "," << tsos_prop.curvilinearError().matrix()[5][5] <<std::endl;
-        
-        */
         prophits.push_back(*prophit);
         break;
 
@@ -467,12 +445,12 @@ void PatternRecognitionbyKF<TILES>::makeTrajectories(
 
 template <typename TILES>
 void PatternRecognitionbyKF<TILES>::dumpTiles(const TILES &tiles) const {
-  std::cout << "Entered dumpTiles" << std::endl;
+  edm::LogInfo("PatternRecognitionbyKF") << "Entered dumpTiles" << std::endl;
   constexpr int nEtaBin = TILES::constants_type_t::nEtaBins;
   constexpr int nPhiBin = TILES::constants_type_t::nPhiBins;
-  std::cout << nEtaBin << "\t" <<nPhiBin << std::endl;
+  edm::LogInfo("PatternRecognitionbyKF") << nEtaBin << "\t" <<nPhiBin << std::endl;
   auto lastLayerPerSide = static_cast<int>(rhtools_.lastLayer(false));
-  std::cout << lastLayerPerSide << std::endl;
+  edm::LogInfo("PatternRecognitionbyKF") << lastLayerPerSide << std::endl;
   int maxLayer = 2 * lastLayerPerSide - 1;
   int count = 0;
   for (int layer = 0; layer <= maxLayer; layer++) {
@@ -481,14 +459,14 @@ void PatternRecognitionbyKF<TILES>::dumpTiles(const TILES &tiles) const {
       for (int phi = 0; phi < nPhiBin; phi++) {
         int iphi = ((phi % nPhiBin + nPhiBin) % nPhiBin);
         if (!tiles[layer][offset + iphi].empty()) {
-          std::cout << "Layer: " << layer << " ieta: " << ieta << " phi: " << phi
+          edm::LogInfo("PatternRecognitionbyKF") << "Layer: " << layer << " ieta: " << ieta << " phi: " << phi
                                                          << " " << tiles[layer][offset + iphi].size() << std::endl;
           count++;
         }
       }
     }
   }
-  std::cout << "Number of RecHits: " << count << std::endl;
+  edm::LogInfo("PatternRecognitionbyKF") << "Number of RecHits: " << count << std::endl;
 }
 
 template <typename TILES>
@@ -497,8 +475,8 @@ void PatternRecognitionbyKF<TILES>::fillPSetDescription(edm::ParameterSetDescrip
   //iDesc.add<std::string>("propagator", "RungeKuttaTrackerPropagator"); // RungeKutta Propagator
   iDesc.add<std::vector<double>>("radlen",{});
   iDesc.add<std::vector<double>>("xi",{});
-  //iDesc.add<std::string>("propagator", "PropagatorWithMaterial"); // Analytical Propagator 
-  iDesc.add<std::string>("propagator", "AnalyticalPropagator"); // Analytical Propagator 
+  iDesc.add<std::string>("propagator", "PropagatorWithMaterial"); // Analytical Propagator 
+  //iDesc.add<std::string>("propagator", "AnalyticalPropagator"); // Analytical Propagator 
   iDesc.add<std::string>("propagatorOpposite", "PropagatorWithMaterialOpposite");
   iDesc.add<std::string>("estimator", "Chi2");
   iDesc.add<edm::InputTag>("tracks", edm::InputTag("generalTracks"));
