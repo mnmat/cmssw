@@ -1,15 +1,7 @@
-__init__.py
-*.pyc
-.*.swp
-.#*
-#*#
-*~
-*.pb
-
-# ignore partially applied patches and their backup
-*.rej
-*.orig
-
-# ignore files under the top level $CMSSW_BASE/src directory, but not its subdirectories
-/*
-!/*/
+23293.0_CloseByParticleGun+2026D94/
+25219.0_SingleMuPt100Extended+2026D99/
+Analyzer/
+*__pycache*
+PlayGround/
+hgcal_private/
+runall-report-step123-.log
