@@ -155,10 +155,10 @@ PatternRecognitionbyKF<TILES>::advanceOneLayer(const Start &start,
   // Check if propagated state falls within boundaries of disk. 
   // If not, change the target disk type (Silicon or Scintillator) using switchDisk() and repeat propagation step.
   float r = sqrt(pow(tsos.globalPosition().x(),2)+pow(tsos.globalPosition().y(),2));
-  if ((((disk->rmin() > r) && (!isSilicon)) || (((r > disk->rmax()) && (isSilicon)))) && (int(disk->layer()) >= int(rhtools_.firstLayerBH()))) {
+  if ((((disk->rmin() > r) && (!isSilicon)) || (((r > disk->rmax()) && (isSilicon))))) { //&& (int(disk->layer()) >= int(rhtools_.firstLayerBH()))
+    std::cout << "Enter Switch Disk" << std::endl;
     disk = switchDisk(disk, disks, isSilicon);
     isSilicon = !isSilicon;
-    edm::LogInfo("PatternRecognitionbyKF") << "Enter Switch Disk" << std::endl;
     tsos = prop.propagate(start, disk->surface());
   }
 
@@ -213,7 +213,7 @@ void PatternRecognitionbyKF<TILES>::makeDisks(int subdet, const CaloGeometry* ge
         if (rho < rmin[layer]) rmin[layer] = rho;
     }
 
-  int layer = ddd->firstLayer(); // FIXME: Can be made less stupid
+  int layer = ddd->getLayerOffset(); // FIXME: Can be made less stupid
   for (int i = 0; i < numdisks; ++i) {
     if (countPos[i]) {
       HGCDiskGeomDet* disk = new HGCDiskGeomDet(subdet, +1, layer, zsumPos[i]/countPos[i], rmin[i], rmax[i], radlen_[layer], xi_[layer]);
@@ -354,7 +354,7 @@ void PatternRecognitionbyKF<TILES>::makeTrajectories(
 
   const reco::TrackCollection& tkx = *tracks_h; 
   if (tkx.empty()){
-    edm::LogWarning("PatternRecognitionbyKF") << "No track found!!!! Exited PatternRecognitionbyKF" << std::endl;
+    std::cout << "No track found!!!! Exited PatternRecognitionbyKF" << std::endl;
     abs_fail+=1;
     return;
   }
@@ -379,7 +379,7 @@ void PatternRecognitionbyKF<TILES>::makeTrajectories(
   
   std::vector<TempTrajectory> traj = advanceOneLayer(fts, disk, disks, tiles, direction, isSilicon, TempTrajectory(direction,0));
   if (traj.empty()){
-    edm::LogWarning("PatternRecognitionbyKF") << "No track found!!!! Exited PatternRecognitionbyKF" << std::endl; 
+    std::cout << "No track found!!!! Exited PatternRecognitionbyKF" << std::endl; 
     abs_fail+=1;
     return;
   }
@@ -397,22 +397,12 @@ void PatternRecognitionbyKF<TILES>::makeTrajectories(
   traj_prop.push_back(traj.back());
   traj_kf.push_back(traj.back());
 
-  std::cout << "Last Layer EE" << rhtools_.lastLayerEE() << std::endl;
-  std::cout << "Last Layer FH" << rhtools_.lastLayerFH() << std::endl;
-  std::cout << "First Layer BH" << rhtools_.firstLayerBH() << std::endl;
-  std::cout << "Last Layer BH" << rhtools_.lastLayerBH() << std::endl;
-
-
   // Loop over all disks
 
   unsigned int layer = 2;
   for(disk = nextDisk(disk, direction, disks, isSilicon); disk != nullptr; disk = nextDisk(disk, direction, disks, isSilicon), layer++){
     std::vector<TempTrajectory> newcands_kf;
     for(TempTrajectory & cand : traj_kf){
-
-      edm::LogWarning("PatternRecognitionbyKF") << "Not using PropagatorWithMaterial!!!!!" << std::endl;
-      LogDebug("PatternRecognitionbyKF") << "Not using PropagatorWithMaterial!!!!!" << std::endl;
-
       TrajectoryStateOnSurface start = cand.lastMeasurement().updatedState();
       std::vector<TempTrajectory> hisTrajs = advanceOneLayer(start, disk, disks, tiles, direction, isSilicon, cand);
       for(TempTrajectory & t : hisTrajs){
@@ -486,8 +476,8 @@ void PatternRecognitionbyKF<TILES>::fillPSetDescription(edm::ParameterSetDescrip
   //iDesc.add<std::string>("propagator", "RungeKuttaTrackerPropagator"); // RungeKutta Propagator
   iDesc.add<std::vector<double>>("radlen",{});
   iDesc.add<std::vector<double>>("xi",{});
-  //iDesc.add<std::string>("propagator", "PropagatorWithMaterial"); // Analytical Propagator 
-  iDesc.add<std::string>("propagator", "AnalyticalPropagator"); // Analytical Propagator 
+  iDesc.add<std::string>("propagator", "PropagatorWithMaterial"); // Analytical Propagator 
+  //iDesc.add<std::string>("propagator", "AnalyticalPropagator"); // Analytical Propagator 
   iDesc.add<std::string>("propagatorOpposite", "PropagatorWithMaterialOpposite");
   iDesc.add<std::string>("estimator", "Chi2");
   iDesc.add<edm::InputTag>("tracks", edm::InputTag("generalTracks"));
