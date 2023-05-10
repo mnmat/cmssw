@@ -155,7 +155,7 @@ PatternRecognitionbyKF<TILES>::advanceOneLayer(const Start &start,
   // Check if propagated state falls within boundaries of disk. 
   // If not, change the target disk type (Silicon or Scintillator) using switchDisk() and repeat propagation step.
   float r = sqrt(pow(tsos.globalPosition().x(),2)+pow(tsos.globalPosition().y(),2));
-  if ((((disk->rmin() > r) && (!isSilicon)) || (((r > disk->rmax()) && (isSilicon))))) { //&& (int(disk->layer()) >= int(rhtools_.firstLayerBH()))
+  if (((((disk->rmin() > r) && (!isSilicon)) || (((r > disk->rmax()) && (isSilicon))))) && (int(disk->layer()) >= int(rhtools_.firstLayerBH()))){
     std::cout << "Enter Switch Disk" << std::endl;
     disk = switchDisk(disk, disks, isSilicon);
     isSilicon = !isSilicon;
