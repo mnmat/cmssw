@@ -110,9 +110,7 @@ TrackstersProducer::TrackstersProducer(const edm::ParameterSet& ps)
 
   produces<std::vector<Trackster>>();
   produces<std::vector<float>>();  // Mask to be applied at the next iteration
-  produces<float>("Abs Fail").setBranchAlias("Abs Fail");
   produces<std::vector<KFHit>>("KFHits").setBranchAlias("KFHits");
-  produces<std::vector<KFHit>>("PropHits").setBranchAlias("PropHits");
   }
 
 void TrackstersProducer::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
@@ -156,9 +154,7 @@ void TrackstersProducer::fillDescriptions(edm::ConfigurationDescriptions& descri
 void TrackstersProducer::produce(edm::Event& evt, const edm::EventSetup& es) {
   auto result = std::make_unique<std::vector<Trackster>>();
   auto output_mask = std::make_unique<std::vector<float>>();
-  auto abs_fail = std::make_unique<float>();
   auto kfhits = std::make_unique<std::vector<KFHit>>();
-  auto prophits = std::make_unique<std::vector<KFHit>>();
 
   std::cout<<itername_<<std::endl;
 
@@ -199,7 +195,7 @@ void TrackstersProducer::produce(edm::Event& evt, const edm::EventSetup& es) {
 
     // TODO(mmatthew): Delete if conditions once correct function definition for KF is found
     if(itername_ == "KF"){ 
-      myAlgo_->makeTrajectories(input,*kfhits, *prophits, *abs_fail);   
+      myAlgo_->makeTrajectories(input,*kfhits);   
     } else {
       myAlgo_->makeTracksters(input, *result, seedToTrackstersAssociation);
     }
@@ -223,7 +219,5 @@ void TrackstersProducer::produce(edm::Event& evt, const edm::EventSetup& es) {
 
   evt.put(std::move(result));
   evt.put(std::move(output_mask));
-  evt.put(std::move(abs_fail),"Abs Fail");
   evt.put(std::move(kfhits),"KFHits");
-  evt.put(std::move(prophits),"PropHits");
   }
