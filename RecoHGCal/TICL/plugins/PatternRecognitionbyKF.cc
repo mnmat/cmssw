@@ -156,7 +156,7 @@ PatternRecognitionbyKF<TILES>::advanceOneLayer(const Start &start,
   // If not, change the target disk type (Silicon or Scintillator) using switchDisk() and repeat propagation step.
   float r = sqrt(pow(tsos.globalPosition().x(),2)+pow(tsos.globalPosition().y(),2));
   if (((((disk->rmin() > r) && (!isSilicon)) || (((r > disk->rmax()) && (isSilicon))))) && (int(disk->layer()) >= int(rhtools_.firstLayerBH()))){
-    std::cout << "Enter Switch Disk" << std::endl;
+    edm::LogVerbatim("PatternRecognitionbyKF") << "Enter Switch Disk" << std::endl;
     disk = switchDisk(disk, disks, isSilicon);
     isSilicon = !isSilicon;
     tsos = prop.propagate(start, disk->surface());
@@ -189,8 +189,8 @@ template<typename TILES>
 void PatternRecognitionbyKF<TILES>::makeDisks(int subdet, const CaloGeometry* geom_) {
 
     const CaloSubdetectorGeometry *subGeom = geom_->getSubdetectorGeometry(DetId::Detector(subdet), ForwardSubdetector::ForwardEmpty);
-    auto geomEE = static_cast<const HGCalGeometry*>(subGeom);
-    const HGCalDDDConstants* ddd = &(geomEE->topology().dddConstants());
+    auto hgcalGeom = static_cast<const HGCalGeometry*>(subGeom);
+    const HGCalDDDConstants* ddd = &(hgcalGeom->topology().dddConstants());
     int numdisks = ddd->lastLayer(true);
 
     std::vector<float>  rmax(numdisks, 0), rmin(numdisks, 9e9);
@@ -199,7 +199,7 @@ void PatternRecognitionbyKF<TILES>::makeDisks(int subdet, const CaloGeometry* ge
     const std::vector<DetId> & ids = subGeom->getValidDetIds();
   
     for (auto & i : ids) {
-        calculateLocalError(i,geomEE);
+        calculateLocalError(i,hgcalGeom);
 
         const GlobalPoint & pos = rhtools_.getPosition(i); 
         int layer = rhtools_.getLayer(i)-1;
@@ -339,9 +339,7 @@ void PatternRecognitionbyKF<TILES>::init(
 template <typename TILES>
 void PatternRecognitionbyKF<TILES>::makeTrajectories(
     const typename PatternRecognitionAlgoBaseT<TILES>::Inputs &input,
-    std::vector<KFHit>& kfhits,
-    std::vector<KFHit>& prophits,
-    float& abs_fail) {
+    std::vector<KFHit>& kfhits) {
 
   edm::EventSetup const &es = input.es;
   edm::Event const &ev = input.ev;
@@ -354,47 +352,35 @@ void PatternRecognitionbyKF<TILES>::makeTrajectories(
 
   const reco::TrackCollection& tkx = *tracks_h; 
   if (tkx.empty()){
-    std::cout << "No track found!!!! Exited PatternRecognitionbyKF" << std::endl;
-    abs_fail+=1;
+    edm::LogWarning("PatternRecognitionbyKF") << "No track to extrapolate from first disk found! Exited PatternRecognitionbyKF" << std::endl;
     return;
   }
 
   FreeTrajectoryState fts = trajectoryStateTransform::outerFreeState(tkx.front(),bfield_.product());
-  edm::LogInfo("PatternRecognitionbyKF") << "Unscaled Error: " << fts.curvilinearError().matrix()[0][0] << std::endl;
   if (rescaleFTSError_!=1){
     //TODO: Message Logging for Error
     fts.rescaleError(rescaleFTSError_);
   }
-  // Propagate through all disks
 
-  // Get first disk
+  // Extrapolate muon position from the tracker
 
   int zside = fts.momentum().eta() > 0 ? +1 : -1;
   PropagationDirection direction = alongMomentum;
   std::vector<HGCDiskGeomDet*> disks = (zside > 0? disksPos_ : disksNeg_);
   const HGCDiskGeomDet* disk = (zside > 0 ? disksPos_ : disksNeg_).front();
   bool isSilicon = true;
-
-  // Propagation step
   
   std::vector<TempTrajectory> traj = advanceOneLayer(fts, disk, disks, tiles, direction, isSilicon, TempTrajectory(direction,0));
   if (traj.empty()){
-    std::cout << "No track found!!!! Exited PatternRecognitionbyKF" << std::endl; 
-    abs_fail+=1;
+    edm::LogWarning("PatternRecognitionByKF") << "No valid Trajectory found! Exited PatternRecognitionbyKF!" << std::endl; 
     return;
   }
   auto lm = traj.back().lastMeasurement();
-  TrajectoryStateOnSurface tsos_prop = lm.predictedState();
-  KFHit *prophit = new KFHit(tsos_prop, lm.recHit()->geographicalId());
-  prophits.push_back(*prophit);
-
   TrajectoryStateOnSurface tsos_kf = lm.updatedState();
   KFHit *kfhit = new KFHit(tsos_kf, lm.recHit()->geographicalId());
   kfhits.push_back(*kfhit);
 
-  std::vector<TempTrajectory> traj_prop;
   std::vector<TempTrajectory> traj_kf;
-  traj_prop.push_back(traj.back());
   traj_kf.push_back(traj.back());
 
   // Loop over all disks
@@ -416,31 +402,6 @@ void PatternRecognitionbyKF<TILES>::makeTrajectories(
       }
     }
     traj_kf.swap(newcands_kf);
-  }
-
-  // Propagator loop used purely for testing purposes
-  direction = alongMomentum;
-  disk = (zside > 0 ? disksPos_ : disksNeg_).front();
-  isSilicon=1;
-  layer = 2;
-  for(disk = nextDisk(disk, direction, disks, isSilicon); disk != nullptr; disk = nextDisk(disk, direction, disks, isSilicon), layer++){
-    std::vector<TempTrajectory> newcands_prop;
-    for(TempTrajectory & cand : traj_prop){
-
-      TrajectoryStateOnSurface start = cand.lastMeasurement().predictedState();
-      std::vector<TempTrajectory> hisTrajs = advanceOneLayer(start, disk, disks, tiles, direction, isSilicon, cand);
-
-      for(TempTrajectory & t : hisTrajs){
-        auto lm = t.lastMeasurement();
-        newcands_prop.push_back(t);
-        TrajectoryStateOnSurface tsos_prop = lm.predictedState();
-        KFHit *prophit = new KFHit(tsos_prop, lm.recHit()->geographicalId());
-        prophits.push_back(*prophit);
-        break;
-
-      }
-    }
-    traj_prop.swap(newcands_prop);
   }
 }
 
@@ -473,11 +434,9 @@ void PatternRecognitionbyKF<TILES>::dumpTiles(const TILES &tiles) const {
 template <typename TILES>
 void PatternRecognitionbyKF<TILES>::fillPSetDescription(edm::ParameterSetDescription &iDesc) {
   iDesc.add<int>("algo_verbosity", 0);
-  //iDesc.add<std::string>("propagator", "RungeKuttaTrackerPropagator"); // RungeKutta Propagator
   iDesc.add<std::vector<double>>("radlen",{});
   iDesc.add<std::vector<double>>("xi",{});
   iDesc.add<std::string>("propagator", "PropagatorWithMaterial"); // Analytical Propagator 
-  //iDesc.add<std::string>("propagator", "AnalyticalPropagator"); // Analytical Propagator 
   iDesc.add<std::string>("propagatorOpposite", "PropagatorWithMaterialOpposite");
   iDesc.add<std::string>("estimator", "Chi2");
   iDesc.add<edm::InputTag>("tracks", edm::InputTag("generalTracks"));

@@ -36,9 +36,7 @@ namespace ticl {
     ~PatternRecognitionbyKF() override = default;
 
     void makeTrajectories(const typename PatternRecognitionAlgoBaseT<TILES>::Inputs& input,
-                        std::vector<KFHit>& kfhits,
-                        std::vector<KFHit>& prophits,
-                        float& abs_fail) override;
+                        std::vector<KFHit>& kfhits) override;
 
     static void fillPSetDescription(edm::ParameterSetDescription& iDesc);
 
