@@ -49,34 +49,6 @@ ticlTrackstersKF = _trackstersProducer.clone(
     )
 )
 
-
-
-"""
-
-
-        radlen = [0,0,0,0,0,
-            0,0,0,0,0,
-            0,0,0,0,0,
-            0,0,0,0,0,
-            0,0,0,0,0,
-            0,0,0,0,0,
-            0,0,0,0,0,
-            0,0,0,0,0,
-            0,0,0,0,0,
-            0,0],
-        xi = [0,0,0,0,0,
-            0,0,0,0,0,
-            0,0,0,0,0,
-            0,0,0,0,0,
-            0,0,0,0,0,
-            0,0,0,0,0,
-            0,0,0,0,0,
-            0,0,0,0,0,
-            0,0,0,0,0,
-            0,0],
-        rescale = 100
-"""
-
 ticlKFStepTask = cms.Task(ticlSeedingTrk
     ,filteredLayerClustersKF
     ,ticlTrackstersKF)
