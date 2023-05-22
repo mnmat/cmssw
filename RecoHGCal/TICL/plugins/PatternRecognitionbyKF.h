@@ -61,8 +61,10 @@ namespace ticl {
     edm::ESHandle<Chi2MeasurementEstimatorBase> estimator_;
     edm::ESHandle<TrajectoryStateUpdator> updator_;
     edm::ESHandle<Propagator> propagatorOppo_;
-    uint32_t geomCacheId_;
+    edm::ESGetToken<HGCDiskGeomDetVector,CaloGeometryRecord> diskToken_;
     int rescaleFTSError_;
+    uint32_t geomCacheId_;
+
 
     // Instance Variables
     hgcal::RecHitTools rhtools_;

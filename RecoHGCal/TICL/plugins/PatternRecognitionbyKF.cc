@@ -54,8 +54,9 @@ PatternRecognitionbyKF<TILES>::PatternRecognitionbyKF(const edm::ParameterSet &c
       hgcalRecHitsEEToken_(iC.consumes<HGCRecHitCollection>(conf.getParameter<edm::InputTag>("HGCEEInput"))),
       hgcalRecHitsFHToken_(iC.consumes<HGCRecHitCollection>(conf.getParameter<edm::InputTag>("HGCFHInput"))),
       hgcalRecHitsBHToken_(iC.consumes<HGCRecHitCollection>(conf.getParameter<edm::InputTag>("HGCBHInput"))),
-      geomCacheId_(0),
-      rescaleFTSError_(conf.getParameter<int>("rescaleFTSError")){
+      diskToken_(iC.esConsumes<HGCDiskGeomDetVector, CaloGeometryRecord>()),
+      rescaleFTSError_(conf.getParameter<int>("rescaleFTSError")),
+      geomCacheId_(0){
 };
 
 template<typename TILES>
@@ -305,18 +306,9 @@ void PatternRecognitionbyKF<TILES>::init(
       const CaloGeometry* geom = &es.getData(caloGeomToken_);
       rhtools_.setGeometry(*geom);
 
-      // Get Subdetector IDs
-      int hgcalEEId = DetId::HGCalEE;
-      int hgcalHSiId = DetId::HGCalHSi;
-      int hgcalHScId = DetId::HGCalHSc;
-
-      makeDisks(hgcalEEId, geom);
-      makeDisks(hgcalHSiId, geom);
-      makeDisks(hgcalHScId, geom);
-
-      auto ptrSort = [](const HGCDiskGeomDet *a, const HGCDiskGeomDet *b) -> bool { return (abs(a->position().z())) < (abs(b->position().z())); };
-      std::sort(disksPos_.begin(), disksPos_.end(), ptrSort);
-      std::sort(disksNeg_.begin(), disksNeg_.end(), ptrSort);
+      const auto& disks = es.getData(diskToken_);
+      disksPos_ = disks.first;
+      disksNeg_ = disks.second;
     } 
 
     bfield_ = es.getHandle(bfieldtoken_);
