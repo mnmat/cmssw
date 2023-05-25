@@ -56,11 +56,11 @@ namespace ticl {
     // (mmatthew): makeTrajectories used only by PatternRecognitionByKF. 
     // TODO: combine with makeTracksters as pure virtual function
     virtual void makeTrajectories(const Inputs& input,
-                                std::vector<KFHit>& kfhits){};
+                                std::vector<KFHit>& kfhits) = 0;
 
     virtual void makeTracksters(const Inputs& input,
                                 std::vector<Trackster>& result,
-                                std::unordered_map<int, std::vector<int>>& seedToTracksterAssociation){};
+                                std::unordered_map<int, std::vector<int>>& seedToTracksterAssociation) = 0;
 
   protected:
     int algo_verbosity_;
