@@ -59,45 +59,6 @@ PatternRecognitionbyKF<TILES>::PatternRecognitionbyKF(const edm::ParameterSet &c
 };
 
 template<typename TILES>
-void PatternRecognitionbyKF<TILES>::calculateLocalError(DetId id, const HGCalGeometry* hgcalgeom_){
-  // Calculations based on normalized second moment of area
-  if(rhtools_.isSilicon(id)){
-    double A = hgcalgeom_->getArea(id);
-    double a = sqrt(2*A/(3*sqrt(3))); // side length hexagon
-    double var = pow(a,4)*5*sqrt(3)/(16*A);
-    lerr[id] = LocalError(var, 0, var);
-  }
-  else{
-    const HGCalDDDConstants* ddd = &(hgcalgeom_->topology().dddConstants());
-    // Get outer and inner radius
-    const GlobalPoint &pos = rhtools_.getPosition(id);
-    double r = sqrt(pos.x()*pos.x() + pos.y()*pos.y());
-    auto radiusLayer = ddd->getRadiusLayer(rhtools_.getLayer(id));
-    int idx = static_cast<int>(std::lower_bound(radiusLayer.begin(), radiusLayer.end(),r)-radiusLayer.begin());
-    double rmax = radiusLayer[idx];
-    double rmin = radiusLayer[idx-1];
-    // Get angles
-    double phi = rhtools_.getPhi(id) + M_PI; // set to radians [0, 2pi]
-    double dphi = rhtools_.getScintDEtaDPhi(id).second;
-    double phimin = phi - 0.5*dphi;
-    double phimax = phi + 0.5*dphi;
-
-    // FIXME!!! Using getArea() function results in lower efficiency due to incorrect position of KF hits. To be understood and getArea() to be implemented
-    // double A = hgcalgeom_->getArea(id); TOD
-    double A = (rmax*rmax - rmin*rmin)*M_PI*dphi/(2*M_PI); 
-    // Calculate local error
-    double ex2 = 1/(8*A) * (pow(rmax,4) - pow(rmin,4)) * (-phimin - sin(phimin)*cos(phimin) + phimax + sin(phimax)*cos(phimax));
-    double ex = 1/(3*A) * (pow(rmax,3) - pow(rmin,3)) * (sin(phimax) - sin(phimin));
-    double varx = ex2 - ex*ex;
-    double ey2 = 1/(8*A) * (pow(rmax,4) - pow(rmin,4)) * (-phimin + sin(phimin)*cos(phimin) + phimax - sin(phimax)*cos(phimax));
-    double ey = 1/(3*A) * (pow(rmax,3) - pow(rmin,3)) * (cos(phimin) - cos(phimax));
-    double vary = ey2 - ey*ey;
-    double varxy = 1/(16*A)*(pow(rmax,4)-pow(rmin,4))*(cos(2*phimin)-cos(2*phimax)) - ex*ey;
-    lerr[id] = LocalError(varx, varxy, vary);
-  }
-} 
-
-template<typename TILES>
 const HGCDiskGeomDet * PatternRecognitionbyKF<TILES>::switchDisk(const HGCDiskGeomDet * from, 
                                                                 const std::vector<HGCDiskGeomDet *> &vec, 
                                                                 bool isSilicon) const{                                                           
@@ -199,8 +160,6 @@ void PatternRecognitionbyKF<TILES>::makeDisks(int subdet, const CaloGeometry* ge
     const std::vector<DetId> & ids = subGeom->getValidDetIds();
   
     for (auto & i : ids) {
-        calculateLocalError(i,hgcalGeom);
-
         const GlobalPoint & pos = rhtools_.getPosition(i); 
         int layer = rhtools_.getLayer(i)-1;
         float z = pos.z();
@@ -283,7 +242,7 @@ std::vector<TrajectoryMeasurement> PatternRecognitionbyKF<TILES>::measurements(
           GlobalPoint globalpoint = rhtools_.getPosition(hit);
           LocalPoint localpoint = tsos.surface().toLocal(globalpoint);
 
-          auto hitptr = std::make_shared<HGCTrackingRecHit>(hit,localpoint,lerr[hit],energy);
+          auto hitptr = std::make_shared<HGCTrackingRecHit>(hit,localpoint,rhtools_.getLocalError(hit),energy);
           auto mest_pair = mest.estimate(tsos, *hitptr);
           if(mest_pair.first){
             ret.emplace_back(tsos,hitptr,mest_pair.second);
@@ -384,7 +343,6 @@ void PatternRecognitionbyKF<TILES>::makeTrajectories(
   traj_kf.push_back(traj.back());
 
   // Loop over all disks
-
   unsigned int layer = 2;
   for(disk = nextDisk(disk, direction, disks, isSilicon); disk != nullptr; disk = nextDisk(disk, direction, disks, isSilicon), layer++){
     std::vector<TempTrajectory> newcands_kf;
