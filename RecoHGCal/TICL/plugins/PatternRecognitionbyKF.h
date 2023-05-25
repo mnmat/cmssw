@@ -12,6 +12,7 @@
 #include "Geometry/CommonTopologies/interface/HGCDiskGeomDet.h"
 #include "Geometry/HGCalGeometry/interface/HGCalGeometry.h"
 
+
 #include "MagneticField/Records/interface/IdealMagneticFieldRecord.h"
 #include "MagneticField/Engine/interface/MagneticField.h"
 
@@ -75,7 +76,6 @@ namespace ticl {
     // Instance Variables
     hgcal::RecHitTools rhtools_;
     std::vector<const HGCRecHit*> recHitCollection;
-    std::map<DetId,LocalError> lerr;
     const HGCTracker* hgcTracker_;
 
     float etaBinSize = (TILES::constants_type_t::maxEta - TILES::constants_type_t::minEta)/TILES::constants_type_t::nEtaBins;
@@ -100,8 +100,6 @@ namespace ticl {
         const HGCRecHitCollection& recHitsEE,
         const HGCRecHitCollection& recHitsFH,
         const HGCRecHitCollection& recHitsBH) const;
-    void calculateLocalError(DetId id,
-        const HGCalGeometry* hgcalgeom);
     void init(const edm::Event& evt, const edm::EventSetup& es);
   };
 }  // namespace ticl
