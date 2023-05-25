@@ -35,6 +35,10 @@ namespace ticl {
     PatternRecognitionbyKF(const edm::ParameterSet& conf, edm::ConsumesCollector);
     ~PatternRecognitionbyKF() override = default;
 
+    void makeTracksters(const typename PatternRecognitionAlgoBaseT<TILES>::Inputs& input,
+                        std::vector<Trackster>& result,
+                        std::unordered_map<int, std::vector<int>>& seedToTracksterAssociation) override {};
+
     void makeTrajectories(const typename PatternRecognitionAlgoBaseT<TILES>::Inputs& input,
                         std::vector<KFHit>& kfhits) override;
 
