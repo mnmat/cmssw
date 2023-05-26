@@ -502,12 +502,12 @@ LocalError RecHitTools::getLocalError(const DetId& id){
     auto& siError = (getSiThickIndex(id)==0? siErrorFine_:siErrorCoarse_); //thickIndex defined in getSiThickIndex function
     auto& isInitSiError = (getSiThickIndex(id)==0? isInitSiErrorFine_:isInitSiErrorCoarse_);
     if (isInitSiError){
-      return siError;
+      return LocalError(siError,0,siError);
       }
     else {
       siError = calculateSiliconError(id);
       isInitSiError = true;
-      return siError;
+      return LocalError(siError,0,siError);
     }  
   }
   else{
@@ -515,12 +515,12 @@ LocalError RecHitTools::getLocalError(const DetId& id){
   }
 }
 
-LocalError RecHitTools::calculateSiliconError(const DetId& id) const {
+float RecHitTools::calculateSiliconError(const DetId& id) const {
   auto hg = static_cast<const HGCalGeometry*>(getSubdetectorGeometry(id));
-  double A = hg->getArea(id);
-  double a = sqrt(2*A/(3*sqrt(3))); // side length hexagon
-  double var = pow(a,4)*5*sqrt(3)/(16*A);
-  return LocalError(var, 0, var);
+  float A = hg->getArea(id);
+  float a = sqrt(2*A/(3*sqrt(3))); // side length hexagon
+  float var = pow(a,4)*5*sqrt(3)/(16*A);
+  return var;
 }
 
 LocalError RecHitTools::calculateScintillatorError(const DetId& id) const {
