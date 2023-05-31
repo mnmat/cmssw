@@ -229,22 +229,22 @@ void PatternRecognitionbyKF<TILES>::makeDisks(int subdet, const CaloGeometry* ge
 
 
 template <typename TILES>
-void PatternRecognitionbyKF<TILES>::fillHitMap(std::map<DetId,const HGCRecHit*>& hitMap,
+void PatternRecognitionbyKF<TILES>::mergeRecHitCollections(std::vector<const HGCRecHit*>& recHitCollection,
                                 const HGCRecHitCollection& rechitsEE,
                                 const HGCRecHitCollection& rechitsFH,
                                 const HGCRecHitCollection& rechitsBH) const {
   
-  hitMap.clear();
+  recHitCollection.clear();
   for (const auto& hit : rechitsEE) {
-    hitMap.emplace(hit.detid(), &hit);
+    recHitCollection.push_back(&hit);
   }
 
   for (const auto& hit : rechitsFH) {
-    hitMap.emplace(hit.detid(), &hit);
+    recHitCollection.push_back(&hit);
   }
 
   for (const auto& hit : rechitsBH) {
-    hitMap.emplace(hit.detid(), &hit);
+    recHitCollection.push_back(&hit);
   }
 }
 
@@ -277,13 +277,14 @@ std::vector<TrajectoryMeasurement> PatternRecognitionbyKF<TILES>::measurements(
       int iphi = ((phi % nPhiBin + nPhiBin) % nPhiBin);
       if (!tiles[layer][offset + iphi].empty()) {
         for(auto hit: tiles[layer][offset + iphi]) {
-          const auto rec = hitMap.find(hit)->second;
-          float energy = rec->energy();
+          const auto rec = *recHitCollection[hit];
+          const auto detid = rec.detid();
+          float energy = rec.energy();
 
-          GlobalPoint globalpoint = rhtools_.getPosition(hit);
+          GlobalPoint globalpoint = rhtools_.getPosition(detid);
           LocalPoint localpoint = tsos.surface().toLocal(globalpoint);
 
-          auto hitptr = std::make_shared<HGCTrackingRecHit>(hit,localpoint,lerr[hit],energy);
+          auto hitptr = std::make_shared<HGCTrackingRecHit>(detid,localpoint,lerr[detid],energy);
           auto mest_pair = mest.estimate(tsos, *hitptr);
           if(mest_pair.first){
             ret.emplace_back(tsos,hitptr,mest_pair.second);
@@ -301,6 +302,7 @@ void PatternRecognitionbyKF<TILES>::init(
 
     //Get Calo Geometry
     if (es.get<CaloGeometryRecord>().cacheIdentifier() != geomCacheId_) {
+      std::cout << "Initialized" << std::endl;
       geomCacheId_ = es.get<CaloGeometryRecord>().cacheIdentifier();
       const CaloGeometry* geom = &es.getData(caloGeomToken_);
       rhtools_.setGeometry(*geom);
@@ -332,7 +334,7 @@ void PatternRecognitionbyKF<TILES>::init(
     ev.getByToken(hgcalRecHitsEEToken_, ee_hits);
     ev.getByToken(hgcalRecHitsFHToken_, fh_hits);
     ev.getByToken(hgcalRecHitsBHToken_, bh_hits);
-    fillHitMap(hitMap, *ee_hits, *fh_hits, *bh_hits);
+    mergeRecHitCollections(recHitCollection, *ee_hits, *fh_hits, *bh_hits);
 }
 
 
