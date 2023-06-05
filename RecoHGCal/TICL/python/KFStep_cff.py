@@ -49,10 +49,12 @@ ticlTrackstersKF = _trackstersProducer.clone(
     )
 )
 
-HGCDiskProducer = cms.ESProducer("HGCDiskProducer")
+HGCTrackerESProducer = cms.ESProducer("HGCTrackerESProducer")
+HGCDiskESProducer = cms.ESProducer("HGCDiskESProducer")
 
 
 ticlKFStepTask = cms.Task(ticlSeedingTrk
     ,filteredLayerClustersKF
-    ,HGCDiskProducer
+    ,HGCDiskESProducer
+    ,HGCTrackerESProducer
     ,ticlTrackstersKF)

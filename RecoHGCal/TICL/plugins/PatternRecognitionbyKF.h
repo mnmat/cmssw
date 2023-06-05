@@ -27,6 +27,7 @@
 #include "TrackingTools/KalmanUpdators/interface/Chi2MeasurementEstimatorBase.h"
 #include "TrackingTools/KalmanUpdators/interface/Chi2MeasurementEstimator.h"
 
+#include "HGCTracker.h"
 
 namespace ticl {
   template <typename TILES>
@@ -62,15 +63,16 @@ namespace ticl {
     edm::ESHandle<TrajectoryStateUpdator> updator_;
     edm::ESHandle<Propagator> propagatorOppo_;
     edm::ESGetToken<HGCDiskGeomDetVector,CaloGeometryRecord> diskToken_;
+    edm::ESGetToken<HGCTracker,CaloGeometryRecord> hgcTrackerToken_;
+
     int rescaleFTSError_;
     uint32_t geomCacheId_;
-
 
     // Instance Variables
     hgcal::RecHitTools rhtools_;
     std::map<DetId, const HGCRecHit*> hitMap;
     std::map<DetId,LocalError> lerr;
-    std::vector<HGCDiskGeomDet *> disksPos_, disksNeg_;
+    const HGCTracker* hgcTracker_;
 
     float etaBinSize = (TILES::constants_type_t::maxEta - TILES::constants_type_t::minEta)/TILES::constants_type_t::nEtaBins;
     float phiBinSize = 2*M_PI/TILES::constants_type_t::nPhiBins;
@@ -79,18 +81,13 @@ namespace ticl {
 
     //Member Functions
     void dumpTiles(const TILES&) const;
-    void makeDisks(int subdet, const CaloGeometry* geom_);
-    void addDisk(HGCDiskGeomDet *disk) { 
-      (disk->zside() > 0 ? disksPos_ : disksNeg_).push_back(disk);
-    }
     std::vector<TrajectoryMeasurement> measurements(const TrajectoryStateOnSurface &tsos, 
       const MeasurementEstimator &mest, 
       const TILES &tiles, 
       int depth);
     template<class Start>
     std::vector<TempTrajectory> advanceOneLayer(const Start &start, 
-      const HGCDiskGeomDet * disk, 
-      const std::vector<HGCDiskGeomDet *>  &disks, 
+      const HGCDiskGeomDet * disk,
       const TILES &tiles,
       PropagationDirection direction, 
       bool &isSilicon,
