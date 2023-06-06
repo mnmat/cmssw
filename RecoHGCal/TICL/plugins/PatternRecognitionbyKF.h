@@ -70,7 +70,7 @@ namespace ticl {
 
     // Instance Variables
     hgcal::RecHitTools rhtools_;
-    std::map<DetId, const HGCRecHit*> hitMap;
+    std::vector<const HGCRecHit*> recHitCollection;
     std::map<DetId,LocalError> lerr;
     std::vector<HGCDiskGeomDet *> disksPos_, disksNeg_;
 
@@ -104,7 +104,7 @@ namespace ticl {
     const HGCDiskGeomDet * switchDisk(const HGCDiskGeomDet * from, 
       const std::vector<HGCDiskGeomDet *> &vec,
       bool isSilicon) const;
-    virtual void fillHitMap(std::map<DetId, const HGCRecHit*>& hitMap,
+    virtual void mergeRecHitCollections(std::vector<const HGCRecHit*>& recHitCollection,
         const HGCRecHitCollection& recHitsEE,
         const HGCRecHitCollection& recHitsFH,
         const HGCRecHitCollection& recHitsBH) const;

@@ -199,8 +199,8 @@ void TrackstersProducer::produce(edm::Event& evt, const edm::EventSetup& es) {
     } else {
       myAlgo_->makeTracksters(input, *result, seedToTrackstersAssociation);
     }
-
   }
+
   // Now update the global mask and put it into the event
   output_mask->reserve(original_layerclusters_mask.size());
   // Copy over the previous state
