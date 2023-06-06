@@ -11,3 +11,7 @@ HGCDiskGeomDet::HGCDiskGeomDet(int subdet, int zside, int layer, float z, float 
         (const_cast<Plane &>(surface())).setMediumProperties(MediumProperties(radlen,xi));
     }
 }
+
+#include "FWCore/Utilities/interface/typelookup.h"
+TYPELOOKUP_DATA_REG(HGCDiskGeomDet);
+TYPELOOKUP_DATA_REG(HGCDiskGeomDetVector);

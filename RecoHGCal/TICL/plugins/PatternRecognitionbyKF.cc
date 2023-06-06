@@ -35,6 +35,8 @@
 #include "TrackingTools/TrajectoryState/interface/TrajectoryStateOnSurface.h"
 #include "TrackingTools/TrajectoryState/interface/TrajectoryStateTransform.h"
 
+#include "HGCTracker.h"
+
 using namespace ticl;
 
 template <typename TILES>
@@ -54,9 +56,10 @@ PatternRecognitionbyKF<TILES>::PatternRecognitionbyKF(const edm::ParameterSet &c
       hgcalRecHitsEEToken_(iC.consumes<HGCRecHitCollection>(conf.getParameter<edm::InputTag>("HGCEEInput"))),
       hgcalRecHitsFHToken_(iC.consumes<HGCRecHitCollection>(conf.getParameter<edm::InputTag>("HGCFHInput"))),
       hgcalRecHitsBHToken_(iC.consumes<HGCRecHitCollection>(conf.getParameter<edm::InputTag>("HGCBHInput"))),
-      geomCacheId_(0),
-      rescaleFTSError_(conf.getParameter<int>("rescaleFTSError")){
-};
+      diskToken_(iC.esConsumes<HGCDiskGeomDetVector, CaloGeometryRecord>()),
+      hgcTrackerToken_(iC.esConsumes<HGCTracker, CaloGeometryRecord>()),
+      rescaleFTSError_(conf.getParameter<int>("rescaleFTSError")),
+      geomCacheId_(0){};
 
 template<typename TILES>
 void PatternRecognitionbyKF<TILES>::calculateLocalError(DetId id, const HGCalGeometry* hgcalgeom_){
@@ -96,6 +99,7 @@ void PatternRecognitionbyKF<TILES>::calculateLocalError(DetId id, const HGCalGeo
     lerr[id] = LocalError(varx, varxy, vary);
   }
 } 
+
 
 template<typename TILES>
 const HGCDiskGeomDet * PatternRecognitionbyKF<TILES>::switchDisk(const HGCDiskGeomDet * from, 
@@ -143,7 +147,6 @@ template<class Start>
 std::vector<TempTrajectory>
 PatternRecognitionbyKF<TILES>::advanceOneLayer(const Start &start, 
                                               const HGCDiskGeomDet * disk, 
-                                              const std::vector<HGCDiskGeomDet *> &disks, 
                                               const TILES &tiles, PropagationDirection direction, 
                                               bool &isSilicon, 
                                               TempTrajectory traj){                                
@@ -151,13 +154,14 @@ PatternRecognitionbyKF<TILES>::advanceOneLayer(const Start &start,
   std::vector<TempTrajectory> ret;
   const Propagator &prop = (direction == alongMomentum ? *propagator_ : *propagatorOppo_);
   TrajectoryStateOnSurface tsos = prop.propagate(start, disk->surface());
-  if (!tsos.isValid()) return ret;
+  std::cout << disk->layer() << ", is Silicon: " << disk->isSilicon() << ", Position: " << disk->position()  << std::endl;
+  if (!tsos.isValid()) return ret; 
   // Check if propagated state falls within boundaries of disk. 
   // If not, change the target disk type (Silicon or Scintillator) using switchDisk() and repeat propagation step.
   float r = sqrt(pow(tsos.globalPosition().x(),2)+pow(tsos.globalPosition().y(),2));
   if (((((disk->rmin() > r) && (!isSilicon)) || (((r > disk->rmax()) && (isSilicon))))) && (int(disk->layer()) >= int(rhtools_.firstLayerBH()))){
     edm::LogVerbatim("PatternRecognitionbyKF") << "Enter Switch Disk" << std::endl;
-    disk = switchDisk(disk, disks, isSilicon);
+    disk = hgcTracker_->switchDisk(disk);
     isSilicon = !isSilicon;
     tsos = prop.propagate(start, disk->surface());
   }
@@ -184,49 +188,6 @@ PatternRecognitionbyKF<TILES>::advanceOneLayer(const Start &start,
 
   return ret;
 }
-
-template<typename TILES>
-void PatternRecognitionbyKF<TILES>::makeDisks(int subdet, const CaloGeometry* geom_) {
-
-    const CaloSubdetectorGeometry *subGeom = geom_->getSubdetectorGeometry(DetId::Detector(subdet), ForwardSubdetector::ForwardEmpty);
-    auto hgcalGeom = static_cast<const HGCalGeometry*>(subGeom);
-    const HGCalDDDConstants* ddd = &(hgcalGeom->topology().dddConstants());
-    int numdisks = ddd->lastLayer(true);
-
-    std::vector<float>  rmax(numdisks, 0), rmin(numdisks, 9e9);
-    std::vector<double> zsumPos(numdisks), zsumNeg(numdisks);
-    std::vector<int> countPos(numdisks), countNeg(numdisks);
-    const std::vector<DetId> & ids = subGeom->getValidDetIds();
-  
-    for (auto & i : ids) {
-        calculateLocalError(i,hgcalGeom);
-
-        const GlobalPoint & pos = rhtools_.getPosition(i); 
-        int layer = rhtools_.getLayer(i)-1;
-        float z = pos.z();
-        float rho = pos.perp();
-        int side = z > 0 ? +1 : -1;
-
-        (side > 0 ? zsumPos : zsumNeg)[layer] += z;
-        (side > 0 ? countPos : countNeg)[layer]++;
-        if (rho > rmax[layer]) rmax[layer] = rho;
-        if (rho < rmin[layer]) rmin[layer] = rho;
-    }
-
-  int layer = ddd->getLayerOffset(); // FIXME: Can be made less stupid
-  for (int i = 0; i < numdisks; ++i) {
-    if (countPos[i]) {
-      HGCDiskGeomDet* disk = new HGCDiskGeomDet(subdet, +1, layer, zsumPos[i]/countPos[i], rmin[i], rmax[i], radlen_[layer], xi_[layer]);
-      addDisk(disk);
-    }
-    if (countNeg[i]) {
-      HGCDiskGeomDet* disk = new HGCDiskGeomDet(subdet, -1, layer, zsumNeg[i]/countNeg[i], rmin[i], rmax[i], radlen_[layer], xi_[layer]);
-      addDisk(disk);  
-    }
-    layer++;
-  }
-}
-
 
 template <typename TILES>
 void PatternRecognitionbyKF<TILES>::mergeRecHitCollections(std::vector<const HGCRecHit*>& recHitCollection,
@@ -306,19 +267,7 @@ void PatternRecognitionbyKF<TILES>::init(
       geomCacheId_ = es.get<CaloGeometryRecord>().cacheIdentifier();
       const CaloGeometry* geom = &es.getData(caloGeomToken_);
       rhtools_.setGeometry(*geom);
-
-      // Get Subdetector IDs
-      int hgcalEEId = DetId::HGCalEE;
-      int hgcalHSiId = DetId::HGCalHSi;
-      int hgcalHScId = DetId::HGCalHSc;
-
-      makeDisks(hgcalEEId, geom);
-      makeDisks(hgcalHSiId, geom);
-      makeDisks(hgcalHScId, geom);
-
-      auto ptrSort = [](const HGCDiskGeomDet *a, const HGCDiskGeomDet *b) -> bool { return (abs(a->position().z())) < (abs(b->position().z())); };
-      std::sort(disksPos_.begin(), disksPos_.end(), ptrSort);
-      std::sort(disksNeg_.begin(), disksNeg_.end(), ptrSort);
+      hgcTracker_ = &es.getData(hgcTrackerToken_);
     } 
 
     bfield_ = es.getHandle(bfieldtoken_);
@@ -368,11 +317,11 @@ void PatternRecognitionbyKF<TILES>::makeTrajectories(
 
   int zside = fts.momentum().eta() > 0 ? +1 : -1;
   PropagationDirection direction = alongMomentum;
-  std::vector<HGCDiskGeomDet*> disks = (zside > 0? disksPos_ : disksNeg_);
-  const HGCDiskGeomDet* disk = (zside > 0 ? disksPos_ : disksNeg_).front();
+
+  const HGCDiskGeomDet* disk = hgcTracker_->firstDisk(zside,direction);
   bool isSilicon = true;
   
-  std::vector<TempTrajectory> traj = advanceOneLayer(fts, disk, disks, tiles, direction, isSilicon, TempTrajectory(direction,0));
+  std::vector<TempTrajectory> traj = advanceOneLayer(fts, disk,tiles, direction, isSilicon, TempTrajectory(direction,0));
   if (traj.empty()){
     edm::LogWarning("PatternRecognitionByKF") << "No valid Trajectory found! Exited PatternRecognitionbyKF!" << std::endl; 
     return;
@@ -388,11 +337,11 @@ void PatternRecognitionbyKF<TILES>::makeTrajectories(
   // Loop over all disks
 
   unsigned int layer = 2;
-  for(disk = nextDisk(disk, direction, disks, isSilicon); disk != nullptr; disk = nextDisk(disk, direction, disks, isSilicon), layer++){
+  for(disk = hgcTracker_->nextDisk(disk,direction,isSilicon); disk != nullptr; disk = hgcTracker_->nextDisk(disk,direction,isSilicon), layer++){
     std::vector<TempTrajectory> newcands_kf;
     for(TempTrajectory & cand : traj_kf){
       TrajectoryStateOnSurface start = cand.lastMeasurement().updatedState();
-      std::vector<TempTrajectory> hisTrajs = advanceOneLayer(start, disk, disks, tiles, direction, isSilicon, cand);
+      std::vector<TempTrajectory> hisTrajs = advanceOneLayer(start, disk, tiles, direction, isSilicon, cand);
       for(TempTrajectory & t : hisTrajs){
         auto lm = t.lastMeasurement();
         newcands_kf.push_back(t);

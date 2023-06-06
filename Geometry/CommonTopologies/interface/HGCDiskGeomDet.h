@@ -30,4 +30,7 @@ class HGCDiskGeomDet : public GeomDet {
         const float rmin_, rmax_;
 };
 
+
+typedef std::pair<std::vector<HGCDiskGeomDet*>,std::vector<HGCDiskGeomDet*>> HGCDiskGeomDetVector;
+
 #endif
