@@ -100,48 +100,6 @@ void PatternRecognitionbyKF<TILES>::calculateLocalError(DetId id, const HGCalGeo
   }
 } 
 
-
-template<typename TILES>
-const HGCDiskGeomDet * PatternRecognitionbyKF<TILES>::switchDisk(const HGCDiskGeomDet * from, 
-                                                                const std::vector<HGCDiskGeomDet *> &vec, 
-                                                                bool isSilicon) const{                                                           
-  auto it = std::find(vec.begin(), vec.end(),from);
-  if (it == vec.end()) throw cms::Exception("LogicError", "nextDisk called with invalid starting disk");
-  isSilicon? --it: ++it;
-  return *(it);
-}
-
-template<typename TILES>
-const HGCDiskGeomDet * PatternRecognitionbyKF<TILES>::nextDisk(const HGCDiskGeomDet * from, 
-                                                              PropagationDirection direction, 
-                                                              const std::vector<HGCDiskGeomDet *> &vec, 
-                                                              bool isSilicon) const{
-
-  auto it = std::find(vec.begin(), vec.end(),from);
-  if (it == vec.end()) throw cms::Exception("LogicError", "nextDisk called with invalid starting disk");
-  int currentLayer = (*it)->layer();
-
-  // disks object contains 61 disks corresponding to the z position of the silicon and scintillator layer (has a slight offset).
-  // So in the mixed section, a layer has two disks: Silicon and Scintillator. nextDisk() finds the correct disk
-  // based on the isSilicon condition by looping through the disks up until the subsequent layer. 
-  if (direction == alongMomentum){
-    if ((*it == vec.back()) || (*it == vec.rbegin()[1])) return nullptr; // if disk last silicon OR last scintillator disk
-    while ((*it)->layer()<currentLayer+2){
-      if ((*it) == vec.back()) break;
-      ++it;
-      if(((*(it))->isSilicon() == isSilicon) && ((*(it))->layer()==currentLayer+1)) return *(it);
-     }
-  } else{
-    if (it == vec.begin()) return nullptr;
-    while ((*it)->layer()>currentLayer-2){
-      if ((it) == vec.begin()) break;
-      --it;
-      if(((*(it))->isSilicon() == isSilicon) && ((*(it))->layer()==currentLayer-1)) return *(it);
-    }
-  }
-  return nullptr; // Returns nullptr if nextDisk reached end of detector
-}
-
 template<typename TILES>
 template<class Start> 
 std::vector<TempTrajectory>
