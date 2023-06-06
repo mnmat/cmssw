@@ -96,13 +96,6 @@ namespace ticl {
       PropagationDirection direction, 
       bool &isSilicon,
       TempTrajectory traj);
-    const HGCDiskGeomDet * nextDisk(const HGCDiskGeomDet * from, 
-      PropagationDirection direction, 
-      const std::vector<HGCDiskGeomDet *> &vec,
-      bool isSilicon) const;
-    const HGCDiskGeomDet * switchDisk(const HGCDiskGeomDet * from, 
-      const std::vector<HGCDiskGeomDet *> &vec,
-      bool isSilicon) const;
     virtual void mergeRecHitCollections(std::vector<const HGCRecHit*>& recHitCollection,
         const HGCRecHitCollection& recHitsEE,
         const HGCRecHitCollection& recHitsFH,
