@@ -12,6 +12,7 @@
 #include "Geometry/CommonTopologies/interface/HGCDiskGeomDet.h"
 #include "Geometry/HGCalGeometry/interface/HGCalGeometry.h"
 
+
 #include "MagneticField/Records/interface/IdealMagneticFieldRecord.h"
 #include "MagneticField/Engine/interface/MagneticField.h"
 
@@ -100,8 +101,6 @@ namespace ticl {
         const HGCRecHitCollection& recHitsEE,
         const HGCRecHitCollection& recHitsFH,
         const HGCRecHitCollection& recHitsBH) const;
-    void calculateLocalError(DetId id,
-        const HGCalGeometry* hgcalgeom);
     void init(const edm::Event& evt, const edm::EventSetup& es);
   };
 }  // namespace ticl

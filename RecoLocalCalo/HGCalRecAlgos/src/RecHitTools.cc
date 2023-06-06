@@ -15,6 +15,8 @@
 #include "FWCore/Framework/interface/Event.h"
 #include "FWCore/Framework/interface/EventSetup.h"
 
+#include "DataFormats/GeometrySurface/interface/LocalError.h"
+
 using namespace hgcal;
 
 namespace {
@@ -492,4 +494,70 @@ bool RecHitTools::maskCell(const DetId& id, int corners) const {
     auto hg = static_cast<const HGCalGeometry*>(getSubdetectorGeometry(id));
     return hg->topology().dddConstants().maskCell(id, corners);
   }
+}
+
+LocalError RecHitTools::getLocalError(const DetId& id){
+  // The local error is calculated as the variance, Var[X] = E[X^2] - E[X]^2, and covariance, Cov[XY] = E[XY] - E[X]E[Y]
+  if (isSilicon(id)){
+    //auto& siError = (getSiThickIndex(id)==0? siErrorFine_:siErrorCoarse_); //thickIndex defined in getSiThickIndex function
+    //auto& isInitSiError = (getSiThickIndex(id)==0? isInitSiErrorFine_:isInitSiErrorCoarse_);
+    /*
+    if (isInitSiError){
+      return LocalError(siError,0,siError);
+      }
+    else {
+      siError = calculateSiliconError(id);
+      isInitSiError = true;
+      return LocalError(siError,0,siError);
+    } 
+    */ 
+    double siError = calculateSiliconError(id);
+    return LocalError(siError,0,siError);
+
+  }
+  else{
+    return calculateScintillatorError(id);
+  }
+}
+
+float RecHitTools::calculateSiliconError(const DetId& id) const {
+  auto hg = static_cast<const HGCalGeometry*>(getSubdetectorGeometry(id));
+  float A = hg->getArea(id);
+  float a = sqrt(2*A/(3*sqrt(3))); // side length hexagon
+  float var = pow(a,4)*5*sqrt(3)/(16*A);
+  return var;
+}
+
+LocalError RecHitTools::calculateScintillatorError(const DetId& id) const {
+  auto geom = getSubdetectorGeometry(id);
+
+  const HGCalDetId hid(id); 
+  auto ddd = get_ddd(geom, hid);
+
+  // Get outer and inner radius
+  const GlobalPoint &pos = getPosition(id);
+  double r = sqrt(pos.x()*pos.x() + pos.y()*pos.y());
+  auto radiusLayer = ddd->getRadiusLayer(getLayer(id));
+  int idx = static_cast<int>(std::lower_bound(radiusLayer.begin(), radiusLayer.end(),r)-radiusLayer.begin());
+  double rmax = radiusLayer[idx];
+  double rmin = radiusLayer[idx-1];
+  // Get angles
+  double phi = getPhi(id) + M_PI; // set to radians [0, 2pi]
+  double dphi = getScintDEtaDPhi(id).second;
+  double phimin = phi - 0.5*dphi;
+  double phimax = phi + 0.5*dphi;
+
+  // FIXME!!! Slight differences between getArea and calculation. Due to the numerically instable calculation the resulting variances and covariances vary massively.
+  //auto hg = static_cast<const HGCalGeometry*>(getSubdetectorGeometry(id));
+  //double A = hg->getArea(id);
+  double A = (rmax*rmax - rmin*rmin)*dphi*0.5; 
+  // Calculate local error
+  double ex2 = 1/(8*A) * (pow(rmax,4) - pow(rmin,4)) * (-phimin - sin(phimin)*cos(phimin) + phimax + sin(phimax)*cos(phimax));
+  double ex = 1/(3*A) * (pow(rmax,3) - pow(rmin,3)) * (sin(phimax) - sin(phimin));
+  double varx = ex2 - ex*ex;
+  double ey2 = 1/(8*A) * (pow(rmax,4) - pow(rmin,4)) * (-phimin + sin(phimin)*cos(phimin) + phimax - sin(phimax)*cos(phimax));
+  double ey = 1/(3*A) * (pow(rmax,3) - pow(rmin,3)) * (cos(phimin) - cos(phimax));
+  double vary = ey2 - ey*ey;
+  double varxy = 1/(16*A)*(pow(rmax,4)-pow(rmin,4))*(cos(2*phimin)-cos(2*phimax)) - ex*ey;
+  return LocalError(varx, varxy, vary);
 }

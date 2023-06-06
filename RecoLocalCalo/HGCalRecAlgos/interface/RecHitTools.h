@@ -9,6 +9,7 @@
 #include "DataFormats/ForwardDetId/interface/HFNoseDetId.h"
 #include "Geometry/CaloGeometry/interface/CaloGeometry.h"
 #include "Geometry/Records/interface/CaloGeometryRecord.h"
+#include "DataFormats/GeometrySurface/interface/LocalError.h"
 
 class CaloGeometry;
 class CaloSubdetectorGeometry;
@@ -84,6 +85,9 @@ namespace hgcal {
     inline int getScintMaxIphi() const { return bhMaxIphi_; }
     inline int getGeometryType() const { return geometryType_; }
     bool maskCell(const DetId& id, int corners = 3) const;
+    LocalError getLocalError(const DetId& id);
+    LocalError calculateScintillatorError(const DetId& id) const;
+    float calculateSiliconError(const DetId& id) const;
 
   private:
     const CaloGeometry* geom_;
@@ -91,6 +95,10 @@ namespace hgcal {
     unsigned int maxNumberOfWafersPerLayer_, maxNumberOfWafersNose_;
     int geometryType_;
     int bhMaxIphi_;
+    //LocalError siErrorFine_, siErrorCoarse_; //FIXME: Not possible to export LocalError to ROOT which causes SegFault in DQMRootOutputModule
+    //double siErrorFine_, siErrorCoarse_; //FIXME: Use double values instead. Change so that LocalError can be used
+    //bool isInitSiErrorFine_ = false;
+    //bool isInitSiErrorCoarse_ = false;
   };
 }  // namespace hgcal
 
