@@ -129,7 +129,8 @@ void HGCDiskESProducer::makeDisks(int subdet, const CaloGeometry* geom_) {
     std::vector<double> zsumPos(numdisks), zsumNeg(numdisks);
     std::vector<int> countPos(numdisks), countNeg(numdisks);
     const std::vector<DetId> & ids = subGeom->getValidDetIds();
-  
+
+    // TODO: find or create function to get the z layer position of the Scintillators to replace for loop
     for (auto & i : ids) {
         const GlobalPoint & pos = rhtools_.getPosition(i); 
         int layer = rhtools_.getLayer(i)-1;
@@ -139,12 +140,23 @@ void HGCDiskESProducer::makeDisks(int subdet, const CaloGeometry* geom_) {
 
         (side > 0 ? zsumPos : zsumNeg)[layer] += z;
         (side > 0 ? countPos : countNeg)[layer]++;
-        if (rho > rmax[layer]) rmax[layer] = rho;
-        if (rho < rmin[layer]) rmin[layer] = rho;
+        //if (rho > rmax[layer]) rmax[layer] = rho;
+        //if (rho < rmin[layer]) rmin[layer] = rho;
     }
 
   int layer = ddd->getLayerOffset(); // FIXME: Can be made less stupid
   for (int i = 0; i < numdisks; ++i) {
+    auto rangeR = ddd->rangeRLayer(i+1,true);
+    if (countPos[i]) {
+      HGCDiskGeomDet* disk = new HGCDiskGeomDet(subdet, +1, layer, zsumPos[i]/countPos[i], rangeR.first, rangeR.second, radlen_[layer], xi_[layer]);
+      addDisk(disk);
+    }
+    if (countNeg[i]) {
+      HGCDiskGeomDet* disk = new HGCDiskGeomDet(subdet, -1, layer, zsumNeg[i]/countNeg[i], rangeR.first, rangeR.second, radlen_[layer], xi_[layer]);
+      addDisk(disk);  
+    }
+
+    /*
     if (countPos[i]) {
       HGCDiskGeomDet* disk = new HGCDiskGeomDet(subdet, +1, layer, zsumPos[i]/countPos[i], rmin[i], rmax[i], radlen_[layer], xi_[layer]);
       addDisk(disk);
@@ -153,6 +165,7 @@ void HGCDiskESProducer::makeDisks(int subdet, const CaloGeometry* geom_) {
       HGCDiskGeomDet* disk = new HGCDiskGeomDet(subdet, -1, layer, zsumNeg[i]/countNeg[i], rmin[i], rmax[i], radlen_[layer], xi_[layer]);
       addDisk(disk);  
     }
+    */
     layer++;
   }
 }
