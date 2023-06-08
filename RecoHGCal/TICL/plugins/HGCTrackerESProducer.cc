@@ -166,7 +166,6 @@ HGCTrackerESProducer::ReturnType HGCTrackerESProducer::produce(const CaloGeometr
   rhtools_.setGeometry(*geom);
 
   auto product = std::make_unique<HGCTracker>(HGCTracker(geom, radlen_, xi_));
-  std::cout << "HGCTrackerESProducer here" << std::endl;
   return product;
 }
 

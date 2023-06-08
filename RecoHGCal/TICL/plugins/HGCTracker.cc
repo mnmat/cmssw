@@ -36,7 +36,6 @@ HGCTracker::HGCTracker(const CaloGeometry* geom,
 HGCTracker::~HGCTracker(){}
 
 void HGCTracker::makeDisks(int subdet, const CaloGeometry* geom_) {
-    std::cout << "Entered MakeDisks" << std::endl;
     const CaloSubdetectorGeometry *subGeom = geom_->getSubdetectorGeometry(DetId::Detector(subdet), ForwardSubdetector::ForwardEmpty);
     auto hgcalGeom = static_cast<const HGCalGeometry*>(subGeom);
     const HGCalDDDConstants* ddd = &(hgcalGeom->topology().dddConstants());
