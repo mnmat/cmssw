@@ -75,16 +75,6 @@ PatternRecognitionbyKF<TILES>::advanceOneLayer(const Start &start,
   TrajectoryStateOnSurface tsos = prop.propagate(start, disk->surface());
   std::cout << disk->layer() << ", is Silicon: " << disk->isSilicon() << ", Position: " << disk->position()  << std::endl;
   if (!tsos.isValid()) return ret; 
-  // Check if propagated state falls within boundaries of disk. 
-  // If not, change the target disk type (Silicon or Scintillator) using switchDisk() and repeat propagation step.
-  float r = sqrt(pow(tsos.globalPosition().x(),2)+pow(tsos.globalPosition().y(),2));
-
-  if (((((disk->rmin() > r) && (!isSilicon)) || (((r > disk->rmax()) && (isSilicon))))) && (int(disk->layer()) >= int(rhtools_.firstLayerBH()))){
-    edm::LogVerbatim("PatternRecognitionbyKF") << "Enter Switch Disk" << std::endl;
-    disk = hgcTracker_->switchDisk(disk);
-    isSilicon = !isSilicon;
-    tsos = prop.propagate(start, disk->surface());
-  }
 
   // Collect hits with estimate
   int layer = disk->layer()+1;
@@ -92,6 +82,19 @@ PatternRecognitionbyKF<TILES>::advanceOneLayer(const Start &start,
   std::sort(meas.begin(), meas.end(),TrajMeasLessEstim());
 
   for (const TrajectoryMeasurement &tm : meas){
+    if (rhtools_.isSilicon(tm.recHit()->geographicalId()) != isSilicon){
+      // Check if propagated state falls within boundaries of disk. 
+      // If not, change the target disk type (Silicon or Scintillator) using switchDisk() and repeat propagation step.
+      float r = sqrt(pow(tsos.globalPosition().x(),2)+pow(tsos.globalPosition().y(),2));
+
+      if (((((disk->rmin() > r) && (!isSilicon)) || (((r > disk->rmax()) && (isSilicon))))) && (int(disk->layer()) >= int(rhtools_.firstLayerBH()))){
+        edm::LogVerbatim("PatternRecognitionbyKF") << "Enter Switch Disk" << std::endl;
+        disk = hgcTracker_->switchDisk(disk);
+        isSilicon = !isSilicon;
+        tsos = prop.propagate(start, disk->surface());
+      }
+    }
+    
     TrajectoryStateOnSurface updated = updator_->update(tm.forwardPredictedState(),*tm.recHit());
     ret.push_back(traj.foundHits() ? traj: TempTrajectory(traj.direction(),0));
     ret.back().push(TrajectoryMeasurement(tm.forwardPredictedState(),
