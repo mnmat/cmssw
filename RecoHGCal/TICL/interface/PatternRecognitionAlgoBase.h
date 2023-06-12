@@ -17,7 +17,6 @@
 #include "RecoHGCal/TICL/interface/commons.h"
 #include "FWCore/Framework/interface/ConsumesCollector.h"
 #include "PhysicsTools/TensorFlow/interface/TensorFlow.h"
-#include "TrackingTools/TrajectoryState/interface/TrajectoryStateOnSurface.h"
 
 namespace edm {
   class Event;
@@ -53,7 +52,7 @@ namespace ticl {
           : ev(eV), es(eS), layerClusters(lC), mask(mS), layerClustersTime(lT), tiles(tL), regions(rG), tfSession(tS) {}
     };
     
-    // (mmatthew): makeTrajectories used only by PatternRecognitionByKF. 
+    // (mmatthew): makeTrajectories used only by PatternRecognitionbyKalmanFilter. 
     // TODO: combine with makeTracksters as pure virtual function
     virtual void makeTrajectories(const Inputs& input,
                                 std::vector<KFHit>& kfhits) = 0;
