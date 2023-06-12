@@ -5,6 +5,7 @@
 
 #include "Geometry/CommonTopologies/interface/GeomDet.h"
 #include "FWCore/Utilities/interface/Exception.h"
+#include "DataFormats/DetId/interface/DetId.h"
 
 class HGCDiskGeomDet : public GeomDet {
     public:
@@ -16,10 +17,10 @@ class HGCDiskGeomDet : public GeomDet {
         float rmin() const { return rmin_; }
         float rmax() const { return rmax_; }
         bool isSilicon() const { // The enum values were taken from DataFormats/DetId/interface/DetId.h
-            if(subdet_ == 8 || subdet_ == 9){
+            if(subdet_ == DetId::HGCalEE || subdet_ == DetId::HGCalHSi){
                 return true;
             }
-            else if (subdet_ == 10){
+            else if (subdet_ == DetId::HGCalHSc){
                 return false;
             }
             else throw cms::Exception("LogicError", "Subdetector not defined");
