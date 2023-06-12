@@ -499,9 +499,8 @@ bool RecHitTools::maskCell(const DetId& id, int corners) const {
 LocalError RecHitTools::getLocalError(const DetId& id){
   // The local error is calculated as the variance, Var[X] = E[X^2] - E[X]^2, and covariance, Cov[XY] = E[XY] - E[X]E[Y]
   if (isSilicon(id)){
-    //auto& siError = (getSiThickIndex(id)==0? siErrorFine_:siErrorCoarse_); //thickIndex defined in getSiThickIndex function
-    //auto& isInitSiError = (getSiThickIndex(id)==0? isInitSiErrorFine_:isInitSiErrorCoarse_);
-    /*
+    auto& siError = (getSiThickIndex(id)==0? siErrorFine_:siErrorCoarse_); //thickIndex defined in getSiThickIndex function
+    auto& isInitSiError = (getSiThickIndex(id)==0? isInitSiErrorFine_:isInitSiErrorCoarse_);
     if (isInitSiError){
       return LocalError(siError,0,siError);
       }
@@ -509,9 +508,8 @@ LocalError RecHitTools::getLocalError(const DetId& id){
       siError = calculateSiliconError(id);
       isInitSiError = true;
       return LocalError(siError,0,siError);
-    } 
-    */ 
-    double siError = calculateSiliconError(id);
+    }  
+    //float siError = calculateSiliconError(id);
     return LocalError(siError,0,siError);
 
   }
@@ -536,28 +534,28 @@ LocalError RecHitTools::calculateScintillatorError(const DetId& id) const {
 
   // Get outer and inner radius
   const GlobalPoint &pos = getPosition(id);
-  double r = sqrt(pos.x()*pos.x() + pos.y()*pos.y());
+  float r = sqrt(pos.x()*pos.x() + pos.y()*pos.y());
   auto radiusLayer = ddd->getRadiusLayer(getLayer(id));
   int idx = static_cast<int>(std::lower_bound(radiusLayer.begin(), radiusLayer.end(),r)-radiusLayer.begin());
-  double rmax = radiusLayer[idx];
-  double rmin = radiusLayer[idx-1];
+  float rmax = radiusLayer[idx];
+  float rmin = radiusLayer[idx-1];
   // Get angles
-  double phi = getPhi(id) + M_PI; // set to radians [0, 2pi]
-  double dphi = getScintDEtaDPhi(id).second;
-  double phimin = phi - 0.5*dphi;
-  double phimax = phi + 0.5*dphi;
+  float phi = getPhi(id) + M_PI; // set to radians [0, 2pi]
+  float dphi = getScintDEtaDPhi(id).second;
+  float phimin = phi - 0.5*dphi;
+  float phimax = phi + 0.5*dphi;
 
   // FIXME!!! Slight differences between getArea and calculation. Due to the numerically instable calculation the resulting variances and covariances vary massively.
   //auto hg = static_cast<const HGCalGeometry*>(getSubdetectorGeometry(id));
   //double A = hg->getArea(id);
-  double A = (rmax*rmax - rmin*rmin)*dphi*0.5; 
+  float A = (rmax*rmax - rmin*rmin)*dphi*0.5; 
   // Calculate local error
-  double ex2 = 1/(8*A) * (pow(rmax,4) - pow(rmin,4)) * (-phimin - sin(phimin)*cos(phimin) + phimax + sin(phimax)*cos(phimax));
-  double ex = 1/(3*A) * (pow(rmax,3) - pow(rmin,3)) * (sin(phimax) - sin(phimin));
-  double varx = ex2 - ex*ex;
-  double ey2 = 1/(8*A) * (pow(rmax,4) - pow(rmin,4)) * (-phimin + sin(phimin)*cos(phimin) + phimax - sin(phimax)*cos(phimax));
-  double ey = 1/(3*A) * (pow(rmax,3) - pow(rmin,3)) * (cos(phimin) - cos(phimax));
-  double vary = ey2 - ey*ey;
-  double varxy = 1/(16*A)*(pow(rmax,4)-pow(rmin,4))*(cos(2*phimin)-cos(2*phimax)) - ex*ey;
+  float ex2 = 1/(8*A) * (pow(rmax,4) - pow(rmin,4)) * (-phimin - sin(phimin)*cos(phimin) + phimax + sin(phimax)*cos(phimax));
+  float ex = 1/(3*A) * (pow(rmax,3) - pow(rmin,3)) * (sin(phimax) - sin(phimin));
+  float varx = ex2 - ex*ex;
+  float ey2 = 1/(8*A) * (pow(rmax,4) - pow(rmin,4)) * (-phimin + sin(phimin)*cos(phimin) + phimax - sin(phimax)*cos(phimax));
+  float ey = 1/(3*A) * (pow(rmax,3) - pow(rmin,3)) * (cos(phimin) - cos(phimax));
+  float vary = ey2 - ey*ey;
+  float varxy = 1/(16*A)*(pow(rmax,4)-pow(rmin,4))*(cos(2*phimin)-cos(2*phimax)) - ex*ey;
   return LocalError(varx, varxy, vary);
 }

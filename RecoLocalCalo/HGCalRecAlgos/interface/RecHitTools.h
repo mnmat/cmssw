@@ -96,9 +96,9 @@ namespace hgcal {
     int geometryType_;
     int bhMaxIphi_;
     //LocalError siErrorFine_, siErrorCoarse_; //FIXME: Not possible to export LocalError to ROOT which causes SegFault in DQMRootOutputModule
-    //double siErrorFine_, siErrorCoarse_; //FIXME: Use double values instead. Change so that LocalError can be used
-    //bool isInitSiErrorFine_ = false;
-    //bool isInitSiErrorCoarse_ = false;
+    float siErrorFine_, siErrorCoarse_;
+    bool isInitSiErrorFine_ = false;
+    bool isInitSiErrorCoarse_ = false;
   };
 }  // namespace hgcal
 
