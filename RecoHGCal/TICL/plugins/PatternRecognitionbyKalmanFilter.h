@@ -32,10 +32,10 @@
 
 namespace ticl {
   template <typename TILES>
-  class PatternRecognitionbyKF final : public PatternRecognitionAlgoBaseT<TILES> {
+  class PatternRecognitionbyKalmanFilter final : public PatternRecognitionAlgoBaseT<TILES> {
   public:
-    PatternRecognitionbyKF(const edm::ParameterSet& conf, edm::ConsumesCollector);
-    ~PatternRecognitionbyKF() override = default;
+    PatternRecognitionbyKalmanFilter(const edm::ParameterSet& conf, edm::ConsumesCollector);
+    ~PatternRecognitionbyKalmanFilter() override = default;
 
     void makeTracksters(const typename PatternRecognitionAlgoBaseT<TILES>::Inputs& input,
                         std::vector<Trackster>& result,
@@ -70,7 +70,7 @@ namespace ticl {
     edm::ESGetToken<HGCDiskGeomDetVector,CaloGeometryRecord> diskToken_;
     edm::ESGetToken<HGCTracker,CaloGeometryRecord> hgcTrackerToken_;
 
-    int rescaleFTSError_;
+    double rescaleFTSError_;
     uint32_t geomCacheId_;
 
     // Instance Variables
@@ -79,10 +79,10 @@ namespace ticl {
     std::map<DetId,LocalError> lerr;
     const HGCTracker* hgcTracker_;
 
-    float etaBinSize = (TILES::constants_type_t::maxEta - TILES::constants_type_t::minEta)/TILES::constants_type_t::nEtaBins;
-    float phiBinSize = 2*M_PI/TILES::constants_type_t::nPhiBins;
-    int nPhiBin = TILES::constants_type_t::nPhiBins;
-    int nEtaBin = TILES::constants_type_t::nEtaBins;
+    static constexpr float etaBinSize = (TILES::constants_type_t::maxEta - TILES::constants_type_t::minEta)/TILES::constants_type_t::nEtaBins;
+    static constexpr float phiBinSize = 2*M_PI/TILES::constants_type_t::nPhiBins;
+    static constexpr int nPhiBin = TILES::constants_type_t::nPhiBins;
+    static constexpr int nEtaBin = TILES::constants_type_t::nEtaBins;
 
     //Member Functions
     void dumpTiles(const TILES&) const;

@@ -24,7 +24,7 @@
 
 #include "RecoHGCal/TICL/plugins/PatternRecognitionPluginFactory.h"
 #include "PatternRecognitionbyCA.h"
-#include "PatternRecognitionbyKF.h"
+#include "PatternRecognitionbyKalmanFilter.h"
 #include "PatternRecognitionbyMultiClusters.h"
 
 #include "PhysicsTools/TensorFlow/interface/TfGraphRecord.h"
@@ -139,9 +139,9 @@ void TrackstersProducer::fillDescriptions(edm::ConfigurationDescriptions& descri
   desc.add<edm::ParameterSetDescription>("pluginPatternRecognitionByCLUE3D", pluginDescClue3D);
 
   // KF Plugin
-  edm::ParameterSetDescription pluginDescKF;
-  pluginDescKF.addNode(edm::PluginDescription<PatternRecognitionFactory>("type", "KF", true));
-  desc.add<edm::ParameterSetDescription>("pluginPatternRecognitionByKF", pluginDescKF);
+  edm::ParameterSetDescription pluginDescKalmanFilter;
+  pluginDescKalmanFilter.addNode(edm::PluginDescription<PatternRecognitionFactory>("type", "KalmanFilter", true));
+  desc.add<edm::ParameterSetDescription>("pluginPatternRecognitionByKalmanFilter", pluginDescKalmanFilter);
 
   // FastJet Plugin
   edm::ParameterSetDescription pluginDescFastJet;
@@ -155,8 +155,6 @@ void TrackstersProducer::produce(edm::Event& evt, const edm::EventSetup& es) {
   auto result = std::make_unique<std::vector<Trackster>>();
   auto output_mask = std::make_unique<std::vector<float>>();
   auto kfhits = std::make_unique<std::vector<KFHit>>();
-
-  std::cout<<itername_<<std::endl;
 
   const std::vector<float>& original_layerclusters_mask = evt.get(original_layerclusters_mask_token_);
   const auto& layerClusters = evt.get(clusters_token_);
@@ -194,7 +192,7 @@ void TrackstersProducer::produce(edm::Event& evt, const edm::EventSetup& es) {
 
 
     // TODO(mmatthew): Delete if conditions once correct function definition for KF is found
-    if(itername_ == "KF"){ 
+    if(itername_ == "KalmanFilter"){ 
       myAlgo_->makeTrajectories(input,*kfhits);   
     } else {
       myAlgo_->makeTracksters(input, *result, seedToTrackstersAssociation);

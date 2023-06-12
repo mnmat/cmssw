@@ -5,13 +5,13 @@
 #include <vector>
 #include <typeinfo>
 
-#include "PatternRecognitionbyKF.h"
+#include "PatternRecognitionbyKalmanFilter.h"
 
 #include "DataFormats/TrajectorySeed/interface/PropagationDirection.h"
 #include "DataFormats/TrackReco/interface/Track.h"
 #include "DataFormats/TrackingRecHit/interface/InvalidTrackingRecHit.h"
 #include "DataFormats/TrackingRecHit/interface/TrackingRecHit.h"
-#include "DataFormats/HGCTrackingRecHit/interface/HGCTrackingRecHit.h"
+#include "DataFormats/HGCalReco/interface/HGCTrackingRecHit.h"
 
 #include "FWCore/Framework/interface/Event.h"
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
@@ -40,7 +40,7 @@
 using namespace ticl;
 
 template <typename TILES>
-PatternRecognitionbyKF<TILES>::PatternRecognitionbyKF(const edm::ParameterSet &conf, edm::ConsumesCollector iC)
+PatternRecognitionbyKalmanFilter<TILES>::PatternRecognitionbyKalmanFilter(const edm::ParameterSet &conf, edm::ConsumesCollector iC)
     : PatternRecognitionAlgoBaseT<TILES>(conf, iC),
       caloGeomToken_(iC.esConsumes<CaloGeometry, CaloGeometryRecord>()),
       radlen_(conf.getParameter<std::vector<double>>("radlen")),
@@ -58,13 +58,13 @@ PatternRecognitionbyKF<TILES>::PatternRecognitionbyKF(const edm::ParameterSet &c
       hgcalRecHitsBHToken_(iC.consumes<HGCRecHitCollection>(conf.getParameter<edm::InputTag>("HGCBHInput"))),
       diskToken_(iC.esConsumes<HGCDiskGeomDetVector, CaloGeometryRecord>()),
       hgcTrackerToken_(iC.esConsumes<HGCTracker, CaloGeometryRecord>()),
-      rescaleFTSError_(conf.getParameter<int>("rescaleFTSError")),
+      rescaleFTSError_(conf.getParameter<double>("rescaleFTSError")),
       geomCacheId_(0){};
 
 template<typename TILES>
 template<class Start> 
 std::vector<TempTrajectory>
-PatternRecognitionbyKF<TILES>::advanceOneLayer(const Start &start, 
+PatternRecognitionbyKalmanFilter<TILES>::advanceOneLayer(const Start &start, 
                                               const HGCDiskGeomDet * disk, 
                                               const TILES &tiles, PropagationDirection direction, 
                                               bool &isSilicon, 
@@ -88,7 +88,7 @@ PatternRecognitionbyKF<TILES>::advanceOneLayer(const Start &start,
       float r = sqrt(pow(tsos.globalPosition().x(),2)+pow(tsos.globalPosition().y(),2));
 
       if (((((disk->rmin() > r) && (!isSilicon)) || (((r > disk->rmax()) && (isSilicon))))) && (int(disk->layer()) >= int(rhtools_.firstLayerBH()))){
-        edm::LogVerbatim("PatternRecognitionbyKF") << "Enter Switch Disk" << std::endl;
+        edm::LogVerbatim("PatternRecognitionbyKalmanFilter") << "Enter Switch Disk" << std::endl;
         disk = hgcTracker_->switchDisk(disk);
         isSilicon = !isSilicon;
         tsos = prop.propagate(start, disk->surface());
@@ -113,7 +113,7 @@ PatternRecognitionbyKF<TILES>::advanceOneLayer(const Start &start,
 }
 
 template <typename TILES>
-void PatternRecognitionbyKF<TILES>::mergeRecHitCollections(std::vector<const HGCRecHit*>& recHitCollection,
+void PatternRecognitionbyKalmanFilter<TILES>::mergeRecHitCollections(std::vector<const HGCRecHit*>& recHitCollection,
                                 const HGCRecHitCollection& rechitsEE,
                                 const HGCRecHitCollection& rechitsFH,
                                 const HGCRecHitCollection& rechitsBH) const {
@@ -133,7 +133,7 @@ void PatternRecognitionbyKF<TILES>::mergeRecHitCollections(std::vector<const HGC
 }
 
 template <typename TILES>
-std::vector<TrajectoryMeasurement> PatternRecognitionbyKF<TILES>::measurements(
+std::vector<TrajectoryMeasurement> PatternRecognitionbyKalmanFilter<TILES>::measurements(
       const TrajectoryStateOnSurface &tsos, 
       const MeasurementEstimator &mest, 
       const TILES &tiles, 
@@ -163,12 +163,13 @@ std::vector<TrajectoryMeasurement> PatternRecognitionbyKF<TILES>::measurements(
         for(auto hit: tiles[layer][offset + iphi]) {
           const auto rec = *recHitCollection[hit];
           const auto detid = rec.detid();
-          float energy = rec.energy();
 
           GlobalPoint globalpoint = rhtools_.getPosition(detid);
           LocalPoint localpoint = tsos.surface().toLocal(globalpoint);
 
-          auto hitptr = std::make_shared<HGCTrackingRecHit>(hit,localpoint,rhtools_.getLocalError(detid),energy);
+          //Test
+
+          auto hitptr = std::make_shared<HGCTrackingRecHit>(hit,localpoint,rhtools_.getLocalError(detid));
           auto mest_pair = mest.estimate(tsos, *hitptr);
           if(mest_pair.first){
             ret.emplace_back(tsos,hitptr,mest_pair.second);
@@ -181,7 +182,7 @@ return ret;
 }
 
 template <typename TILES>
-void PatternRecognitionbyKF<TILES>::init(
+void PatternRecognitionbyKalmanFilter<TILES>::init(
     const edm::Event& ev, const edm::EventSetup& es){
 
     //Get Calo Geometry
@@ -210,7 +211,7 @@ void PatternRecognitionbyKF<TILES>::init(
 
 
 template <typename TILES>
-void PatternRecognitionbyKF<TILES>::makeTrajectories(
+void PatternRecognitionbyKalmanFilter<TILES>::makeTrajectories(
     const typename PatternRecognitionAlgoBaseT<TILES>::Inputs &input,
     std::vector<KFHit>& kfhits) {
 
@@ -225,7 +226,7 @@ void PatternRecognitionbyKF<TILES>::makeTrajectories(
 
   const reco::TrackCollection& tkx = *tracks_h; 
   if (tkx.empty()){
-    edm::LogWarning("PatternRecognitionbyKF") << "No track to extrapolate from first disk found! Exited PatternRecognitionbyKF" << std::endl;
+    edm::LogWarning("PatternRecognitionbyKalmanFilter") << "No track to extrapolate from first disk found! Exited PatternRecognitionbyKalmanFilter" << std::endl;
     return;
   }
 
@@ -245,7 +246,7 @@ void PatternRecognitionbyKF<TILES>::makeTrajectories(
   
   std::vector<TempTrajectory> traj = advanceOneLayer(fts, disk,tiles, direction, isSilicon, TempTrajectory(direction,0));
   if (traj.empty()){
-    edm::LogWarning("PatternRecognitionByKF") << "No valid Trajectory found! Exited PatternRecognitionbyKF!" << std::endl; 
+    edm::LogWarning("PatternRecognitionbyKalmanFilter") << "No valid Trajectory found! Exited PatternRecognitionbyKalmanFilter!" << std::endl; 
     return;
   }
   auto lm = traj.back().lastMeasurement();
@@ -278,13 +279,13 @@ void PatternRecognitionbyKF<TILES>::makeTrajectories(
 }
 
 template <typename TILES>
-void PatternRecognitionbyKF<TILES>::dumpTiles(const TILES &tiles) const {
-  edm::LogInfo("PatternRecognitionbyKF") << "Entered dumpTiles" << std::endl;
+void PatternRecognitionbyKalmanFilter<TILES>::dumpTiles(const TILES &tiles) const {
+  edm::LogInfo("PatternRecognitionbyKalmanFilter") << "Entered dumpTiles" << std::endl;
   constexpr int nEtaBin = TILES::constants_type_t::nEtaBins;
   constexpr int nPhiBin = TILES::constants_type_t::nPhiBins;
-  edm::LogInfo("PatternRecognitionbyKF") << nEtaBin << "\t" <<nPhiBin << std::endl;
+  edm::LogInfo("PatternRecognitionbyKalmanFilter") << nEtaBin << "\t" <<nPhiBin << std::endl;
   auto lastLayerPerSide = static_cast<int>(rhtools_.lastLayer(false));
-  edm::LogInfo("PatternRecognitionbyKF") << lastLayerPerSide << std::endl;
+  edm::LogInfo("PatternRecognitionbyKalmanFilter") << lastLayerPerSide << std::endl;
   int maxLayer = 2 * lastLayerPerSide - 1;
   int count = 0;
   for (int layer = 0; layer <= maxLayer; layer++) {
@@ -293,18 +294,18 @@ void PatternRecognitionbyKF<TILES>::dumpTiles(const TILES &tiles) const {
       for (int phi = 0; phi < nPhiBin; phi++) {
         int iphi = ((phi % nPhiBin + nPhiBin) % nPhiBin);
         if (!tiles[layer][offset + iphi].empty()) {
-          edm::LogInfo("PatternRecognitionbyKF") << "Layer: " << layer << " ieta: " << ieta << " phi: " << phi
+          edm::LogInfo("PatternRecognitionbyKalmanFilter") << "Layer: " << layer << " ieta: " << ieta << " phi: " << phi
                                                          << " " << tiles[layer][offset + iphi].size() << std::endl;
           count++;
         }
       }
     }
   }
-  edm::LogInfo("PatternRecognitionbyKF") << "Number of RecHits: " << count << std::endl;
+  edm::LogInfo("PatternRecognitionbyKalmanFilter") << "Number of RecHits: " << count << std::endl;
 }
 
 template <typename TILES>
-void PatternRecognitionbyKF<TILES>::fillPSetDescription(edm::ParameterSetDescription &iDesc) {
+void PatternRecognitionbyKalmanFilter<TILES>::fillPSetDescription(edm::ParameterSetDescription &iDesc) {
   iDesc.add<int>("algo_verbosity", 0);
   iDesc.add<std::vector<double>>("radlen",{});
   iDesc.add<std::vector<double>>("xi",{});
@@ -315,8 +316,8 @@ void PatternRecognitionbyKF<TILES>::fillPSetDescription(edm::ParameterSetDescrip
   iDesc.add<edm::InputTag>("HGCEEInput", edm::InputTag("HGCalRecHit", "HGCEERecHits"));
   iDesc.add<edm::InputTag>("HGCFHInput", edm::InputTag("HGCalRecHit", "HGCHEFRecHits"));
   iDesc.add<edm::InputTag>("HGCBHInput", edm::InputTag("HGCalRecHit", "HGCHEBRecHits"));
-  iDesc.add<int>("rescaleFTSError",1);
+  iDesc.add<double>("rescaleFTSError",1);
 }
 
-template class ticl::PatternRecognitionbyKF<TICLLayerTiles>;
-template class ticl::PatternRecognitionbyKF<TICLLayerTilesHFNose>;
+template class ticl::PatternRecognitionbyKalmanFilter<TICLLayerTiles>;
+template class ticl::PatternRecognitionbyKalmanFilter<TICLLayerTilesHFNose>;

@@ -9,14 +9,13 @@
 class HGCTrackingRecHit : public RecHit2DLocalPos {
     public:
         HGCTrackingRecHit() {}
-        HGCTrackingRecHit(DetId id, const LocalPoint &pos, const LocalError &err, const float energy):
+        HGCTrackingRecHit(DetId id, const LocalPoint &pos, const LocalError &err):
             RecHit2DLocalPos(id),
-            pos_(pos), err_(err), energy_(energy) {}
+            pos_(pos), err_(err) {}
 
         virtual HGCTrackingRecHit * clone() const override { return new HGCTrackingRecHit(*this); }
         virtual LocalPoint localPosition() const override { return pos_; }
         virtual LocalError localPositionError() const override { return err_; }
-        float energy() const { return energy_; }
 
     protected:
         LocalPoint pos_;
