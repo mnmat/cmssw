@@ -1,7 +1,6 @@
 // Author: Mark Matthewman - mark.matthewman@cern.ch
 // Date: 04/2023
 
-// Note!!!!
 // KFHit is a temporary class provided for easier handling of the PatternRecognitionByKF.
 // Once the result format for the Algo has been decided, then the KFHit is obsolete and needs to be deleated.
 

@@ -9,22 +9,22 @@ from RecoHGCal.TICL.ticlLayerTileProducer_cfi import ticlLayerTileProducer
 # CLUSTER FILTERING/MASKING
 # Layer Clusters not used by Kalman Filter implementation but necessary for TracksterProducer. Masking strategy a work in progress!
 
-filteredLayerClustersKF = _filteredLayerClustersProducer.clone(
+filteredLayerClustersKalmanFilter = _filteredLayerClustersProducer.clone(
     clusterFilter = "ClusterFilterByAlgoAndSize",
     min_cluster_size = 2, # inclusive
     algo_number = 8,
-    iteration_label = "KF",
+    iteration_label = "KalmanFilter",
 )
 
 # PATTERN RECOGNITION
 
-ticlTrackstersKF = _trackstersProducer.clone(
-    filtered_mask = "filteredLayerClustersKF:KF",
+ticlTrackstersKalmanFilter = _trackstersProducer.clone(
+    filtered_mask = "filteredLayerClustersKalmanFilter:KalmanFilter",
     layer_clusters_tiles = "ticlRecHitTile:RecHitTiles",
     seeding_regions = "ticlSeedingTrk",
-    itername = "KF",
-    patternRecognitionBy = "KF",
-    pluginPatternRecognitionByKF = dict (
+    itername = "KalmanFilter",
+    patternRecognitionBy = "KalmanFilter",
+    pluginPatternRecognitionByKalmanFilter = dict (
         radlen = [0.562719015399016,0.9551903779795146,1.043875789035635,0.8920189121952249,0.9712515382761755,
             0.9638214213266212,1.0131600728257035,0.931610084339171,0.9762915187242845,0.9673823352145134,
             0.9846489838011926,0.9687667855140328,0.9718771132058326,0.9676763827273792,0.9755766684867133,
@@ -45,16 +45,14 @@ ticlTrackstersKF = _trackstersProducer.clone(
             0.0010103715066888692,0.0010106495620045056,0.0010210702627516468,0.0010169851234559488,0.0010010856800569403,
             0.0010155575635282914,0.0010146829805806501,0.0010150368006945165,0.0009992234164373278,0.0010145096108228593,
             0.0010126783833862823,0.0010125427722475087],
-        rescaleFTSError = 1 # used to rescale the Error of the last FTS of the Tracker which is propagated to the first layer of HGCAL
+        rescaleFTSError = 1. # used to rescale the Error of the last FTS of the Tracker which is propagated to the first layer of HGCAL
     )
 )
 
 HGCTrackerESProducer = cms.ESProducer("HGCTrackerESProducer")
-HGCDiskESProducer = cms.ESProducer("HGCDiskESProducer")
 
 
-ticlKFStepTask = cms.Task(ticlSeedingTrk
-    ,filteredLayerClustersKF
-    ,HGCDiskESProducer
+ticlKalmanFilterStepTask = cms.Task(ticlSeedingTrk
+    ,filteredLayerClustersKalmanFilter
     ,HGCTrackerESProducer
-    ,ticlTrackstersKF)
+    ,ticlTrackstersKalmanFilter)

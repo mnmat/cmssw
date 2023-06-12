@@ -135,7 +135,6 @@ void HGCDiskESProducer::makeDisks(int subdet, const CaloGeometry* geom_) {
         const GlobalPoint & pos = rhtools_.getPosition(i); 
         int layer = rhtools_.getLayer(i)-1;
         float z = pos.z();
-        float rho = pos.perp();
         int side = z > 0 ? +1 : -1;
 
         (side > 0 ? zsumPos : zsumNeg)[layer] += z;
@@ -145,6 +144,7 @@ void HGCDiskESProducer::makeDisks(int subdet, const CaloGeometry* geom_) {
     }
 
   int layer = ddd->getLayerOffset(); // FIXME: Can be made less stupid
+
   for (int i = 0; i < numdisks; ++i) {
     auto rangeR = ddd->rangeRLayer(i+1,true);
     if (countPos[i]) {

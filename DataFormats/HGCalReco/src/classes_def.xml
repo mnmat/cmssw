@@ -57,6 +57,7 @@
   <class name="KFHit"/>
   <class name="std::vector<KFHit>"/>
   <class name="edm::Wrapper<std::vector<KFHit>>"/>
+  <class name="HGCTrackingRecHit"/>
 </lcgdict>
 
 
