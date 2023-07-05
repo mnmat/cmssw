@@ -65,11 +65,13 @@ template<typename TILES>
 template<class Start> 
 std::vector<TempTrajectory>
 PatternRecognitionbyKalmanFilter<TILES>::advanceOneLayer(const Start &start, 
-                                              const HGCDiskGeomDet * disk, 
+                                              const HGCDiskLayer * diskLayer, 
                                               const TILES &tiles, PropagationDirection direction, 
                                               bool &isSilicon, 
-                                              TempTrajectory traj){                                
-                                            
+                                              TempTrajectory traj){  
+                                                                            
+  std::cout << "Entered advanceOneLayer" << std::endl;
+  auto disk = isSilicon? diskLayer->second : diskLayer->first;         
   std::vector<TempTrajectory> ret;
   const Propagator &prop = (direction == alongMomentum ? *propagator_ : *propagatorOppo_);
   TrajectoryStateOnSurface tsos = prop.propagate(start, disk->surface());
@@ -78,23 +80,52 @@ PatternRecognitionbyKalmanFilter<TILES>::advanceOneLayer(const Start &start,
 
   // Collect hits with estimate
   int layer = disk->layer()+1;
-  auto meas = measurements(tsos, *estimator_, tiles, layer);
-  std::sort(meas.begin(), meas.end(),TrajMeasLessEstim());
 
-  for (const TrajectoryMeasurement &tm : meas){
-    if (rhtools_.isSilicon(tm.recHit()->geographicalId()) != isSilicon){
-      // Check if propagated state falls within boundaries of disk. 
-      // If not, change the target disk type (Silicon or Scintillator) using switchDisk() and repeat propagation step.
-      float r = sqrt(pow(tsos.globalPosition().x(),2)+pow(tsos.globalPosition().y(),2));
+  std::cout << "Get measurements" << std::endl;
+  auto hitptrs = measurements(tsos, tiles, layer-1);
 
-      if (((((disk->rmin() > r) && (!isSilicon)) || (((r > disk->rmax()) && (isSilicon))))) && (int(disk->layer()) >= int(rhtools_.firstLayerBH()))){
-        edm::LogVerbatim("PatternRecognitionbyKalmanFilter") << "Enter Switch Disk" << std::endl;
-        disk = hgcTracker_->switchDisk(disk);
+  // Sort according to isSilicon
+  /*
+  auto ptrSortSilicon = [](const HGCTrackingRecHit a, const HGCTrackingRecHit b) -> bool { return a.isSilicon < b.isSilicon; };
+  auto ptrSortScintillator = [](const HGCTrackingRecHit a, const HGCTrackingRecHit b) -> bool { return a.isSilicon > b.isSilicon; };
+
+  if (isSilicon){
+    std::sort(hitptrs.begin(), hitptrs.end(),ptrSortSilicon);
+  } else {
+    std::sort(hitptrs.begin(), hitptrs.end(),ptrSortScintillator);
+  }
+  */
+
+  // Create Trajectory Measurements for each Measurement with the correct TSOS
+  std::vector<TrajectoryMeasurement> meas;
+  std::cout << "Enter Loop over HitPtrs" << std::endl;
+  for(const auto &hitptr : hitptrs){
+    if (hitptr->isValid()){
+      std::cout << "Valid hitptr" << std::endl;
+      auto id = static_cast<int32_t>(hitptr->rawId());
+      if (rhtools_.isSilicon(id) != isSilicon){
+        std::cout << "Entered second propagation" << std::endl;
         isSilicon = !isSilicon;
+        std::cout << "try Disklayer.second" << std::endl;
+        disk = isSilicon? diskLayer->second : diskLayer->first;
+        std::cout << "Disklayer.second sucess" << std::endl;
+        if (!disk){
+          std::cout << "Disk doesn't exist" << std::endl;
+        }
+        std::cout << disk->layer() << ", is Silicon: " << disk->isSilicon() << ", Position: " << disk->position()  << std::endl;
         tsos = prop.propagate(start, disk->surface());
       }
     }
-    
+    auto mest_pair = (*estimator_).estimate(tsos,*hitptr);
+    if(mest_pair.first){
+      meas.emplace_back(tsos,hitptr,mest_pair.second);
+    }
+  }
+
+  // Sort according to chi2
+  std::sort(meas.begin(), meas.end(),TrajMeasLessEstim());
+
+  for (const TrajectoryMeasurement &tm : meas){
     TrajectoryStateOnSurface updated = updator_->update(tm.forwardPredictedState(),*tm.recHit());
     ret.push_back(traj.foundHits() ? traj: TempTrajectory(traj.direction(),0));
     ret.back().push(TrajectoryMeasurement(tm.forwardPredictedState(),
@@ -109,6 +140,7 @@ PatternRecognitionbyKalmanFilter<TILES>::advanceOneLayer(const Start &start,
   ret.push_back(traj.foundHits()? traj : TempTrajectory(traj.direction(),0));
   ret.back().push(TrajectoryMeasurement(tsos, std::make_shared<InvalidTrackingRecHit>(*disk,missing)));
 
+  std::cout << "Exit advanceOneLayer with empty trajectory" << std::endl;
   return ret;
 }
 
@@ -133,13 +165,12 @@ void PatternRecognitionbyKalmanFilter<TILES>::mergeRecHitCollections(std::vector
 }
 
 template <typename TILES>
-std::vector<TrajectoryMeasurement> PatternRecognitionbyKalmanFilter<TILES>::measurements(
+std::vector<std::shared_ptr<HGCTrackingRecHit>> PatternRecognitionbyKalmanFilter<TILES>::measurements(
       const TrajectoryStateOnSurface &tsos, 
-      const MeasurementEstimator &mest, 
       const TILES &tiles, 
       int layer){
   
-  std::vector<TrajectoryMeasurement> ret;
+  std::vector<std::shared_ptr<HGCTrackingRecHit>> ret;
 
   // define search window and get bins
 
@@ -166,14 +197,10 @@ std::vector<TrajectoryMeasurement> PatternRecognitionbyKalmanFilter<TILES>::meas
 
           GlobalPoint globalpoint = rhtools_.getPosition(detid);
           LocalPoint localpoint = tsos.surface().toLocal(globalpoint);
+          bool isSilicon = rhtools_.isSilicon(detid);
 
-          //Test
-
-          auto hitptr = std::make_shared<HGCTrackingRecHit>(hit,localpoint,rhtools_.getLocalError(detid));
-          auto mest_pair = mest.estimate(tsos, *hitptr);
-          if(mest_pair.first){
-            ret.emplace_back(tsos,hitptr,mest_pair.second);
-          }
+          auto hitptr = std::make_shared<HGCTrackingRecHit>(detid,localpoint,rhtools_.getLocalError(detid));
+          ret.push_back(hitptr);
         }
       }
     }
@@ -215,9 +242,13 @@ void PatternRecognitionbyKalmanFilter<TILES>::makeTrajectories(
     const typename PatternRecognitionAlgoBaseT<TILES>::Inputs &input,
     std::vector<KFHit>& kfhits) {
 
+
+  std::cout << "Entered Make Trajectories" << std::endl;
   edm::EventSetup const &es = input.es;
   edm::Event const &ev = input.ev;
   init(ev,es);
+  std::cout << "Done Initialization" << std::endl;
+
   const TILES &tiles = input.tiles;
 
   // Build tsos from TrackCollection
@@ -241,14 +272,20 @@ void PatternRecognitionbyKalmanFilter<TILES>::makeTrajectories(
   int zside = fts.momentum().eta() > 0 ? +1 : -1;
   PropagationDirection direction = alongMomentum;
 
-  const HGCDiskGeomDet* disk = hgcTracker_->firstDisk(zside,direction);
+  std::cout << "Entered first prop" << std::endl;
+
+  const HGCDiskLayer* layerdisk = hgcTracker_->firstDisk(zside,direction);
   bool isSilicon = true;
   
-  std::vector<TempTrajectory> traj = advanceOneLayer(fts, disk,tiles, direction, isSilicon, TempTrajectory(direction,0));
+  HGCDiskGeomDet* disk = isSilicon? layerdisk->second:layerdisk->first; 
+  std::cout << "AdvanceOneLyaer" << std::endl;
+  std::vector<TempTrajectory> traj = advanceOneLayer(fts, layerdisk,tiles, direction, isSilicon, TempTrajectory(direction,0));
   if (traj.empty()){
     edm::LogWarning("PatternRecognitionbyKalmanFilter") << "No valid Trajectory found! Exited PatternRecognitionbyKalmanFilter!" << std::endl; 
     return;
   }
+  std::cout << "Done first prop" << std::endl;
+
   auto lm = traj.back().lastMeasurement();
   TrajectoryStateOnSurface tsos_kf = lm.updatedState();
   KFHit *kfhit = new KFHit(tsos_kf, lm.recHit()->geographicalId());
@@ -259,11 +296,19 @@ void PatternRecognitionbyKalmanFilter<TILES>::makeTrajectories(
 
   // Loop over all disks
   unsigned int layer = 2;
-  for(disk = hgcTracker_->nextDisk(disk,direction,isSilicon); disk != nullptr; disk = hgcTracker_->nextDisk(disk,direction,isSilicon), layer++){
+  for(layerdisk = hgcTracker_->nextDisk(layerdisk,direction,isSilicon); layerdisk != nullptr; layerdisk = hgcTracker_->nextDisk(layerdisk,direction,isSilicon), layer++){
+    std::cout << "Entered loop" << std::endl;
     std::vector<TempTrajectory> newcands_kf;
     for(TempTrajectory & cand : traj_kf){
+      std::cout << "Entered traj cand" << std::endl;
       TrajectoryStateOnSurface start = cand.lastMeasurement().updatedState();
-      std::vector<TempTrajectory> hisTrajs = advanceOneLayer(start, disk, tiles, direction, isSilicon, cand);
+      std::cout << "LocalMomentum" << start.localMomentum().x() << ", " << start.localMomentum().y()<< ", " << start.localMomentum().z() << std::endl;
+      std::cout << "Bare Theta" << start.localMomentum().bareTheta() << std::endl;
+      std::cout << "Theta" << start.localMomentum().theta() << std::endl;
+      std::cout << "eta" << start.localMomentum().eta() << std::endl;
+
+
+      std::vector<TempTrajectory> hisTrajs = advanceOneLayer(start, layerdisk, tiles, direction, isSilicon, cand);
       for(TempTrajectory & t : hisTrajs){
         auto lm = t.lastMeasurement();
         newcands_kf.push_back(t);

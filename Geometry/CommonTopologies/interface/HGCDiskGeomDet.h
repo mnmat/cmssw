@@ -6,6 +6,7 @@
 #include "Geometry/CommonTopologies/interface/GeomDet.h"
 #include "FWCore/Utilities/interface/Exception.h"
 #include "DataFormats/DetId/interface/DetId.h"
+#include <map>
 
 class HGCDiskGeomDet : public GeomDet {
     public:
@@ -33,5 +34,6 @@ class HGCDiskGeomDet : public GeomDet {
 
 
 typedef std::pair<std::vector<HGCDiskGeomDet*>,std::vector<HGCDiskGeomDet*>> HGCDiskGeomDetVector;
+typedef std::pair<HGCDiskGeomDet*, HGCDiskGeomDet*> HGCDiskLayer;
 
 #endif
