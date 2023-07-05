@@ -24,18 +24,56 @@ HGCTracker::HGCTracker(const CaloGeometry* geom,
     int hgcalHSiId = DetId::HGCalHSi;
     int hgcalHScId = DetId::HGCalHSc;
 
-    makeDisks(hgcalEEId, geom);
-    makeDisks(hgcalHSiId, geom);
-    makeDisks(hgcalHScId, geom);
+    std::vector<HGCDiskGeomDet *> disksSiPos, disksScPos;
+		std::vector<HGCDiskGeomDet *> disksSiNeg, disksScNeg;
+
+    makeDisks(hgcalEEId, geom,disksSiPos, disksSiNeg);
+    makeDisks(hgcalHSiId, geom,disksSiPos, disksSiNeg);
+    makeDisks(hgcalHScId, geom,disksScPos, disksScNeg);
 
     auto ptrSort = [](const HGCDiskGeomDet *a, const HGCDiskGeomDet *b) -> bool { return (abs(a->position().z())) < (abs(b->position().z())); };
-    std::sort(disksPos_.begin(), disksPos_.end(), ptrSort);
-    std::sort(disksNeg_.begin(), disksNeg_.end(), ptrSort);
+    std::sort(disksSiPos.begin(), disksSiPos.end(), ptrSort);
+    std::sort(disksSiNeg.begin(), disksSiNeg.end(), ptrSort);
+    std::sort(disksScPos.begin(), disksScPos.end(), ptrSort);
+    std::sort(disksScNeg.begin(), disksScNeg.end(), ptrSort);
+
+    offset = disksSiPos.size()-disksScPos.size();
+    std::cout << "Exited makeDisks" << std::endl;
+    std::cout << disksSiPos.size() << std::endl;
+    std::cout << disksSiNeg.size() << std::endl;
+    std::cout << disksScPos.size() << std::endl;
+    std::cout << disksScNeg.size() << std::endl;
+
+    std::cout << "Sorted makeDisks" << std::endl;
+    makeDiskLayers(disksSiPos,disksScPos);
+		makeDiskLayers(disksSiNeg,disksScNeg);
+
+    for(auto disk: diskLayerPos_){
+      if (disk->first){
+        std::cout << disk->first->layer() << ", " << disk->second->layer() << std::endl;
+      } else{
+        std::cout << disk->second->layer() << std::endl;
+      }
+    }
+
 }
 
 HGCTracker::~HGCTracker(){}
 
-void HGCTracker::makeDisks(int subdet, const CaloGeometry* geom_) {
+void HGCTracker::makeDiskLayers(std::vector<HGCDiskGeomDet*>disksSi, std::vector<HGCDiskGeomDet*> disksSc){
+  std::cout << "Offset: " << offset  << std::endl;
+	for(int layer=0; layer<lastLayer; layer++){
+    std::cout << layer << std::endl;
+		if (layer<offset){
+			addDiskLayer(disksSi[layer]);
+		} else{
+      std::cout << "Bla" << std::endl;
+			addDiskLayer(disksSi[layer],disksSc[layer-offset]);
+		}
+	}
+}
+
+void HGCTracker::makeDisks(int subdet, const CaloGeometry* geom_, std::vector<HGCDiskGeomDet*> &disksPos, std::vector<HGCDiskGeomDet*> &disksNeg) {
     const CaloSubdetectorGeometry *subGeom = geom_->getSubdetectorGeometry(DetId::Detector(subdet), ForwardSubdetector::ForwardEmpty);
     auto hgcalGeom = static_cast<const HGCalGeometry*>(subGeom);
     const HGCalDDDConstants* ddd = &(hgcalGeom->topology().dddConstants());
@@ -60,58 +98,42 @@ void HGCTracker::makeDisks(int subdet, const CaloGeometry* geom_) {
     }
 
   int layer = ddd->getLayerOffset(); // FIXME: Can be made less stupid
+  if (subdet == DetId::HGCalHSc) offset = ddd->getLayerOffset();
+  std::cout << "------------------- Layer Offset: " << layer << ", NumDisks: " << numdisks << std::endl;
   for (int i = 0; i < numdisks; ++i) {
+    std::cout << layer << std::endl;
     if (countPos[i]) {
-      HGCDiskGeomDet* disk = new HGCDiskGeomDet(subdet, +1, layer, zsumPos[i]/countPos[i], rmin[i], rmax[i], radlen_[layer], xi_[layer]);
-      addDisk(disk);
+      HGCDiskGeomDet* disk = new HGCDiskGeomDet(subdet, +1, layer+1, zsumPos[i]/countPos[i], rmin[i], rmax[i], radlen_[layer], xi_[layer]);
+      disksPos.push_back(disk);
     }
     if (countNeg[i]) {
-      HGCDiskGeomDet* disk = new HGCDiskGeomDet(subdet, -1, layer, zsumNeg[i]/countNeg[i], rmin[i], rmax[i], radlen_[layer], xi_[layer]);
-      addDisk(disk);  
+      HGCDiskGeomDet* disk = new HGCDiskGeomDet(subdet, -1, layer+1, zsumNeg[i]/countNeg[i], rmin[i], rmax[i], radlen_[layer], xi_[layer]);
+      disksNeg.push_back(disk);
     }
     layer++;
   }
 }
 
-const HGCDiskGeomDet* HGCTracker::nextDisk(const HGCDiskGeomDet * from, 
+const HGCDiskLayer* HGCTracker::nextDisk(const HGCDiskLayer * from, 
                                           PropagationDirection direction, 
                                           bool isSilicon) const{
 
-
-  const std::vector<HGCDiskGeomDet *> & vec = (from->zside() > 0 ? disksPos_ : disksNeg_);
+  std::cout << "Entered nextDisk" << std::endl;
+  //std::cout << from->
+  const std::vector<HGCDiskLayer *> & vec = (from->second->zside() > 0 ? diskLayerPos_ : diskLayerNeg_);
   auto it = std::find(vec.begin(), vec.end(),from);
-  if (it == vec.end()) throw cms::Exception("LogicError", "nextDisk called with invalid starting disk");
-  int currentLayer = (*it)->layer();
-
-  // disks object contains 61 disks corresponding to the z position of the silicon and scintillator layer (has a slight offset).
-  // So in the mixed section, a layer has two disks: Silicon and Scintillator. nextDisk() finds the correct disk
-  // based on the isSilicon condition by looping through the disks up until the subsequent layer. 
+  if (it == vec.end()) throw cms::Exception("LogicError", "nextDisk called with invalid starting disk"); 
   if (direction == alongMomentum){
     if ((*it == vec.back()) || (*it == vec.rbegin()[1])) return nullptr; // if disk last silicon OR last scintillator disk
-    while ((*it)->layer()<currentLayer+2){
-      if ((*it) == vec.back()) break;
-      ++it;
-      if(((*(it))->isSilicon() == isSilicon) && ((*(it))->layer()==currentLayer+1)) return *(it);
-     }
+    std::cout << "exit next Disk" << std::endl;
+    return *(++it);
   } else{
     if (it == vec.begin()) return nullptr;
-    while ((*it)->layer()>currentLayer-2){
-      if ((it) == vec.begin()) break;
-      --it;
-      if(((*(it))->isSilicon() == isSilicon) && ((*(it))->layer()==currentLayer-1)) return *(it);
-    }
+      std::cout << "exit next Disk" << std::endl;
+      return *(--it);
   }
+  std::cout << "exit next Disk" << std::endl;
   return nullptr; // Returns nullptr if nextDisk reached end of detector
-}
-
-const HGCDiskGeomDet* HGCTracker::switchDisk(const HGCDiskGeomDet * from) const{  
-
-  const std::vector<HGCDiskGeomDet *> & vec = (from->zside() > 0 ? disksPos_ : disksNeg_);
-                                                         
-  auto it = std::find(vec.begin(), vec.end(),from);
-  if (it == vec.end()) throw cms::Exception("LogicError", "nextDisk called with invalid starting disk");
-  from->isSilicon()? --it: ++it;
-  return *(it);
 }
 
 #include "FWCore/Utilities/interface/typelookup.h"
