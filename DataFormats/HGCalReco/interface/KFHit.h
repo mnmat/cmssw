@@ -25,7 +25,9 @@ struct KFHit
         xy(tsos.localError().positionError().xy()),
         yy(tsos.localError().positionError().yy()),
         charge(tsos.charge()),
-        detid(id)
+        detid(id),
+        eta(tsos.localMomentum().eta()),
+        theta(tsos.localMomentum().theta())
         {}
     KFHit(){}
 
@@ -38,5 +40,7 @@ struct KFHit
     float yy;
     int charge;
     uint32_t detid;
+    float eta;
+    float theta;
 };
 #endif
