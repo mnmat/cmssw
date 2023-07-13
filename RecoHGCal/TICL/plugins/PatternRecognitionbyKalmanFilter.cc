@@ -73,7 +73,6 @@ PatternRecognitionbyKalmanFilter<TILES>::advanceOneLayer(const Start &start,
   std::vector<TempTrajectory> ret;
   const Propagator &prop = (direction == alongMomentum ? *propagator_ : *propagatorOppo_);
   TrajectoryStateOnSurface tsos = prop.propagate(start, disk->surface());
-  std::cout << disk->layer() << ", is Silicon: " << disk->isSilicon() << ", Position: " << disk->position()  << std::endl;
   if (!tsos.isValid()) return ret; 
 
   // Collect hits with estimate
@@ -169,7 +168,7 @@ std::vector<TrajectoryMeasurement> PatternRecognitionbyKalmanFilter<TILES>::meas
 
           //Test
 
-          auto hitptr = std::make_shared<HGCTrackingRecHit>(hit,localpoint,rhtools_.getLocalError(detid));
+          auto hitptr = std::make_shared<HGCTrackingRecHit>(detid,localpoint,rhtools_.getLocalError(detid));
           auto mest_pair = mest.estimate(tsos, *hitptr);
           if(mest_pair.first){
             ret.emplace_back(tsos,hitptr,mest_pair.second);
@@ -254,7 +253,7 @@ void PatternRecognitionbyKalmanFilter<TILES>::makeTrajectories(
   TrajectoryStateOnSurface tsos_kf = lm.updatedState();
   KFHit *kfhit = new KFHit(tsos_kf, lm.recHit()->geographicalId());
   kfhits.push_back(*kfhit);
-
+  
   std::vector<TempTrajectory> traj_kf;
   traj_kf.push_back(traj.back());
 
@@ -270,7 +269,8 @@ void PatternRecognitionbyKalmanFilter<TILES>::makeTrajectories(
         newcands_kf.push_back(t);
 
         TrajectoryStateOnSurface tsos_kf = lm.updatedState();
-        KFHit *kfhit = new KFHit(tsos_kf, lm.recHit()->geographicalId());
+        KFHit *kfhit = new KFHit(tsos_kf, lm.recHit()->rawId());
+
         kfhits.push_back(*kfhit);
         break;
       }
