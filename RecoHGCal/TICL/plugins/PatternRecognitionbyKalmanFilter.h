@@ -71,6 +71,8 @@ namespace ticl {
     edm::ESGetToken<HGCTracker,CaloGeometryRecord> hgcTrackerToken_;
 
     double rescaleFTSError_;
+    double scaleWindow_;
+
     uint32_t geomCacheId_;
 
     // Instance Variables
