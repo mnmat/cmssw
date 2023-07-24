@@ -73,6 +73,7 @@ PatternRecognitionbyKalmanFilter<TILES>::advanceOneLayer(const Start &start,
   std::vector<TempTrajectory> ret;
   const Propagator &prop = (direction == alongMomentum ? *propagator_ : *propagatorOppo_);
   TrajectoryStateOnSurface tsos = prop.propagate(start, disk->surface());
+  std::cout << disk->layer() << ", is Silicon: " << disk->isSilicon() << ", Position: " << disk->position()  << std::endl;
   if (!tsos.isValid()) return ret; 
 
   // Collect hits with estimate
@@ -145,18 +146,18 @@ std::vector<TrajectoryMeasurement> PatternRecognitionbyKalmanFilter<TILES>::meas
   float eta = tsos.globalPosition().eta();
   float phi = tsos.globalPosition().phi();
 
-  float etaMin = eta - etaBinSize;
-  float etaMax = eta + etaBinSize;
-  float phiMin = phi - phiBinSize;
-  float phiMax = phi + phiBinSize;
+  float etaMin = eta - scaleWindow_*etaBinSize;
+  float etaMax = eta + scaleWindow_*etaBinSize;
+  float phiMin = phi - scaleWindow_*phiBinSize;
+  float phiMax = phi + scaleWindow_*phiBinSize;
 
   auto bins = tiles[layer].searchBoxEtaPhi(etaMin, etaMax, phiMin, phiMax);
 
   // loop over candidates
 
-  for (int ieta = bins[0]; ieta < bins[1]; ieta++) {
+  for (int ieta = bins[0]; ieta <= bins[1]; ieta++) {
     auto offset = ieta * nPhiBin;
-    for (int phi = bins[2]; phi < bins[3]; phi++) {
+    for (int phi = bins[2]; phi <= bins[3]; phi++) {
       int iphi = ((phi % nPhiBin + nPhiBin) % nPhiBin);
       if (!tiles[layer][offset + iphi].empty()) {
         for(auto hit: tiles[layer][offset + iphi]) {
@@ -168,7 +169,7 @@ std::vector<TrajectoryMeasurement> PatternRecognitionbyKalmanFilter<TILES>::meas
 
           //Test
 
-          auto hitptr = std::make_shared<HGCTrackingRecHit>(detid,localpoint,rhtools_.getLocalError(detid));
+          auto hitptr = std::make_shared<HGCTrackingRecHit>(hit,localpoint,rhtools_.getLocalError(detid));
           auto mest_pair = mest.estimate(tsos, *hitptr);
           if(mest_pair.first){
             ret.emplace_back(tsos,hitptr,mest_pair.second);
@@ -253,7 +254,7 @@ void PatternRecognitionbyKalmanFilter<TILES>::makeTrajectories(
   TrajectoryStateOnSurface tsos_kf = lm.updatedState();
   KFHit *kfhit = new KFHit(tsos_kf, lm.recHit()->geographicalId());
   kfhits.push_back(*kfhit);
-  
+
   std::vector<TempTrajectory> traj_kf;
   traj_kf.push_back(traj.back());
 
@@ -269,8 +270,7 @@ void PatternRecognitionbyKalmanFilter<TILES>::makeTrajectories(
         newcands_kf.push_back(t);
 
         TrajectoryStateOnSurface tsos_kf = lm.updatedState();
-        KFHit *kfhit = new KFHit(tsos_kf, lm.recHit()->rawId());
-
+        KFHit *kfhit = new KFHit(tsos_kf, lm.recHit()->geographicalId());
         kfhits.push_back(*kfhit);
         break;
       }
@@ -318,6 +318,7 @@ void PatternRecognitionbyKalmanFilter<TILES>::fillPSetDescription(edm::Parameter
   iDesc.add<edm::InputTag>("HGCFHInput", edm::InputTag("HGCalRecHit", "HGCHEFRecHits"));
   iDesc.add<edm::InputTag>("HGCBHInput", edm::InputTag("HGCalRecHit", "HGCHEBRecHits"));
   iDesc.add<double>("rescaleFTSError",1);
+  iDesc.add<double>("scaleWindow",1);
 }
 
 template class ticl::PatternRecognitionbyKalmanFilter<TICLLayerTiles>;

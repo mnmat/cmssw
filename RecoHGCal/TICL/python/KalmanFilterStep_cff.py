@@ -45,7 +45,8 @@ ticlTrackstersKalmanFilter = _trackstersProducer.clone(
             0.0010103715066888692,0.0010106495620045056,0.0010210702627516468,0.0010169851234559488,0.0010010856800569403,
             0.0010155575635282914,0.0010146829805806501,0.0010150368006945165,0.0009992234164373278,0.0010145096108228593,
             0.0010126783833862823,0.0010125427722475087],
-        rescaleFTSError = 1. # used to rescale the Error of the last FTS of the Tracker which is propagated to the first layer of HGCAL
+        rescaleFTSError = 1., # used to rescale the Error of the last FTS of the Tracker which is propagated to the first layer of HGCAL
+        scaleWindow = 1.
     )
 )
 
