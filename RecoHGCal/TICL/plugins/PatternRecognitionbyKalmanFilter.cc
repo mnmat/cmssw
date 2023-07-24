@@ -59,6 +59,7 @@ PatternRecognitionbyKalmanFilter<TILES>::PatternRecognitionbyKalmanFilter(const 
       diskToken_(iC.esConsumes<HGCDiskGeomDetVector, CaloGeometryRecord>()),
       hgcTrackerToken_(iC.esConsumes<HGCTracker, CaloGeometryRecord>()),
       rescaleFTSError_(conf.getParameter<double>("rescaleFTSError")),
+      scaleWindow_(conf.getParameter<double>("scaleWindow")),
       geomCacheId_(0){};
 
 template<typename TILES>
@@ -145,18 +146,55 @@ std::vector<TrajectoryMeasurement> PatternRecognitionbyKalmanFilter<TILES>::meas
   float eta = tsos.globalPosition().eta();
   float phi = tsos.globalPosition().phi();
 
-  float etaMin = eta - etaBinSize;
-  float etaMax = eta + etaBinSize;
-  float phiMin = phi - phiBinSize;
-  float phiMax = phi + phiBinSize;
+  //auto g = rhtools_.getGeometry();
+  //auto g_ee = static_cast<const HGCalGeometry*>(g->getSubdetectorGeometry(DetId::HGCalEE));
+  //auto closest_detid = g_ee->getClosestCellHex(tsos.globalPosition(),true);
+  //auto g_si = static_cast<>g->getSubdetectorGeometry(DetId::HGCalHSi));
+  //auto g_sc = g->getSubdetectorGeometry(DetId::HGCalHSc);
+
+  //std::cout << "Got closest detid" << std::endl;
+  //std::cout << rhtools_.getPosition(closest_detid).eta() << ", " <<  rhtools_.getPosition(closest_detid).phi() << std::endl;
+
+  //std::cout << rhtools_.getSubdetectorGeometry(DetId::HGCalEE) << std::endl;
+  //std::cout << rhtools_.getSubdetectorGeometry(DetId::HGCalHSi) << std::endl;
+  //std::cout << rhtools_.getSubdetectorGeometry(DetId::HGCalHSc) << std::endl;
+
+  //auto closest_detid_sc = static_cast<const HGCalGeometry*>(rhtools_.getSubdetectorGeometry(8))->getClosestCell(tsos.globalPosition());
+
+  
+  //auto closest_detid_sc = static_cast<const HGCalGeometry*>(rhtools_.getSubdetectorGeometry(0))->getClosestCell(tsos.globalPosition());
+  /*
+  auto closest_detid_si_a = static_cast<const HGCalGeometry*>(rhtools_.getSubdetectorGeometry(8))->getClosestCellHex(tsos.globalPosition(),true);
+  auto closest_detid_si_b = static_cast<const HGCalGeometry*>(rhtools_.getSubdetectorGeometry(9))->getClosestCellHex(tsos.globalPosition(),true);
+  */
+
+  //std::cout << "Closest DetId Sc:" << rhtools_.getPosition(closest_detid_sc) << std::endl;
+  /*
+  std::cout << "Closest DetId Si A:" << rhtools_.getPosition(closest_detid_si_a) << std::endl;
+  std::cout << "Closest DetId Si B:" << rhtools_.getPosition(closest_detid_si_b) << std::endl;
+
+
+  std::cout << "TSOS: Eta: " << eta << ", Phi: " << phi << std::endl;
+  */
+  float etaMin = eta - scaleWindow_*etaBinSize;
+  float etaMax = eta + scaleWindow_*etaBinSize;
+  float phiMin = phi - scaleWindow_*phiBinSize;
+  float phiMax = phi + scaleWindow_*phiBinSize;
 
   auto bins = tiles[layer].searchBoxEtaPhi(etaMin, etaMax, phiMin, phiMax);
+  std::cout << "------------------------- Loop over candidates ----------------------" << std::endl;
+  std::cout << "Window: Eta: " << etaMin << ", " << etaMax << ", Phi: " << phiMin << ", " << phiMax << std::endl;
+  std::cout << "EtaBin : " << bins[0] << ", " << bins[1] << ", PhiBin: " << bins[2] << ", " << bins[3] <<std::endl;
+
+
+  std::cout << "Bin the TSOS should be in: " << tiles[layer].etaBin(eta) << ", " << tiles[layer].phiBin(phi) << std::endl;
+
 
   // loop over candidates
 
-  for (int ieta = bins[0]; ieta < bins[1]; ieta++) {
+  for (int ieta = bins[0]; ieta <= bins[1]; ieta++) {
     auto offset = ieta * nPhiBin;
-    for (int phi = bins[2]; phi < bins[3]; phi++) {
+    for (int phi = bins[2]; phi <= bins[3]; phi++) {
       int iphi = ((phi % nPhiBin + nPhiBin) % nPhiBin);
       if (!tiles[layer][offset + iphi].empty()) {
         for(auto hit: tiles[layer][offset + iphi]) {
@@ -165,6 +203,19 @@ std::vector<TrajectoryMeasurement> PatternRecognitionbyKalmanFilter<TILES>::meas
 
           GlobalPoint globalpoint = rhtools_.getPosition(detid);
           LocalPoint localpoint = tsos.surface().toLocal(globalpoint);
+
+          /*
+          std::cout << "Closest DetID" << std::endl;
+          if (detector == "Sc"){
+            auto closest_detid = static_cast<const HGCalGeometry*>(recHitTools_.getSubdetectorGeometry(detid))->getClosestCell(gp);
+            std::cout << rhtools_.getPosition(closest_detid).eta() << ", " << rhtools_.getPosition(closest_detid).eta() << std::endl;
+          } else {
+            auto closest_detid = static_cast<const HGCalGeometry*>(recHitTools_.getSubdetectorGeometry(detid))->getClosestCellHex(gp, true);
+            std::cout << rhtools_.getPosition(closest_detid).eta() << ", " << rhtools_.getPosition(closest_detid).eta() << std::endl;
+          }
+          */
+          std::cout << "RecHIt is in: " << ieta << ", " << phi << std::endl;
+          std::cout << globalpoint.eta() << ", " << globalpoint.phi() << std::endl;
 
           //Test
 
@@ -177,6 +228,8 @@ std::vector<TrajectoryMeasurement> PatternRecognitionbyKalmanFilter<TILES>::meas
       }
     }
   }
+
+std::cout << "---------------------------------------------------------------------" << std::endl;
 return ret;
 }
 
@@ -276,6 +329,17 @@ void PatternRecognitionbyKalmanFilter<TILES>::makeTrajectories(
     }
     traj_kf.swap(newcands_kf);
   }
+
+  // Give Number of collected measurements
+  // int valid_rechits = 0;
+  
+  std::cout << traj_kf[0].foundHits() << std::endl;
+
+  /*
+  for(auto& hit: kfhits){
+    std::cout << hit.detid << std::endl;
+  }
+  */
 }
 
 template <typename TILES>
@@ -317,6 +381,7 @@ void PatternRecognitionbyKalmanFilter<TILES>::fillPSetDescription(edm::Parameter
   iDesc.add<edm::InputTag>("HGCFHInput", edm::InputTag("HGCalRecHit", "HGCHEFRecHits"));
   iDesc.add<edm::InputTag>("HGCBHInput", edm::InputTag("HGCalRecHit", "HGCHEBRecHits"));
   iDesc.add<double>("rescaleFTSError",1);
+  iDesc.add<double>("scaleWindow",1);
 }
 
 template class ticl::PatternRecognitionbyKalmanFilter<TICLLayerTiles>;
