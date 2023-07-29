@@ -86,6 +86,7 @@ namespace ticl {
     static constexpr int nEtaBin = TILES::constants_type_t::nEtaBins;
 
     //Member Functions
+    std::pair<float,float> covarianceTransform(const TrajectoryStateOnSurface &tsos);
     void dumpTiles(const TILES&) const;
     std::vector<TrajectoryMeasurement> measurements(const TrajectoryStateOnSurface &tsos, 
       const MeasurementEstimator &mest, 
