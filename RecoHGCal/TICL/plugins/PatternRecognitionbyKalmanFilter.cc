@@ -161,14 +161,17 @@ std::vector<TrajectoryMeasurement> PatternRecognitionbyKalmanFilter<TILES>::meas
       int iphi = ((phi % nPhiBin + nPhiBin) % nPhiBin);
       if (!tiles[layer][offset + iphi].empty()) {
         for(auto hit: tiles[layer][offset + iphi]) {
-          const auto rec = *recHitCollection[hit];
-          const auto detid = rec.detid();
-          GlobalPoint globalpoint = rhtools_.getPosition(detid);
-          LocalPoint localpoint = tsos.surface().toLocal(globalpoint);
-          auto hitptr = std::make_shared<HGCTrackingRecHit>(detid,localpoint,rhtools_.getLocalError(detid));
-          auto mest_pair = mest.estimate(tsos, *hitptr);
-          if(mest_pair.first){
-            ret.emplace_back(tsos,hitptr,mest_pair.second);
+          if (((hit >> 28) & 0xF) > 0){ // replace with enum values
+            hit = hit & 0xFFFFFFF;
+            const auto rec = *recHitCollection[hit];
+            const auto detid = rec.detid();
+            GlobalPoint globalpoint = rhtools_.getPosition(detid);
+            LocalPoint localpoint = tsos.surface().toLocal(globalpoint);
+            auto hitptr = std::make_shared<HGCTrackingRecHit>(detid,localpoint,rhtools_.getLocalError(detid));
+            auto mest_pair = mest.estimate(tsos, *hitptr);
+            if(mest_pair.first){
+              ret.emplace_back(tsos,hitptr,mest_pair.second);
+            }
           }
         }
       }

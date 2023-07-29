@@ -39,7 +39,8 @@ private:
   TileParameters getTileParameters(const HGCRecHit& hit); 
 
   template<typename T, typename U> void fillTiles(T& results, 
-      const U& objects);
+      const U& objects,
+      int collectionId);
 
   edm::EDGetTokenT<std::vector<reco::CaloCluster>> clusters_token_;
   edm::EDGetTokenT<std::vector<reco::CaloCluster>> clusters_HFNose_token_;
@@ -53,7 +54,8 @@ private:
   bool isLC_;
   bool doNose_;
 
-  int offset_ = 0;
+  int idx_ = 0;
+  int offset_ = 28;
 };
 
 TileParameters TICLLayerTileProducer::getTileParameters(const reco::CaloCluster& lc){
@@ -72,22 +74,21 @@ TileParameters TICLLayerTileProducer::getTileParameters(const HGCRecHit& hit){
   return TileParameters{layer,eta,phi};
 }
 
-template<typename T,typename U> void TICLLayerTileProducer::fillTiles(T& results, const U& objects){
-  int objId = offset_;
+template<typename T,typename U> void TICLLayerTileProducer::fillTiles(T& results, const U& objects, int collectionId){
+  int objId = idx_;
   for (auto const &obj : objects) {
     TileParameters par = getTileParameters(obj);
-    results.fill(par.layer, par.eta, par.phi, objId);
+    results.fill(par.layer, par.eta, par.phi, (collectionId << offset_)| objId);
     LogDebug("TICLLayerTileProducer") << "Adding objectId: " << objId << " into bin [eta,phi]: [ "
                                       << (results)[par.layer].etaBin(par.eta) << ", " << (results)[par.layer].phiBin(par.phi)
                                       << "] for layer: " << par.layer << std::endl;
     objId++;
   }
-  offset_ = objId;
+  idx_ = objId;
 }
 
 TICLLayerTileProducer::TICLLayerTileProducer(const edm::ParameterSet &ps)
-    : detector_(ps.getParameter<std::string>("detector")), 
-      isLC_(ps.getParameter<bool>("isLC")) {
+    : detector_(ps.getParameter<std::string>("detector")) {
 
   clusters_HFNose_token_ = consumes<std::vector<reco::CaloCluster>>(ps.getParameter<edm::InputTag>("layer_HFNose_clusters"));
   clusters_token_ = consumes<std::vector<reco::CaloCluster>>(ps.getParameter<edm::InputTag>("layer_clusters"));
@@ -113,7 +114,7 @@ void TICLLayerTileProducer::produce(edm::Event &evt, const edm::EventSetup &) {
 
   auto result = std::make_unique<TICLLayerTiles>();
   auto resultHFNose = std::make_unique<TICLLayerTilesHFNose>();
-  offset_ = 0;
+  idx_ = 0;
    
   edm::Handle<std::vector<reco::CaloCluster>> cluster_h;
   edm::Handle<HGCRecHitCollection> ee_hits_h;
@@ -121,32 +122,37 @@ void TICLLayerTileProducer::produce(edm::Event &evt, const edm::EventSetup &) {
   edm::Handle<HGCRecHitCollection> bh_hits_h;
   edm::Handle<HGCRecHitCollection> hfnose_hits_h;
 
-  if (isLC_){
-    doNose_ ? evt.getByToken(clusters_HFNose_token_, cluster_h) : evt.getByToken(clusters_token_, cluster_h);
-    doNose_ ? fillTiles<TICLLayerTilesHFNose,std::vector<reco::CaloCluster>>(*resultHFNose, *cluster_h) : fillTiles<TICLLayerTiles, std::vector<reco::CaloCluster>>(*result, *cluster_h);
-  } else {
-    if (doNose_){
-      evt.getByToken(hgcalRecHitsHFNoseToken_, hfnose_hits_h);
-      fillTiles<TICLLayerTiles, HGCRecHitCollection>(*result, *hfnose_hits_h);
-    }
-    else{
-      evt.getByToken(hgcalRecHitsEEToken_, ee_hits_h);
-      evt.getByToken(hgcalRecHitsFHToken_, fh_hits_h);
-      evt.getByToken(hgcalRecHitsBHToken_, bh_hits_h);
-
-      fillTiles<TICLLayerTiles, HGCRecHitCollection>(*result, *ee_hits_h);
-      fillTiles<TICLLayerTiles, HGCRecHitCollection>(*result, *fh_hits_h);
-      fillTiles<TICLLayerTiles, HGCRecHitCollection>(*result, *bh_hits_h);
-    }
-  }
-
   if (doNose_){
+    // fill with LayerClusters
+    evt.getByToken(clusters_HFNose_token_, cluster_h);
+    fillTiles<TICLLayerTilesHFNose,std::vector<reco::CaloCluster>>(*resultHFNose, *cluster_h, 0); // replace with enum values
+
+    // fill with RecHits
+    idx_ = 0;
+    evt.getByToken(hgcalRecHitsHFNoseToken_, hfnose_hits_h);
+    fillTiles<TICLLayerTiles, HGCRecHitCollection>(*result, *hfnose_hits_h, 1); // replace with enum values
+
     evt.put(std::move(resultHFNose),"RecHitTilesHFNose");
   }
   else{
+    // fill with LayerClusters
+    evt.getByToken(clusters_token_, cluster_h);
+    fillTiles<TICLLayerTiles, std::vector<reco::CaloCluster>>(*result, *cluster_h, 0);
+
+    // fill with RecHits
+    idx_ = 0;
+    evt.getByToken(hgcalRecHitsEEToken_, ee_hits_h);
+    evt.getByToken(hgcalRecHitsFHToken_, fh_hits_h);
+    evt.getByToken(hgcalRecHitsBHToken_, bh_hits_h);
+
+    fillTiles<TICLLayerTiles, HGCRecHitCollection>(*result, *ee_hits_h, 1);
+    fillTiles<TICLLayerTiles, HGCRecHitCollection>(*result, *fh_hits_h, 1);
+    fillTiles<TICLLayerTiles, HGCRecHitCollection>(*result, *bh_hits_h, 1);
+
     evt.put(std::move(result),"RecHitTiles");
   }
 }
+
 void TICLLayerTileProducer::fillDescriptions(edm::ConfigurationDescriptions &descriptions) {
   edm::ParameterSetDescription desc;
   desc.add<std::string>("detector", "HGCAL");

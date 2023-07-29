@@ -118,21 +118,24 @@ void PatternRecognitionbyFastJet<TILES>::makeTracksters(
           edm::LogVerbatim("PatternRecogntionbyFastJet") << "Entries in tileBin: " << tileOnLayer[offset + iphi].size();
         }
         for (auto clusterIdx : tileOnLayer[offset + iphi]) {
-          // Skip masked layer clusters
-          if (input.mask[clusterIdx] == 0.) {
-            if (PatternRecognitionAlgoBaseT<TILES>::algo_verbosity_ > VerbosityLevel::Advanced) {
-              edm::LogVerbatim("PatternRecogntionbyFastJet") << "Skipping masked layerIdx " << clusterIdx;
+          if (((clusterIdx >> 28) & 0xF) == 0){ // replace with enum values
+
+            // Skip masked layer clusters
+            if (input.mask[clusterIdx] == 0.) {
+              if (PatternRecognitionAlgoBaseT<TILES>::algo_verbosity_ > VerbosityLevel::Advanced) {
+                edm::LogVerbatim("PatternRecogntionbyFastJet") << "Skipping masked layerIdx " << clusterIdx;
+              }
+              continue;
             }
-            continue;
+            // Should we correct for the position of the PV?
+            auto const &cl = input.layerClusters[clusterIdx];
+            math::XYZVector direction(cl.x(), cl.y(), cl.z());
+            direction = direction.Unit();
+            direction *= cl.energy();
+            auto fpj = fastjet::PseudoJet(direction.X(), direction.Y(), direction.Z(), cl.energy());
+            fpj.set_user_index(clusterIdx);
+            fjInputs.push_back(fpj);
           }
-          // Should we correct for the position of the PV?
-          auto const &cl = input.layerClusters[clusterIdx];
-          math::XYZVector direction(cl.x(), cl.y(), cl.z());
-          direction = direction.Unit();
-          direction *= cl.energy();
-          auto fpj = fastjet::PseudoJet(direction.X(), direction.Y(), direction.Z(), cl.energy());
-          fpj.set_user_index(clusterIdx);
-          fjInputs.push_back(fpj);
         }  // End of loop on the clusters on currentLayer
       }    // End of loop over phi-bin region
     }      // End of loop over eta-bin region

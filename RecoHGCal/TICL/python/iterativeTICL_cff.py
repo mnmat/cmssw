@@ -29,8 +29,7 @@ ticlIterationsTask = cms.Task(
 )
 
 from Configuration.ProcessModifiers.hgcal_ticl_kf_cff import hgcal_ticl_kf
-ticlRecHitTile = ticlLayerTileProducer.clone(
-    isLC = False)
+ticlRecHitTile = ticlLayerTileProducer.clone()
 
 ticlRecHitTileTask = cms.Task(ticlRecHitTile)
 hgcal_ticl_kf.toModify(ticlIterationsTask, func=lambda x : x.add(ticlRecHitTileTask, ticlKalmanFilterStepTask))
