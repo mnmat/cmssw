@@ -62,6 +62,41 @@ PatternRecognitionbyKalmanFilter<TILES>::PatternRecognitionbyKalmanFilter(const 
       scaleWindow_(conf.getParameter<double>("scaleWindow")),
       geomCacheId_(0){};
 
+
+template <typename TILES>
+std::pair<float,float> PatternRecognitionbyKalmanFilter<TILES>::covarianceTransform(const TrajectoryStateOnSurface &tsos){
+  // Get Position
+  double x = tsos.globalPosition().x();
+  double y = tsos.globalPosition().y();
+  double z = tsos.globalPosition().z();
+  
+  // Calculate Jacobian
+  AlgebraicMatrix22 theJacobian;
+  double sqrt_term = std::sqrt((x*x + y*y) / (z*z) + 1);
+  double denom_eta = (x*x + y*y) * (x*x + y*y + z*z);
+  theJacobian(0,0) = - (x*z*z * sqrt_term) / denom_eta; // deta_dx
+  theJacobian(0,1) = - (y*z*z * sqrt_term) / denom_eta; // deta_dy
+
+  double denom_phi = x*x + y*y;
+  theJacobian(1,0) = - y / denom_phi; // dphi_dx
+  theJacobian(1,1) = x / denom_phi; // dphi_dy
+
+  // Get covariance in x-y coordinates
+  AlgebraicMatrix55 localErrorMatrix = tsos.localError().matrix();
+  AlgebraicMatrix22 covMatrixXY;
+  covMatrixXY(0,0) = localErrorMatrix(3,3);
+  covMatrixXY(0,1) = localErrorMatrix(3,4);
+  covMatrixXY(1,0) = localErrorMatrix(3,4);
+  covMatrixXY(1,1) = localErrorMatrix(4,4);
+
+  // Transform LocalError from x-y coordinates to eta-phi
+  // TODO: Look for more suitable functions in ROOT::Math namespace
+  AlgebraicMatrix22 covMatrixEtaPhi = ROOT::Math::Transpose(theJacobian) * covMatrixXY * theJacobian;
+  
+  return std::pair<float,float>{covMatrixEtaPhi(0,0),covMatrixEtaPhi(1,1)};
+}
+
+
 template<typename TILES>
 template<class Start> 
 std::vector<TempTrajectory>
@@ -146,49 +181,18 @@ std::vector<TrajectoryMeasurement> PatternRecognitionbyKalmanFilter<TILES>::meas
   float eta = tsos.globalPosition().eta();
   float phi = tsos.globalPosition().phi();
 
-  //auto g = rhtools_.getGeometry();
-  //auto g_ee = static_cast<const HGCalGeometry*>(g->getSubdetectorGeometry(DetId::HGCalEE));
-  //auto closest_detid = g_ee->getClosestCellHex(tsos.globalPosition(),true);
-  //auto g_si = static_cast<>g->getSubdetectorGeometry(DetId::HGCalHSi));
-  //auto g_sc = g->getSubdetectorGeometry(DetId::HGCalHSc);
+  std::pair<float,float> localErrorEtaPhi  = covarianceTransform(tsos);
 
-  //std::cout << "Got closest detid" << std::endl;
-  //std::cout << rhtools_.getPosition(closest_detid).eta() << ", " <<  rhtools_.getPosition(closest_detid).phi() << std::endl;
+  float etaMin = eta - scaleWindow_*std::max(etaBinSize,localErrorEtaPhi.first);
+  float etaMax = eta + scaleWindow_*std::max(etaBinSize,localErrorEtaPhi.first);
+  float phiMin = phi - scaleWindow_*std::max(phiBinSize,localErrorEtaPhi.second);
+  float phiMax = phi + scaleWindow_*std::max(phiBinSize,localErrorEtaPhi.second);
 
-  //std::cout << rhtools_.getSubdetectorGeometry(DetId::HGCalEE) << std::endl;
-  //std::cout << rhtools_.getSubdetectorGeometry(DetId::HGCalHSi) << std::endl;
-  //std::cout << rhtools_.getSubdetectorGeometry(DetId::HGCalHSc) << std::endl;
+  std::cout << "EtaBinSize: " << etaBinSize << ", " << localErrorEtaPhi.first << ", " << std::sqrt(localErrorEtaPhi.first) << std::endl;
+  std::cout << "PhiBinSize: " << phiBinSize << ", " << localErrorEtaPhi.second << ", " << std::sqrt(localErrorEtaPhi.second) << std::endl;
 
-  //auto closest_detid_sc = static_cast<const HGCalGeometry*>(rhtools_.getSubdetectorGeometry(8))->getClosestCell(tsos.globalPosition());
-
-  
-  //auto closest_detid_sc = static_cast<const HGCalGeometry*>(rhtools_.getSubdetectorGeometry(0))->getClosestCell(tsos.globalPosition());
-  /*
-  auto closest_detid_si_a = static_cast<const HGCalGeometry*>(rhtools_.getSubdetectorGeometry(8))->getClosestCellHex(tsos.globalPosition(),true);
-  auto closest_detid_si_b = static_cast<const HGCalGeometry*>(rhtools_.getSubdetectorGeometry(9))->getClosestCellHex(tsos.globalPosition(),true);
-  */
-
-  //std::cout << "Closest DetId Sc:" << rhtools_.getPosition(closest_detid_sc) << std::endl;
-  /*
-  std::cout << "Closest DetId Si A:" << rhtools_.getPosition(closest_detid_si_a) << std::endl;
-  std::cout << "Closest DetId Si B:" << rhtools_.getPosition(closest_detid_si_b) << std::endl;
-
-
-  std::cout << "TSOS: Eta: " << eta << ", Phi: " << phi << std::endl;
-  */
-  float etaMin = eta - scaleWindow_*etaBinSize;
-  float etaMax = eta + scaleWindow_*etaBinSize;
-  float phiMin = phi - scaleWindow_*phiBinSize;
-  float phiMax = phi + scaleWindow_*phiBinSize;
 
   auto bins = tiles[layer].searchBoxEtaPhi(etaMin, etaMax, phiMin, phiMax);
-  std::cout << "------------------------- Loop over candidates ----------------------" << std::endl;
-  std::cout << "Window: Eta: " << etaMin << ", " << etaMax << ", Phi: " << phiMin << ", " << phiMax << std::endl;
-  std::cout << "EtaBin : " << bins[0] << ", " << bins[1] << ", PhiBin: " << bins[2] << ", " << bins[3] <<std::endl;
-
-
-  std::cout << "Bin the TSOS should be in: " << tiles[layer].etaBin(eta) << ", " << tiles[layer].phiBin(phi) << std::endl;
-
 
   // loop over candidates
 
@@ -228,8 +232,6 @@ std::vector<TrajectoryMeasurement> PatternRecognitionbyKalmanFilter<TILES>::meas
       }
     }
   }
-
-std::cout << "---------------------------------------------------------------------" << std::endl;
 return ret;
 }
 
