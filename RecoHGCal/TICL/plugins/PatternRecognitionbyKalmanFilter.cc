@@ -61,6 +61,41 @@ PatternRecognitionbyKalmanFilter<TILES>::PatternRecognitionbyKalmanFilter(const 
       rescaleFTSError_(conf.getParameter<double>("rescaleFTSError")),
       geomCacheId_(0){};
 
+
+template <typename TILES>
+std::pair<float,float> PatternRecognitionbyKalmanFilter<TILES>::covarianceTransform(const TrajectoryStateOnSurface &tsos){
+  // Get Position
+  double x = tsos.globalPosition().x();
+  double y = tsos.globalPosition().y();
+  double z = tsos.globalPosition().z();
+  
+  // Calculate Jacobian
+  AlgebraicMatrix22 theJacobian;
+  double sqrt_term = std::sqrt((x*x + y*y) / (z*z) + 1);
+  double denom_eta = (x*x + y*y) * (x*x + y*y + z*z);
+  theJacobian(0,0) = - (x*z*z * sqrt_term) / denom_eta; // deta_dx
+  theJacobian(0,1) = - (y*z*z * sqrt_term) / denom_eta; // deta_dy
+
+  double denom_phi = x*x + y*y;
+  theJacobian(1,0) = - y / denom_phi; // dphi_dx
+  theJacobian(1,1) = x / denom_phi; // dphi_dy
+
+  // Get covariance in x-y coordinates
+  AlgebraicMatrix55 localErrorMatrix = tsos.localError().matrix();
+  AlgebraicMatrix22 covMatrixXY;
+  covMatrixXY(0,0) = localErrorMatrix(3,3);
+  covMatrixXY(0,1) = localErrorMatrix(3,4);
+  covMatrixXY(1,0) = localErrorMatrix(3,4);
+  covMatrixXY(1,1) = localErrorMatrix(4,4);
+
+  // Transform LocalError from x-y coordinates to eta-phi
+  // TODO: Look for more suitable functions in ROOT::Math namespace
+  AlgebraicMatrix22 covMatrixEtaPhi = ROOT::Math::Transpose(theJacobian) * covMatrixXY * theJacobian;
+  
+  return std::pair<float,float>{covMatrixEtaPhi(0,0),covMatrixEtaPhi(1,1)};
+}
+
+
 template<typename TILES>
 template<class Start> 
 std::vector<TempTrajectory>
@@ -146,10 +181,16 @@ std::vector<TrajectoryMeasurement> PatternRecognitionbyKalmanFilter<TILES>::meas
   float eta = tsos.globalPosition().eta();
   float phi = tsos.globalPosition().phi();
 
-  float etaMin = eta - scaleWindow_*etaBinSize;
-  float etaMax = eta + scaleWindow_*etaBinSize;
-  float phiMin = phi - scaleWindow_*phiBinSize;
-  float phiMax = phi + scaleWindow_*phiBinSize;
+  std::pair<float,float> localErrorEtaPhi  = covarianceTransform(tsos);
+
+  float etaMin = eta - scaleWindow_*std::max(etaBinSize,localErrorEtaPhi.first);
+  float etaMax = eta + scaleWindow_*std::max(etaBinSize,localErrorEtaPhi.first);
+  float phiMin = phi - scaleWindow_*std::max(phiBinSize,localErrorEtaPhi.second);
+  float phiMax = phi + scaleWindow_*std::max(phiBinSize,localErrorEtaPhi.second);
+
+  std::cout << "EtaBinSize: " << etaBinSize << ", " << localErrorEtaPhi.first << ", " << std::sqrt(localErrorEtaPhi.first) << std::endl;
+  std::cout << "PhiBinSize: " << phiBinSize << ", " << localErrorEtaPhi.second << ", " << std::sqrt(localErrorEtaPhi.second) << std::endl;
+
 
   auto bins = tiles[layer].searchBoxEtaPhi(etaMin, etaMax, phiMin, phiMax);
 
