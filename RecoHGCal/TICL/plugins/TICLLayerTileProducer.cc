@@ -21,6 +21,9 @@
 #include "SimDataFormats/CaloAnalysis/interface/SimClusterFwd.h"
 #include "SimDataFormats/CaloAnalysis/interface/SimCluster.h"
 
+#include "Geometry/CaloGeometry/interface/CaloSubdetectorGeometry.h"
+
+
 struct TileParameters{
   int layer;
   double eta, phi;
@@ -49,6 +52,7 @@ private:
   edm::EDGetTokenT<HGCRecHitCollection> hgcalRecHitsHFNoseToken_;
   edm::ESGetToken<CaloGeometry, CaloGeometryRecord> geometry_token_;
   hgcal::RecHitTools rhtools_;
+
   std::string detector_;
   bool isLC_;
   bool doNose_;
@@ -66,7 +70,9 @@ TileParameters TICLLayerTileProducer::getTileParameters(const reco::CaloCluster&
 }
 
 TileParameters TICLLayerTileProducer::getTileParameters(const HGCRecHit& hit){
-  int layer = rhtools_.getLayerWithOffset(hit.detid());
+  int layer = rhtools_.getLayerWithOffset(hit.detid()) +
+              rhtools_.lastLayer(doNose_) * ((rhtools_.zside(hit.detid()) + 1) >> 1) - 1;
+  //int layer = rhtools_.getLayerWithOffset(hit.detid());
   float eta = rhtools_.getEta(hit.detid());
   float phi = rhtools_.getPhi(hit.detid());
   return TileParameters{layer,eta,phi};
@@ -147,6 +153,7 @@ void TICLLayerTileProducer::produce(edm::Event &evt, const edm::EventSetup &) {
     evt.put(std::move(result),"RecHitTiles");
   }
 }
+
 void TICLLayerTileProducer::fillDescriptions(edm::ConfigurationDescriptions &descriptions) {
   edm::ParameterSetDescription desc;
   desc.add<std::string>("detector", "HGCAL");
