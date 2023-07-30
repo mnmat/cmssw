@@ -80,6 +80,7 @@ g4SimHits = cms.EDProducer("OscarMTProducer",
     g4GeometryDD4hepSource = cms.bool(False),
     NonBeamEvent = cms.bool(False),
     EventVerbose = cms.int32(0),
+    UseG4EventManager = cms.bool(True),
     UseMagneticField = cms.bool(True),
     UseCommandBaseScorer = cms.bool(False),
     StoreRndmSeeds = cms.bool(False),
@@ -331,6 +332,7 @@ g4SimHits = cms.EDProducer("OscarMTProducer",
         common_MCtruth,
         DetailedTiming = cms.untracked.bool(False),
         CheckTrack = cms.untracked.bool(False),
+        EndPrintTrackID = cms.int32(0)
     ),
     SteppingAction = cms.PSet(
         common_maximum_time,
@@ -516,6 +518,8 @@ g4SimHits = cms.EDProducer("OscarMTProducer",
         IgnoreTrackID    = cms.bool(False),
         EminHit          = cms.double(0.0),
         CheckID          = cms.untracked.bool(True),
+        EnergyThresholdForPersistencyInGeV = cms.double(1e9), # keep temporarily old behaviour
+        EnergyThresholdForHistoryInGeV = cms.double(1e9) # keep temporarily old behaviour)
     ),
     HGCSD = cms.PSet(
         Verbosity        = cms.untracked.int32(0),
