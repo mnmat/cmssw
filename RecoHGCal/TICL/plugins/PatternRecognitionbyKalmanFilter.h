@@ -8,6 +8,7 @@
 #include "DataFormats/TrackReco/interface/Track.h"
 #include "DataFormats/TrackReco/interface/TrackFwd.h"
 #include "DataFormats/HGCRecHit/interface/HGCRecHitCollections.h"
+#include "DataFormats/HGCalReco/interface/HGCTrackingRecHit.h"
 
 #include "Geometry/CommonTopologies/interface/HGCDiskGeomDet.h"
 #include "Geometry/HGCalGeometry/interface/HGCalGeometry.h"
@@ -89,13 +90,12 @@ namespace ticl {
     //Member Functions
     std::pair<float,float> covarianceTransform(const TrajectoryStateOnSurface &tsos);
     void dumpTiles(const TILES&) const;
-    std::vector<TrajectoryMeasurement> measurements(const TrajectoryStateOnSurface &tsos, 
-      const MeasurementEstimator &mest, 
+    std::vector<std::shared_ptr<HGCTrackingRecHit>> measurements(const TrajectoryStateOnSurface &tsos, 
       const TILES &tiles, 
       int depth);
     template<class Start>
     std::vector<TempTrajectory> advanceOneLayer(const Start &start, 
-      const HGCDiskGeomDet * disk,
+      const HGCDiskLayer * disk,
       const TILES &tiles,
       PropagationDirection direction, 
       bool &isSilicon,
