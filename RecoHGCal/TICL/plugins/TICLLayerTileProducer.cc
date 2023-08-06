@@ -153,7 +153,6 @@ void TICLLayerTileProducer::produce(edm::Event &evt, const edm::EventSetup &) {
   else{
     evt.put(std::move(result));
   }
-  evt.put(std::move(test));
 }
 
 void TICLLayerTileProducer::fillDescriptions(edm::ConfigurationDescriptions &descriptions) {

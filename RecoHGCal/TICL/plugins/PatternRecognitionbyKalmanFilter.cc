@@ -59,6 +59,7 @@ PatternRecognitionbyKalmanFilter<TILES>::PatternRecognitionbyKalmanFilter(const 
       diskToken_(iC.esConsumes<HGCDiskGeomDetVector, CaloGeometryRecord>()),
       hgcTrackerToken_(iC.esConsumes<HGCTracker, CaloGeometryRecord>()),
       rescaleFTSError_(conf.getParameter<double>("rescaleFTSError")),
+      scaleWindow_(conf.getParameter<double>("scaleWindow")),
       geomCacheId_(0){};
 
 
@@ -208,10 +209,6 @@ std::vector<std::shared_ptr<HGCTrackingRecHit>> PatternRecognitionbyKalmanFilter
   float etaMax = eta + scaleWindow_*std::max(etaBinSize,localErrorEtaPhi.first);
   float phiMin = phi - scaleWindow_*std::max(phiBinSize,localErrorEtaPhi.second);
   float phiMax = phi + scaleWindow_*std::max(phiBinSize,localErrorEtaPhi.second);
-
-  std::cout << "EtaBinSize: " << etaBinSize << ", " << localErrorEtaPhi.first << ", " << std::sqrt(localErrorEtaPhi.first) << std::endl;
-  std::cout << "PhiBinSize: " << phiBinSize << ", " << localErrorEtaPhi.second << ", " << std::sqrt(localErrorEtaPhi.second) << std::endl;
-
 
   auto bins = tiles[layer].searchBoxEtaPhi(etaMin, etaMax, phiMin, phiMax);
 
@@ -381,6 +378,7 @@ void PatternRecognitionbyKalmanFilter<TILES>::fillPSetDescription(edm::Parameter
   iDesc.add<edm::InputTag>("HGCFHInput", edm::InputTag("HGCalRecHit", "HGCHEFRecHits"));
   iDesc.add<edm::InputTag>("HGCBHInput", edm::InputTag("HGCalRecHit", "HGCHEBRecHits"));
   iDesc.add<double>("rescaleFTSError",1);
+  iDesc.add<double>("scaleWindow",1);
 }
 
 template class ticl::PatternRecognitionbyKalmanFilter<TICLLayerTiles>;
