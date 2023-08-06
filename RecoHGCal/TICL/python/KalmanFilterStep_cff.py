@@ -12,7 +12,7 @@ from RecoHGCal.TICL.ticlLayerTileProducer_cfi import ticlLayerTileProducer
 filteredLayerClustersKalmanFilter = _filteredLayerClustersProducer.clone(
     clusterFilter = "ClusterFilterByAlgoAndSize",
     min_cluster_size = 2, # inclusive
-    algo_number = 8,
+    algo_number = [8],
     iteration_label = "KalmanFilter",
 )
 
@@ -20,7 +20,7 @@ filteredLayerClustersKalmanFilter = _filteredLayerClustersProducer.clone(
 
 ticlTrackstersKalmanFilter = _trackstersProducer.clone(
     filtered_mask = "filteredLayerClustersKalmanFilter:KalmanFilter",
-    layer_clusters_tiles = "ticlRecHitTile:RecHitTiles",
+    layer_clusters_tiles = "ticlRecHitTile",
     seeding_regions = "ticlSeedingTrk",
     itername = "KalmanFilter",
     patternRecognitionBy = "KalmanFilter",
