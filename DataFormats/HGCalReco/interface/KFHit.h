@@ -11,12 +11,13 @@
 #include <vector>
 #include "DataFormats/Provenance/interface/ProductID.h"
 #include "DataFormats/Math/interface/Vector3D.h"
+#include "DataFormats/TrackReco/interface/Track.h"
 #include "TrackingTools/TrajectoryState/interface/TrajectoryStateOnSurface.h"
 #include <Eigen/Core>
 
 struct KFHit
 {  
-    explicit KFHit(TrajectoryStateOnSurface tsos, uint32_t id): 
+    explicit KFHit(TrajectoryStateOnSurface tsos, uint32_t detid, reco::Track track, int trackId, int layer): 
         center(tsos.globalPosition()),
         localError(tsos.localError().matrix()),
         cartesianError(tsos.cartesianError().matrix()),
@@ -25,9 +26,18 @@ struct KFHit
         xy(tsos.localError().positionError().xy()),
         yy(tsos.localError().positionError().yy()),
         charge(tsos.charge()),
-        detid(id),
+        detid(detid),
         eta(tsos.localMomentum().eta()),
-        theta(tsos.localMomentum().theta())
+        theta(tsos.localMomentum().theta()),
+        trackId(trackId),
+        trackCharge(track.charge()),
+        trackMomentum(track.p()),
+        trackQuality(track.qualityMask()),
+        trackChi2(track.chi2()),
+        trackValidFraction(track.validFraction()),
+        trackQOverP(track.qoverp()),
+        layer(layer)
+        //trackVertex(track.vertex())
         {}
     KFHit(){}
 
@@ -42,5 +52,14 @@ struct KFHit
     uint32_t detid;
     float eta;
     float theta;
+    int trackId;
+    int trackCharge;
+    float trackMomentum;
+    float trackQuality;
+    float trackChi2;
+    float trackValidFraction;
+    float trackQOverP;
+    int layer;
+    //Point trackVertex;
 };
 #endif
