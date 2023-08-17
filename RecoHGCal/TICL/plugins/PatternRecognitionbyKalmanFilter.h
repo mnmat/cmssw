@@ -75,6 +75,7 @@ namespace ticl {
     double scaleWindow_;
 
     uint32_t geomCacheId_;
+    int trackId;
 
     // Instance Variables
     hgcal::RecHitTools rhtools_;
