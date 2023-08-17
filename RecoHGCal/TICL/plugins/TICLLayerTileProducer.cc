@@ -72,7 +72,7 @@ TileParameters TICLLayerTileProducer::getTileParameters(const reco::CaloCluster&
 TileParameters TICLLayerTileProducer::getTileParameters(const HGCRecHit& hit){
   int layer = rhtools_.getLayerWithOffset(hit.detid()) +
               rhtools_.lastLayer(doNose_) * ((rhtools_.zside(hit.detid()) + 1) >> 1) - 1;
-  //int layer = rhtools_.getLayerWithOffset(hit.detid());
+  
   float eta = rhtools_.getEta(hit.detid());
   float phi = rhtools_.getPhi(hit.detid());
   return TileParameters{layer,eta,phi};
