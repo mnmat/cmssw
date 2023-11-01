@@ -60,6 +60,7 @@ PatternRecognitionbyKalmanFilter<TILES>::PatternRecognitionbyKalmanFilter(const 
       hgcTrackerToken_(iC.esConsumes<HGCTracker, CaloGeometryRecord>()),
       rescaleFTSError_(conf.getParameter<double>("rescaleFTSError")),
       scaleWindow_(conf.getParameter<double>("scaleWindow")),
+      standalonePropagator_(conf.getParameter<bool>("standalonePropagator")),
       geomCacheId_(0)
       {};
 
@@ -111,6 +112,7 @@ PatternRecognitionbyKalmanFilter<TILES>::advanceOneLayer(const Start &start,
   std::vector<TempTrajectory> ret;
   const Propagator &prop = (direction == alongMomentum ? *propagator_ : *propagatorOppo_);
   TrajectoryStateOnSurface tsos = prop.propagate(start, disk->surface());
+  std::cout << "Propagation Successfull" << std::endl;
   if (!tsos.isValid()) return ret; 
 
   // Collect hits with estimate
@@ -124,6 +126,9 @@ PatternRecognitionbyKalmanFilter<TILES>::advanceOneLayer(const Start &start,
   else { 
     hitptrs = measurements(tsos, tiles, layer-1);
   }
+  std::cout << "Got Measurements Successfull" << std::endl;
+
+
   // Sort according to isSilicon
   /*
   auto ptrSortSilicon = [](const HGCTrackingRecHit a, const HGCTrackingRecHit b) -> bool { return a.isSilicon < b.isSilicon; };
@@ -152,6 +157,11 @@ PatternRecognitionbyKalmanFilter<TILES>::advanceOneLayer(const Start &start,
     }
     auto testid = static_cast<int32_t>(hitptr->rawId());
     auto mest_pair = (*estimator_).estimate(tsos,*hitptr);
+
+    std::cout << trackId << "," << layer << "," << testid << "," << mest_pair.first
+        << "," << mest_pair.second << "," << rhtools_.getPosition(testid).eta() << "," << rhtools_.getPosition(testid).phi()
+        << "," << rhtools_.getPosition(testid).x() << "," << rhtools_.getPosition(testid).y() << "," << rhtools_.getPosition(testid).z() << "," << evtId <<std::endl; 
+
     if(mest_pair.first){
       meas.emplace_back(tsos,hitptr,mest_pair.second);
     }
@@ -278,10 +288,11 @@ template <typename TILES>
 void PatternRecognitionbyKalmanFilter<TILES>::makeTrajectories(
     const typename PatternRecognitionAlgoBaseT<TILES>::Inputs &input,
     std::vector<KFHit>& kfhits) {
-
-
+  
+  std::cout << "Hello" << std::endl;
   edm::EventSetup const &es = input.es;
   edm::Event const &ev = input.ev;
+  evtId = ev.id().event();
   init(ev,es);
 
   const TILES &tiles = input.tiles;
@@ -320,6 +331,7 @@ void PatternRecognitionbyKalmanFilter<TILES>::makeTrajectories(
     const HGCDiskLayer* layerdisk = hgcTracker_->firstDisk(zside,direction);
     bool isSilicon = true;
     
+    std::cout << "Hello" << std::endl;
     std::vector<TempTrajectory> traj = advanceOneLayer(fts, layerdisk,tiles, direction, isSilicon, TempTrajectory(direction,0));
     if (traj.empty()){
       edm::LogWarning("PatternRecognitionbyKalmanFilter") << "No valid Trajectory found! Skip track!" << std::endl; 
@@ -328,9 +340,13 @@ void PatternRecognitionbyKalmanFilter<TILES>::makeTrajectories(
     }
 
     auto lm = traj.back().lastMeasurement();
-    TrajectoryStateOnSurface tsos_kf = lm.updatedState();
     int layer = layerdisk->second->layer();
-    KFHit *kfhit = new KFHit(tsos_kf, lm.recHit()->geographicalId(), tk, trackId, layer);
+
+    TrajectoryStateOnSurface tsos = standalonePropagator_? lm.predictedState(): lm.updatedState();
+
+    std::cout << "Hello" << std::endl;
+
+    KFHit *kfhit = new KFHit(tsos, lm.recHit()->geographicalId(), tk, trackId, layer);
     kfhits.push_back(*kfhit);
 
     std::vector<TempTrajectory> traj_kf;
@@ -338,7 +354,8 @@ void PatternRecognitionbyKalmanFilter<TILES>::makeTrajectories(
 
     // Loop over all disks
     for(layerdisk = hgcTracker_->nextDisk(layerdisk,direction,isSilicon); layerdisk != nullptr; layerdisk = hgcTracker_->nextDisk(layerdisk,direction,isSilicon)){
-      std::vector<TempTrajectory> newcands_kf;
+      std::cout << "Entered Loop" << std::endl;
+      std::vector<TempTrajectory> newcands;
       for(TempTrajectory & cand : traj_kf){
         TrajectoryStateOnSurface start = cand.lastMeasurement().updatedState();
 
@@ -346,18 +363,17 @@ void PatternRecognitionbyKalmanFilter<TILES>::makeTrajectories(
         std::vector<TempTrajectory> hisTrajs = advanceOneLayer(start, layerdisk, tiles, direction, isSilicon, cand);
         for(TempTrajectory & t : hisTrajs){
           auto lm = t.lastMeasurement();
-          newcands_kf.push_back(t);
+          newcands.push_back(t);
 
-          TrajectoryStateOnSurface tsos_kf = lm.updatedState();
+          TrajectoryStateOnSurface tsos = standalonePropagator_? lm.predictedState(): lm.updatedState();
           layer = layerdisk->second->layer();
-          KFHit *kfhit = new KFHit(tsos_kf, lm.recHit()->geographicalId(), tk, trackId, layer);
+          KFHit *kfhit = new KFHit(tsos, lm.recHit()->geographicalId(), tk, trackId, layer);
           kfhits.push_back(*kfhit);
           break;
         }
       }
-      traj_kf.swap(newcands_kf);
+      traj_kf.swap(newcands);
     }
-    
     trackId++;
   }
 }
@@ -408,6 +424,7 @@ void PatternRecognitionbyKalmanFilter<TILES>::fillPSetDescription(edm::Parameter
   iDesc.add<edm::InputTag>("HGCBHInput", edm::InputTag("HGCalRecHit", "HGCHEBRecHits"));
   iDesc.add<double>("rescaleFTSError",1);
   iDesc.add<double>("scaleWindow",1);
+  iDesc.add<bool>("standalonePropagator",false); // Gives the option to run without the update step and simply with the propagator
 }
 
 template class ticl::PatternRecognitionbyKalmanFilter<TICLLayerTiles>;

@@ -74,8 +74,10 @@ namespace ticl {
     double rescaleFTSError_;
     double scaleWindow_;
 
+    bool standalonePropagator_;
     uint32_t geomCacheId_;
     int trackId;
+    int evtId;
 
     // Instance Variables
     hgcal::RecHitTools rhtools_;
