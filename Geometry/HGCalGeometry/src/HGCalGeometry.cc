@@ -879,6 +879,71 @@ DetId HGCalGeometry::getGeometryDetId(DetId detId) const {
   return geomId;
 }
 
+void HGCalGeometry::fillLocalErrorCache(){
+  for (auto const & id : m_validIds) {
+    m_localErrorCache[id] = getLocalErrorNoCache(id);
+  }
+}
+
+LocalError HGCalGeometry::getLocalError(const DetId& id) const{
+  auto const search = m_localErrorCache.find(id);
+  if (search != m_localErrorCache.end()){
+    return search->second;
+  }
+  return getLocalErrorNoCache(id);
+}
+
+LocalError HGCalGeometry::getLocalErrorNoCache(const DetId& id) const{
+  LocalError lerr;
+  if (m_topology.tileTrapezoid()){ // How do I get this
+    lerr = calculateScintillatorError(id); // Only two possible LocalError matrixes for fine or coarse, could store as fixed values
+    }
+  else{
+    lerr = calculateSiliconError(id);
+  }
+  return lerr;
+}
+
+LocalError HGCalGeometry::calculateSiliconError(const DetId& id) const{
+  float A = getArea(id);
+  float a = sqrt(2*A/(3*sqrt(3))); // side length hexagon
+  float var = pow(a,4)*5*sqrt(3)/(16*A);
+  return LocalError(var, 0, var);
+}
+
+LocalError HGCalGeometry::calculateScintillatorError(const DetId& id) const{
+
+  const HGCalDetId hid(id);
+
+  // Get outer and inner radius
+  const GlobalPoint &pos = getPosition(id);
+  float r = sqrt(pos.x()*pos.x() + pos.y()*pos.y());
+  auto layer = m_topology.dddConstants().getLayer(pos.z(), true);
+  auto radiusLayer = m_topology.dddConstants().getRadiusLayer(layer);
+  int idx = static_cast<int>(std::lower_bound(radiusLayer.begin(), radiusLayer.end(),r)-radiusLayer.begin());
+  float rmax = radiusLayer[idx];
+  float rmin = radiusLayer[idx-1];
+  // Get angles
+  float phi = atan2(pos.y(), pos.x()) + M_PI; // set to radians [0, 2pi]
+  float dphi = getGeometry(id)->phiSpan();
+  float phimin = phi - 0.5*dphi;
+  float phimax = phi + 0.5*dphi;
+
+  // FIXME!!! Slight differences between getArea and calculation. Due to the numerically instable calculation the resulting variances and covariances vary massively.
+  //auto hg = static_cast<const HGCalGeometry*>(getSubdetectorGeometry(id));
+  //double A = hg->getArea(id);
+  float A = (rmax*rmax - rmin*rmin)*dphi*0.5;
+  // Calculate local error
+  float ex2 = 1/(8*A) * (pow(rmax,4) - pow(rmin,4)) * (-phimin - sin(phimin)*cos(phimin) + phimax + sin(phimax)*cos(phimax));
+  float ex = 1/(3*A) * (pow(rmax,3) - pow(rmin,3)) * (sin(phimax) - sin(phimin));
+  float varx = ex2 - ex*ex;
+  float ey2 = 1/(8*A) * (pow(rmax,4) - pow(rmin,4)) * (-phimin + sin(phimin)*cos(phimin) + phimax - sin(phimax)*cos(phimax));
+  float ey = 1/(3*A) * (pow(rmax,3) - pow(rmin,3)) * (cos(phimin) - cos(phimax));
+  float vary = ey2 - ey*ey;
+  float varxy = 1/(16*A)*(pow(rmax,4)-pow(rmin,4))*(cos(2*phimin)-cos(2*phimax)) - ex*ey;
+  return LocalError(varx, varxy, vary);
+}
+
 #include "FWCore/Utilities/interface/typelookup.h"
 
 TYPELOOKUP_DATA_REG(HGCalGeometry);
