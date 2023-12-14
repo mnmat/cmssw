@@ -496,66 +496,9 @@ bool RecHitTools::maskCell(const DetId& id, int corners) const {
   }
 }
 
-LocalError RecHitTools::getLocalError(const DetId& id){
-  // The local error is calculated as the variance, Var[X] = E[X^2] - E[X]^2, and covariance, Cov[XY] = E[XY] - E[X]E[Y]
-  if (isSilicon(id)){
-    auto& siError = (getSiThickIndex(id)==0? siErrorFine_:siErrorCoarse_); //thickIndex defined in getSiThickIndex function
-    auto& isInitSiError = (getSiThickIndex(id)==0? isInitSiErrorFine_:isInitSiErrorCoarse_);
-    if (isInitSiError){
-      return LocalError(siError,0,siError);
-      }
-    else {
-      siError = calculateSiliconError(id);
-      isInitSiError = true;
-      return LocalError(siError,0,siError);
-    }  
-    //float siError = calculateSiliconError(id);
-    return LocalError(siError,0,siError);
-
-  }
-  else{
-    return calculateScintillatorError(id);
-  }
-}
-
-float RecHitTools::calculateSiliconError(const DetId& id) const {
-  auto hg = static_cast<const HGCalGeometry*>(getSubdetectorGeometry(id));
-  float A = hg->getArea(id);
-  float a = sqrt(2*A/(3*sqrt(3))); // side length hexagon
-  float var = pow(a,4)*5*sqrt(3)/(16*A);
-  return var;
-}
-
-LocalError RecHitTools::calculateScintillatorError(const DetId& id) const {
-  auto geom = getSubdetectorGeometry(id);
-
-  const HGCalDetId hid(id); 
-  auto ddd = get_ddd(geom, hid);
-
-  // Get outer and inner radius
-  const GlobalPoint &pos = getPosition(id);
-  float r = sqrt(pos.x()*pos.x() + pos.y()*pos.y());
-  auto radiusLayer = ddd->getRadiusLayer(getLayer(id));
-  int idx = static_cast<int>(std::lower_bound(radiusLayer.begin(), radiusLayer.end(),r)-radiusLayer.begin());
-  float rmax = radiusLayer[idx];
-  float rmin = radiusLayer[idx-1];
-  // Get angles
-  float phi = getPhi(id) + M_PI; // set to radians [0, 2pi]
-  float dphi = getScintDEtaDPhi(id).second;
-  float phimin = phi - 0.5*dphi;
-  float phimax = phi + 0.5*dphi;
-
-  // FIXME!!! Slight differences between getArea and calculation. Due to the numerically instable calculation the resulting variances and covariances vary massively.
-  //auto hg = static_cast<const HGCalGeometry*>(getSubdetectorGeometry(id));
-  //double A = hg->getArea(id);
-  float A = (rmax*rmax - rmin*rmin)*dphi*0.5; 
-  // Calculate local error
-  float ex2 = 1/(8*A) * (pow(rmax,4) - pow(rmin,4)) * (-phimin - sin(phimin)*cos(phimin) + phimax + sin(phimax)*cos(phimax));
-  float ex = 1/(3*A) * (pow(rmax,3) - pow(rmin,3)) * (sin(phimax) - sin(phimin));
-  float varx = ex2 - ex*ex;
-  float ey2 = 1/(8*A) * (pow(rmax,4) - pow(rmin,4)) * (-phimin + sin(phimin)*cos(phimin) + phimax - sin(phimax)*cos(phimax));
-  float ey = 1/(3*A) * (pow(rmax,3) - pow(rmin,3)) * (cos(phimin) - cos(phimax));
-  float vary = ey2 - ey*ey;
-  float varxy = 1/(16*A)*(pow(rmax,4)-pow(rmin,4))*(cos(2*phimin)-cos(2*phimax)) - ex*ey;
-  return LocalError(varx, varxy, vary);
+LocalError RecHitTools::getLocalError(const DetId& id) const{
+  const HGCalGeometry* hg = static_cast<const HGCalGeometry*>(
+      geom_->getSubdetectorGeometry(id));
+  LocalError lerr = hg->getLocalError(id);
+  return lerr;
 }
