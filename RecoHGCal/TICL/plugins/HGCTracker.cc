@@ -44,7 +44,7 @@ HGCTracker::HGCTracker(const CaloGeometry* geom,
 HGCTracker::~HGCTracker(){}
 
 void HGCTracker::makeDiskLayers(std::vector<HGCDiskGeomDet*>disksSi, std::vector<HGCDiskGeomDet*> disksSc){
-	for(int layer=0; layer<lastLayer; layer++){
+	for(size_t layer=0; layer<disksSi.size(); layer++){
 		if (layer<offset){
 			addDiskLayer(disksSi[layer]);
 		} else{
@@ -77,7 +77,7 @@ void HGCTracker::makeDisks(int subdet, const CaloGeometry* geom_, std::vector<HG
         if (rho < rmin[layer]) rmin[layer] = rho;
     }
 
-  int layer = ddd->getLayerOffset(); // FIXME: Can be made less stupid
+  int layer = ddd->getLayerOffset();
   if (subdet == DetId::HGCalHSc) offset = ddd->getLayerOffset();
   for (int i = 0; i < numdisks; ++i) {
     if (countPos[i]) {

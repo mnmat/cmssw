@@ -57,8 +57,8 @@ class HGCTracker{
 		const CaloGeometry* geom_;
 
 		const std::vector<double> radlen_, xi_;
-		int lastLayer = 47; // use rhtools to get values
-		int offset = 34; // Use rhtools to get values
+		int lastLayer;
+		size_t offset;
 };
 
 #endif
