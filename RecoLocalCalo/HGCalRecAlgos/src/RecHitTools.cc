@@ -496,9 +496,8 @@ bool RecHitTools::maskCell(const DetId& id, int corners) const {
   }
 }
 
-LocalError RecHitTools::getLocalError(const DetId& id) const{
-  const HGCalGeometry* hg = static_cast<const HGCalGeometry*>(
-      geom_->getSubdetectorGeometry(id));
-  LocalError lerr = hg->getLocalError(id);
+LocalError RecHitTools::getLocalError(const DetId& id) {
+  auto hg = static_cast<const HGCalGeometry*>(getSubdetectorGeometry(id));
+  auto lerr = hg->getLocalError(id);
   return lerr;
 }

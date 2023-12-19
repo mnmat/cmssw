@@ -115,10 +115,9 @@ public:
   void sortDetIds();
 
   void fillLocalErrorCache();
-  LocalError calculateSiliconError(const DetId& id) const;
-  LocalError calculateScintillatorError(const DetId& id) const;
-  LocalError getLocalErrorNoCache(const DetId& id) const;
   LocalError getLocalError(const DetId& id) const;
+  float calculateSiliconError(const DetId& id) const;
+  LocalError calculateScintillatorError(const DetId& id) const;
 
 protected:
   unsigned int indexFor(const DetId& id) const override;
@@ -151,7 +150,10 @@ private:
   ForwardSubdetector m_subdet;
   const double twoBysqrt3_;
 
-  std::unordered_map<DetId, LocalError> m_localErrorCache;
+  std::unordered_map<DetId, LocalError> m_ScintillatorLocalErrorCache;
+  float siErrorFine, siErrorCoarse;
+  bool isInitSiErrorFine = false;
+  bool isInitSiErrorCoarse = false;
 };
 
 #endif
