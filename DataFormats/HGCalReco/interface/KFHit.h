@@ -1,8 +1,8 @@
 // Author: Mark Matthewman - mark.matthewman@cern.ch
 // Date: 04/2023
 
-// KFHit is a temporary class provided for easier handling of the PatternRecognitionByKF.
-// Once the result format for the Algo has been decided, then the KFHit is obsolete and needs to be deleated.
+// Note: KFHit is a temporary struct provided to output the TSOS produced by the PatternRecognitionbyKalmanFilter in HGCAL.
+// Future iterations of the algorithm won't produce KFHits and then this struct is obsolete.
 
 #ifndef DataFormats_HGCalReco_KFHit_h
 #define DataFormats_HGCalReco_KFHit_h
@@ -37,7 +37,6 @@ struct KFHit
         trackValidFraction(track.validFraction()),
         trackQOverP(track.qoverp()),
         layer(layer)
-        //trackVertex(track.vertex())
         {}
     KFHit(){}
 
@@ -60,6 +59,5 @@ struct KFHit
     float trackValidFraction;
     float trackQOverP;
     int layer;
-    //Point trackVertex;
 };
 #endif
