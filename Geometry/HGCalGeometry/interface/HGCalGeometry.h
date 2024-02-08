@@ -116,7 +116,7 @@ public:
 
   void fillLocalErrorCache();
   LocalError getLocalError(const DetId& id) const;
-  float calculateSiliconError(const DetId& id) const;
+  float calculateHexError(const DetId& id) const;
   LocalError calculateScintillatorError(const DetId& id) const;
 
 protected:
@@ -151,9 +151,11 @@ private:
   const double twoBysqrt3_;
 
   std::unordered_map<DetId, LocalError> m_ScintillatorLocalErrorCache;
-  float siErrorFine, siErrorCoarse;
-  bool isInitSiErrorFine = false;
-  bool isInitSiErrorCoarse = false;
+  float HGCSiFineError, HGCSiCoarseError, HFNoseFineError,HFNoseCoarseError ;
+  bool isInitHGCSiFine = false;
+  bool isInitHGCSiCoarse = false;
+  bool isInitHFNoseFine = false;
+  bool isInitHFNoseCoarse = false;
 };
 
 #endif
