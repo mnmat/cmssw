@@ -1131,6 +1131,8 @@ void MaterialBudgetHGCalHistos::fillEndTrack() {
       theTotalMB_EEC += theData->getHGC_EEConnectorDmb(iStep);
       theTotalMB_HEC += theData->getHGC_HEConnectorDmb(iStep);
 
+      std::cout << theTotalMB_TOT - (theTotalMB_COP + theTotalMB_SCI + theTotalMB_CAB + theTotalMB_HGF + theTotalMB_NIM + theTotalMB_OTH + theTotalMB_AIR + theTotalMB_SST + theTotalMB_WCU + theTotalMB_LEA + theTotalMB_EPX + theTotalMB_KAP + theTotalMB_ALU + theTotalMB_POL + theTotalMB_EEC + theTotalMB_HEC) << std::endl;
+
       int iCop = 0;
       int iSci = 0;
       int iCab = 0;

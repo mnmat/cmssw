@@ -41,7 +41,11 @@ options.register('label',         #name
                  "Select the label to be used to create output files. Default to HGCal. If multiple components are selected, it defaults to the join of all components, with '_' as separator."  # help message
                 )
 
-options.setDefault('inputFiles', ['file:single_neutrino_random.root'])
+options.setDefault('inputFiles',['file:single_neutrino_random.root'])
+output_dir = "/eos/cms/store/group/dpg_hgcal/comm_hgcal/mmatthew/matbdg_100evt"
+options.inputFiles = "file:/eos/home-m/mmatthew/materialbudgetforV16/CMSSW_13_2_0_pre3/src/Validation/Geometry/test/single_neutrino_random.root"
+#options.inputFiles = "file:/eos/cms/store/group/dpg_hgcal/comm_hgcal/mmatthew/matbdg98/single_neutrino_random.root"
+#options.inputFiles = "file:/eos/cms/store/group/dpg_hgcal/comm_hgcal/mmatthew/single_neutrino_random.root"
 
 options.parseArguments()
 # Option validation
@@ -87,10 +91,12 @@ process.g4SimHits.UseMagneticField = False
 process.g4SimHits.Physics.type = 'SimG4Core/Physics/DummyPhysics'
 process.g4SimHits.Physics.DummyEMPhysics = True
 process.g4SimHits.Physics.CutsPerRegion = False
+
 process.g4SimHits.Watchers = cms.VPSet(cms.PSet(
     type = cms.string('MaterialBudgetAction'),
     MaterialBudgetAction = cms.PSet(
-        HistosFile = cms.string('matbdg_%s.root' % options.label),
+        HistosFile = cms.string('%s/matbdg_%s.root' % (output_dir,options.label )), #options.label.replace(" ","_")
+        #HistosFile = cms.string('matbdg_%s.root' % (options.label)),
         AllStepsToTree = cms.bool(True),
         HistogramList = cms.string('HGCal'),
         SelectedVolumes = cms.vstring(_components),

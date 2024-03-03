@@ -14,7 +14,7 @@ process.load(VtxSmeared['NoSmear'])
 options = VarParsing('analysis')
 
 options.register('nEvents',
-                 100000,
+                 1,
                  VarParsing.multiplicity.singleton,
                  VarParsing.varType.int,
                  "Maximum number of events"
@@ -39,20 +39,21 @@ process.source = cms.Source("EmptySource",
 process.generator = cms.EDProducer("FlatRandomEGunProducer",
     PGunParameters = cms.PSet(
         PartID = cms.vint32(14),
-        MinEta = cms.double(-6.0),
-        MaxEta = cms.double(6.0),
+        MinEta = cms.double(1.0),
+        MaxEta = cms.double(5.5),
         MinPhi = cms.double(-3.14159265359),
         MaxPhi = cms.double(3.14159265359),
         MinE   = cms.double(10.0),
         MaxE   = cms.double(10.0)
     ),
-    AddAntiParticle = cms.bool(False),
+    AddAntiParticle = cms.bool(True),
     Verbosity       = cms.untracked.int32(0)
 )
 
 process.o1 = cms.OutputModule("PoolOutputModule",
     process.FEVTSIMEventContent,
-    fileName = cms.untracked.string('single_neutrino_random.root')
+    fileName = cms.untracked.string('file:single_neutrino_random.root')
+#    fileName = cms.untracked.string('file:/eos/cms/store/group/dpg_hgcal/comm_hgcal/mmatthew/single_neutrino_random.root')
 )
 
 process.p1 = cms.Path(process.generator*process.VtxSmeared*process.generatorSmeared)

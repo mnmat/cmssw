@@ -46,9 +46,9 @@ def paramsGood_(detector, plot):
 
     theDetectorFilename = ''
     if detector in DETECTORS:
-        theDetectorFilename = 'matbdg_%s.root' % detector
+        theDetectorFilename = '%s/matbdg_%s.root' % (path,detector)
     else:
-        theDetectorFilename = 'matbdg_%s.root' % COMPOUNDS[detector][0]
+        theDetectorFilename = '%s/matbdg_%s.root' % (path,COMPOUNDS[detector][0])
 
     if not checkFile_(theDetectorFilename):
         print("Error, missing file %s" % theDetectorFilename)
@@ -89,7 +89,7 @@ def createPlots_(plot, compounddetectorname):
 
     """
 
-    theDirname = "Figures"
+    theDirname = "%s/Figures"%(path)
 
     hist_X0_detectors = OrderedDict()
     if plot not in plots.keys():
@@ -103,7 +103,7 @@ def createPlots_(plot, compounddetectorname):
     hist_X0_elements = OrderedDict()
     prof_X0_elements = OrderedDict()
     for subDetector,color in DETECTORS.items():
-        subDetectorFilename = "matbdg_%s.root" % subDetector
+        subDetectorFilename = "%s/matbdg_%s.root" % (path,subDetector)
         if not checkFile_(subDetectorFilename):
             print("Error opening file: %s" % subDetectorFilename)
             continue
@@ -220,13 +220,13 @@ def createPlots_(plot, compounddetectorname):
                 matbudginX0.append( bincontent  )
                 d1 = {'Eta': etavalues, 'MatBudInX0': matbudginX0}
                 df1 = pd.DataFrame(data=d1).round(2)
-                df1.to_csv(r'/afs/cern.ch/work/a/apsallid/CMS/PFCalStudies/CMS-HGCAL/matbudV10fromVertexToBackofHGCal/CMSSW_11_0_X_2019-06-04-2300/src/Validation/Geometry/test/EtavsMatBudinXo.txt',sep=' ', index=False, header=False)
+                df1.to_csv(r'/eos/cms/store/group/dpg_hgcal/comm_hgcal/mmatthew/matbdg98/EtavsMatBudinXo.txt',sep=' ', index=False, header=False)
                 #print df1
             if plot == "l_vs_eta": 
                 matbudginIntLen.append( bincontent )
                 d2 = {'Eta': etavalues, 'MatBudInIntLen': matbudginIntLen}
                 df2 = pd.DataFrame(data=d2).round(2)
-                df2.to_csv(r'/afs/cern.ch/work/a/apsallid/CMS/PFCalStudies/CMS-HGCAL/matbudV10fromVertexToBackofHGCal/CMSSW_11_0_X_2019-06-04-2300/src/Validation/Geometry/test/EtavsMatBudInIntLen.txt',sep=' ', index=False, header=False)
+                df2.to_csv(r'/eos/cms/store/group/dpg_hgcal/comm_hgcal/mmatthew/matbdg98/EtavsMatBudInIntLen.txt',sep=' ', index=False, header=False)
                 #print df2
 
     return cumulative_matbdg
@@ -236,7 +236,7 @@ def createPlots2D_(plot, compounddetectorname):
     """
 
     #IBs = ["InnerServices", "Phase2PixelBarrel", "TIB", "TIDF", "TIDB"]
-    theDirname = "Figures"
+    theDirname = "%s/Figures"%path
 
     hist_X0_detectors = OrderedDict()
     if plot not in plots.keys():
@@ -251,7 +251,7 @@ def createPlots2D_(plot, compounddetectorname):
     prof_X0_elements = OrderedDict()
 
     for subDetector,color in DETECTORS.items():
-        subDetectorFilename = "matbdg_%s.root" % subDetector
+        subDetectorFilename = "%s/matbdg_%s.root" % (path,subDetector)
         if not checkFile_(subDetectorFilename):
             print("Error opening file: %s" % subDetectorFilename)
             continue
@@ -493,7 +493,7 @@ def createCompoundPlots(detector, plot):
 
     """
 
-    theDirname = 'Images'
+    theDirname = '%s/Images'%path
     if not checkFile_(theDirname):
         os.mkdir(theDirname)
 
@@ -517,7 +517,7 @@ def createCompoundPlots(detector, plot):
     files = []
     if detector in COMPOUNDS.keys():
         for subDetector in COMPOUNDS[detector][1:]:
-            subDetectorFilename = "matbdg_%s.root" % subDetector
+            subDetectorFilename = "%s/matbdg_%s.root" % (path,subDetector)
 
             # open file
             if not checkFile_(subDetectorFilename):
@@ -608,16 +608,16 @@ def create2DPlots(detector, plot, plotnum, plotmat, dosingledetector = True):
 
 
     if plotmat != "": 
-        theDirname = ('Images/%s' % plotmat).replace(" ", "")
+        theDirname = ('%s/Images/%s' %(path,plotmat)).replace(" ", "")
     else: 
-        theDirname = 'Images'
+        theDirname = '%s/Images'%path
 
     if not checkFile_(theDirname):
         os.mkdir(theDirname)
-    if not os.path.isdir(('Images/%s/ZPlusZoom' % plotmat).replace(" ", "")):
-        os.mkdir( ('Images/%s/ZPlusZoom' % plotmat).replace(" ", "") )
-    if not os.path.isdir(('Images/%s/ZMinusZoom' % plotmat).replace(" ", "")):
-        os.mkdir( ('Images/%s/ZMinusZoom' % plotmat).replace(" ", "") )
+    if not os.path.isdir(('%s/ZPlusZoom' % theDirname).replace(" ", "")):
+        os.mkdir( ('%s/ZPlusZoom' % theDirname).replace(" ", "") )
+    if not os.path.isdir(('%s/ZMinusZoom' % theDirname).replace(" ", "")):
+        os.mkdir( ('%s/ZMinusZoom' % theDirname).replace(" ", "") )
 
     goodToGo, theDetectorFilename = paramsGood_(detector, plot)
     if not goodToGo:
@@ -648,7 +648,7 @@ def create2DPlots(detector, plot, plotnum, plotmat, dosingledetector = True):
         #This won't effect the single detector due to the alter in the if above
         for subDetector in COMPOUNDS[detector]:
             # filenames of single components
-            subDetectorFilename = "matbdg_%s.root" % subDetector
+            subDetectorFilename = "%s/matbdg_%s.root" % (path,subDetector)
  
             # open file
             if not checkFile_(subDetectorFilename):
@@ -826,7 +826,7 @@ def createRatioPlots(detector, plot):
     if not goodToGo:
         return
 
-    theDirname = 'Images'
+    theDirname = '%s/Images'%path
     if not os.path.exists(theDirname):
         os.mkdir(theDirname)
 
@@ -843,7 +843,7 @@ def createRatioPlots(detector, plot):
         for subDetector in COMPOUNDS[detector][1:]:
 
             # file name
-            subDetectorFilename = "matbdg_%s.root" % subDetector
+            subDetectorFilename = "%s/matbdg_%s.root" % (path,subDetector)
 
             # open file
             if not checkFile_(subDetectorFilename):
@@ -908,6 +908,9 @@ def GetSiliconZValuesFromXML():
 
     return layersmaxZ
 
+
+# mmatthew: Added this to avoid storage issues
+path = "/eos/cms/store/group/dpg_hgcal/comm_hgcal/mmatthew/matbdg98" 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Generic Material Plotter',
