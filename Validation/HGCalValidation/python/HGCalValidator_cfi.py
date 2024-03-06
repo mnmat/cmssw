@@ -93,9 +93,11 @@ hgcalValidator = DQMEDAnalyzer(
 )
 
 #labelTst = [cms.InputTag("ticlTracksters"+iteration) for iteration in ticlIterLabelsMerge]
-labelTst = ["ticlTrackstersCLUE3DEM", "ticlTrackstersCLUE3DHAD", "ticlTracksterLinks"]
+#labelTst = ["ticlTrackstersCLUE3DEM", "ticlTrackstersCLUE3DHAD", "ticlTracksterLinks"]
+labelTst = ["ticlTrackstersCLUE3DEM", "ticlTracksterLinks"]
 labelTst.extend([cms.InputTag("ticlSimTracksters", "fromCPs"), cms.InputTag("ticlSimTracksters")])
-lcInputMask  = ["ticlTrackstersCLUE3DEM", "ticlTrackstersCLUE3DHAD", "ticlTracksterLinks"]
+#lcInputMask  = ["ticlTrackstersCLUE3DEM", "ticlTrackstersCLUE3DHAD", "ticlTracksterLinks"]
+lcInputMask  = ["ticlTrackstersCLUE3DEM", "ticlTracksterLinks"]
 #lcInputMask = [cms.InputTag("ticlTracksters"+iteration) for iteration in ticlIterLabels]
 lcInputMask.extend([cms.InputTag("ticlSimTracksters", "fromCPs"), cms.InputTag("ticlSimTracksters")])
 
