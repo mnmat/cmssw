@@ -145,6 +145,9 @@ void MaterialBudgetData::dataStartTrack(const G4Track* aTrack) {
 }
 
 void MaterialBudgetData::dataEndTrack(const G4Track* aTrack) {
+
+  std::cout << "End Track" << std::endl;
+
   LogDebug("MaterialBudget") << "MaterialBudgetData: [OVAL] MaterialBudget "
                              << G4EventManager::GetEventManager()->GetConstCurrentEvent()->GetEventID()
                              << " Eta:" << theEta << " Phi:" << thePhi << " TotalMB" << theTotalMB;
@@ -279,6 +282,39 @@ void MaterialBudgetData::dataPerStep(const G4Step* aStep) {
       theOtherFractionMB = 1.f;
       theOtherFractionIL = 1.f;
 
+    
+      theAirFractionMB = 0;
+      theCablesFractionMB = 0;
+      theCopperFractionMB = 0;
+      theH_ScintillatorFractionMB = 0;
+      theLeadFractionMB = 0;
+      theHGC_G10_FR4FractionMB = 0;
+      theSiliconFractionMB = 0;
+      theStainlessSteelFractionMB = 0;
+      theWCuFractionMB = 0;
+      theEpoxyFractionMB = 0;
+      theKaptonFractionMB = 0;
+      theAluminiumFractionMB = 0;
+      thePolystyreneFractionMB = 0;
+      theHGC_EEConnectorFractionMB = 0;
+      theHGC_HEConnectorFractionMB = 0;
+
+      theAirFractionIL = 0;
+      theCablesFractionIL = 0;
+      theCopperFractionIL = 0;
+      theH_ScintillatorFractionIL = 0;
+      theLeadFractionIL = 0;
+      theHGC_G10_FR4FractionIL = 0;
+      theSiliconFractionIL = 0;
+      theStainlessSteelFractionIL = 0;
+      theWCuFractionIL = 0;
+      theEpoxyFractionIL = 0;
+      theKaptonFractionIL = 0;
+      theAluminiumFractionIL = 0;
+      thePolystyreneFractionIL = 0;
+      theHGC_EEConnectorFractionIL = 0;
+      theHGC_HEConnectorFractionIL = 0;
+  
       edm::LogVerbatim("MaterialBudget") << "MaterialBudgetData: Material forced to 'Other': " << materialName
                                          << " in volume " << volumeName;
     } else {
@@ -345,6 +381,7 @@ void MaterialBudgetData::dataPerStep(const G4Step* aStep) {
                                << "\tPt = " << thePt << " MeV/c"
                                << "\tEta = " << theEta << "\tPhi = " << thePhi << "\tEnergy = " << theEnergy << " MeV";
 
+
   //fill data per step
   if (allStepsToTree) {
     assert(theStepN < MAXNUMBERSTEPS);
@@ -374,6 +411,18 @@ void MaterialBudgetData::dataPerStep(const G4Step* aStep) {
     theHGC_EEConnectorDmb[theStepN] = (dmb * theHGC_EEConnectorFractionMB);
     theHGC_HEConnectorDmb[theStepN] = (dmb * theHGC_HEConnectorFractionMB);
 
+
+    /*
+    std::cout << volumeName<< "," <<materialName << "," << theSupportFractionMB+theSensitiveFractionMB+theCoolingFractionMB+theElectronicsFractionMB+theOtherFractionMB+
+    theAirFractionMB+theCablesFractionMB +theCopperFractionMB+theH_ScintillatorFractionMB+theLeadFractionMB+theEpoxyFractionMB+
+    theKaptonFractionMB+theAluminiumFractionMB+theHGC_G10_FR4FractionMB+theSiliconFractionMB+theStainlessSteelFractionMB+
+    theWCuFractionMB+thePolystyreneFractionMB+theHGC_EEConnectorFractionMB+theHGC_HEConnectorFractionMB <<",";
+    
+    std::cout << theSupportFractionMB << ","<<theSensitiveFractionMB << ","<< theCoolingFractionMB<< ","<<theElectronicsFractionMB<< ","<<theOtherFractionMB<< ","<<
+    theAirFractionMB<< ","<<theCablesFractionMB << ","<<theCopperFractionMB<< ","<<theH_ScintillatorFractionMB<< ","<<theLeadFractionMB<< ","<<theEpoxyFractionMB<< ","<<
+    theKaptonFractionMB<< ","<<theAluminiumFractionMB<< ","<<theHGC_G10_FR4FractionMB<< ","<<theSiliconFractionMB<< ","<<theStainlessSteelFractionMB<< ","<<
+    theWCuFractionMB<< ","<<thePolystyreneFractionMB<< ","<<theHGC_EEConnectorFractionMB<< ","<<theHGC_HEConnectorFractionMB << std::endl;
+    */
     theSupportDil[theStepN] = (dil * theSupportFractionIL);
     theSensitiveDil[theStepN] = (dil * theSensitiveFractionIL);
     theCoolingDil[theStepN] = (dil * theCoolingFractionIL);

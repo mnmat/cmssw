@@ -310,7 +310,7 @@ void MaterialBudgetAction::update(const EndOfTrack* trk) {
 void MaterialBudgetAction::update(const EndOfRun*) {
   // endOfRun calls TestHistoMgr::save() allowing to write
   // the ROOT files containing the histograms
-
+  
   if (saveToHistos)
     theHistos->endOfRun();
   if (saveToTxt)

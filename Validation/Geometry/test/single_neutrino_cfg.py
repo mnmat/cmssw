@@ -14,7 +14,7 @@ process.load(VtxSmeared['NoSmear'])
 options = VarParsing('analysis')
 
 options.register('nEvents',
-                 1,
+                 10,
                  VarParsing.multiplicity.singleton,
                  VarParsing.varType.int,
                  "Maximum number of events"

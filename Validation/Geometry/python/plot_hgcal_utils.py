@@ -46,10 +46,12 @@ _LABELS2COMPS = {'BeamPipe': 'BEAM', #There are other BEAM volumes but there are
                  'Muon Wheels and Cables' : 'MB',
                  'ECAL': 'ECAL',
                  'HCal': 'HCal',
+                 #'FromVertexToBackOfHGCal' : ['BEAM','Tracker','ECAL','HCal','EndcapTimingLayer','CALOECTSModerator','CALOECTSRear','MGNT','MB','MUON'],
                  'FromVertexToBackOfHGCal' : ['BEAM','Tracker','ECAL','HCal','EndcapTimingLayer','CALOECTSModerator','CALOECTSRear','MGNT','MB'],
                  'HGCal': 'HGCal',
                  'HGCalEE': 'HGCalEE',
-                 'HGCalHE': ['HGCalHEsil', 'HGCalHEmix']
+                 'HGCalHE': ['HGCalHEsil', 'HGCalHEmix'],
+                 #'Muon System': 'MUON'
                  }
 
 # Compounds are used to stick together different part of the HGCal
@@ -63,7 +65,9 @@ COMPOUNDS = OrderedDict()
 COMPOUNDS["HGCal"] = ["HGCal"]
 COMPOUNDS["HGCalEE"] = ["HGCalEE"]
 COMPOUNDS["HGCalHE"] = ["HGCalHEsil", "HGCalHEmix"]
+#COMPOUNDS["FromVertexToBackOfHGCal"] = ["BeamPipe","Tracker","ECAL","HCal","EndcapTimingLayer","Neutron Moderator + Thermal Screen","HGCal + HGCal Service + Thermal Screen","Solenoid Magnet","Muon Wheels and Cables","Muon System"]
 COMPOUNDS["FromVertexToBackOfHGCal"] = ["BeamPipe","Tracker","ECAL","HCal","EndcapTimingLayer","Neutron Moderator + Thermal Screen","HGCal + HGCal Service + Thermal Screen","Solenoid Magnet","Muon Wheels and Cables"]
+
 
 # The DETECTORS must be the single component of the HGCal for which
 # the user can ask for the corresponding material description.
@@ -82,6 +86,7 @@ DETECTORS["Neutron Moderator + Thermal Screen"] = 46#kOrange+5
 DETECTORS["HGCal + HGCal Service + Thermal Screen"] = 5#kOrange-2
 DETECTORS["Solenoid Magnet"] = 4#kGray+5
 DETECTORS["Muon Wheels and Cables"] = 28
+#DETECTORS["Muon System"] = 30
 #When running to get the R vs z sum of all subdetectors comment out above and 
 #uncomment the next line
 #DETECTORS["FromVertexToBackOfHGCal"] = 30

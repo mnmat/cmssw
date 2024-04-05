@@ -48,7 +48,13 @@ MaterialBudgetHGCalHistos::MaterialBudgetHGCalHistos(std::shared_ptr<MaterialBud
 }
 
 void MaterialBudgetHGCalHistos::book() {
+
   std::cout << "=== booking user histos ===" << std::endl;
+
+  std::cout << "volumeName,materialName,sumOfFractions,theSupportFractionMB,theSensitiveFractionMB,theCoolingFractionMB,theElectronicsFractionMB,theOtherFractionMB,\
+    theAirFractionMB,theCablesFractionMB,theCopperFractionMB,theH_ScintillatorFractionMB,theLeadFractionMB,theEpoxyFractionMB,\
+    theKaptonFractionMB,theAluminiumFractionMB,theHGC_G10_FR4FractionMB,theSiliconFractionMB,theStainlessSteelFractionMB,\
+    theWCuFractionMB,thePolystyreneFractionMB,theHGC_EEConnectorFractionMB,theHGC_HEConnectorFractionMB" << std::endl;
 
   // total X0
   hmgr->addHistoProf1(new TProfile("10", "MB prof Eta;#eta;x/X_{0} ", netabin_, etaMin_, etaMax_));
@@ -998,7 +1004,6 @@ void MaterialBudgetHGCalHistos::fillEndTrack() {
   //
   // fill histograms and profiles only if the material has been crossed
   //
-
   if (theData->getNumberOfSteps() != 0) {
     // Total X0
     hmgr->getHisto1(11)->Fill(theData->getEta());
@@ -1130,8 +1135,6 @@ void MaterialBudgetHGCalHistos::fillEndTrack() {
       theTotalMB_POL += theData->getPolystyreneDmb(iStep);
       theTotalMB_EEC += theData->getHGC_EEConnectorDmb(iStep);
       theTotalMB_HEC += theData->getHGC_HEConnectorDmb(iStep);
-
-      std::cout << theTotalMB_TOT - (theTotalMB_COP + theTotalMB_SCI + theTotalMB_CAB + theTotalMB_HGF + theTotalMB_NIM + theTotalMB_OTH + theTotalMB_AIR + theTotalMB_SST + theTotalMB_WCU + theTotalMB_LEA + theTotalMB_EPX + theTotalMB_KAP + theTotalMB_ALU + theTotalMB_POL + theTotalMB_EEC + theTotalMB_HEC) << std::endl;
 
       int iCop = 0;
       int iSci = 0;
