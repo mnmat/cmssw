@@ -1029,6 +1029,35 @@ float HGCalGeometry::calculateHexError(const DetId& id) const {
   return var;
 }
 
+template<typename T>
+T square_var(T b, T h){
+  return b*pow(h,3)/12;
+}
+
+LocalError HGCalGeometry::calculateScintillatorError(const DetId& id) const{
+  const GlobalPoint &pos = getPosition(id);
+  float r = sqrt(pos.x()*pos.x() + pos.y()*pos.y());
+  auto layer = topology().dddConstants().getLayer(pos.z(), true);
+  auto radiusLayer = topology().dddConstants().getRadiusLayer(layer);
+  int idx = static_cast<int>(std::lower_bound(radiusLayer.begin(), radiusLayer.end(),r)-radiusLayer.begin());
+  float rmax = radiusLayer[idx];
+  float rmin = radiusLayer[idx-1];
+  float phi = atan2(pos.y(), pos.x());
+  float dphi = getGeometry(id)->phiSpan();
+
+  float h = rmax - rmin;
+  float b = (rmax+rmin)*sin(dphi/2);
+  float angle = phi;
+  float A = b*h;
+
+  LocalError lerr(square_var(b,h)/A,0,square_var(h,b)/A);
+  lerr = lerr.rotate(phi-M_PI/2);
+
+  return lerr;
+}
+
+
+/*
 LocalError HGCalGeometry::calculateScintillatorError(const DetId& id) const{
   // Error equals the covariance matrix of a tile area
   // TODO: Simplify with rectangular approximation.
@@ -1060,7 +1089,7 @@ LocalError HGCalGeometry::calculateScintillatorError(const DetId& id) const{
   float varxy = 1/(16*A)*(pow(rmax,4)-pow(rmin,4))*(cos(2*phimin)-cos(2*phimax)) - ex*ey;
   return LocalError(varx, varxy, vary);
 }
-
+*/
 #include "FWCore/Utilities/interface/typelookup.h"
 
 TYPELOOKUP_DATA_REG(HGCalGeometry);
