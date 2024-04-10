@@ -1,7 +1,10 @@
 #ifndef SimDataFormats_PCaloHit_H
 #define SimDataFormats_PCaloHit_H
 
+#include "DataFormats/GeometryVector/interface/LocalPoint.h"
+#include "DataFormats/GeometryVector/interface/LocalVector.h"
 #include "SimDataFormats/EncodedEventId/interface/EncodedEventId.h"
+#include "DataFormats/Math/interface/Point3D.h"
 
 // Persistent Calorimeter hit
 
@@ -13,7 +16,7 @@ public:
   PCaloHit(unsigned int id, float e = 0., float t = 0., int i = 0, float emFraction = 1., uint16_t d = 0)
       : myEnergy(e), myEMFraction(emFraction), myTime(t), myItra(i), detId(id), myDepth(d) {}
   PCaloHit(float eEM, float eHad, float t, int i = 0, uint16_t d = 0);
-  PCaloHit(unsigned int id, float eEM, float eHad, float t, int i = 0, uint16_t d = 0);
+  PCaloHit(unsigned int id, float eEM, float eHad, float t, math::XYZPoint position, int i = 0, uint16_t d = 0);
 
   //Names
   static const char *name() { return "Hit"; }
@@ -50,6 +53,9 @@ public:
   // new method used by the new transient CF
   void setTime(float t) { myTime = t; }
 
+  //mmatthew: Position information. Do not add this to main release!!!!
+  math::XYZPoint getPosition() const {return thePosition;}
+
   //Comparisons
 
   bool operator<(const PCaloHit &d) const { return myEnergy < d.myEnergy; }
@@ -70,6 +76,7 @@ protected:
   unsigned int detId;
   uint16_t myDepth;
   EncodedEventId theEventId;
+  math::XYZPoint thePosition;
 };
 
 #include <iosfwd>

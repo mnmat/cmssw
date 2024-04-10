@@ -57,8 +57,10 @@ public:
 
   void addEnergyDeposit(double em, double hd);
   void addEnergyDeposit(const CaloGVHit& aHit);
+  void addPosition(const math::XYZPoint& position){position_ = position;};
 
   inline double getEnergyDeposit() const { return (elem_ + hadr_); }
+  inline math::XYZPoint getPosition() const { return position_;}
 
 private:
   int eventID_;      //Event ID
@@ -67,6 +69,7 @@ private:
   CaloHitID hitID_;  //Identification number of the hit given
                      //by primary particle, Cell ID, Time of
                      //the hit
+  math::XYZPoint position_;
 };
 
 class CaloGVHitLess {

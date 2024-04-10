@@ -24,6 +24,10 @@
 #include "G4PhysicalConstants.hh"
 #include "DD4hep/Filter.h"
 
+#include "DataFormats/GeometryVector/interface/LocalPoint.h"
+#include "DataFormats/GeometryVector/interface/LocalVector.h"
+#include "DataFormats/Math/interface/Point3D.h"
+
 #include <fstream>
 #include <memory>
 #include <sstream>
@@ -900,6 +904,7 @@ bool CaloSD::saveHit(CaloG4Hit* aHit) {
                              aHit->getEM() / CLHEP::GeV,
                              aHit->getHadr() / CLHEP::GeV,
                              time,
+                             aHit->getPosition(),
                              aHit->getTrackID(),
                              aHit->getDepth());
   }
@@ -922,7 +927,7 @@ bool CaloSD::saveHit(CaloG4Hit* aHit) {
     edm::LogVerbatim("DoFineCalo") << "Saving hit " << shortreprID(aHit) << " with trackID=" << tkID;
 #endif
     slave.get()->processHits(
-        aHit->getUnitID(), aHit->getEM() / CLHEP::GeV, aHit->getHadr() / CLHEP::GeV, time, tkID, aHit->getDepth());
+        aHit->getUnitID(), aHit->getEM() / CLHEP::GeV, aHit->getHadr() / CLHEP::GeV, time, aHit->getPosition(), tkID, aHit->getDepth());
   }
 
 #ifdef EDM_ML_DEBUG

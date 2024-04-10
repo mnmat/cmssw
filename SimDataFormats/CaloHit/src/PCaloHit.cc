@@ -6,7 +6,8 @@ PCaloHit::PCaloHit(float eEM, float eHad, float t, int i, uint16_t d) : myTime(t
   myEMFraction = (myEnergy <= 0.f ? 1.f : eEM / myEnergy);
 }
 
-PCaloHit::PCaloHit(unsigned int id, float eEM, float eHad, float t, int i, uint16_t d)
+PCaloHit::PCaloHit(unsigned int id, float eEM, float eHad, float t, math::XYZPoint position, int i, uint16_t d)
+//PCaloHit::PCaloHit(unsigned int id, float eEM, float eHad, float t, int i, uint16_t d)
     : myTime(t), myItra(i), detId(id), myDepth(d) {
   myEnergy = eEM + eHad;
   myEMFraction = (myEnergy <= 0.f ? 1.f : eEM / myEnergy);

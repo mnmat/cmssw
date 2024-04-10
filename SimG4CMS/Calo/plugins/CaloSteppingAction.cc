@@ -88,7 +88,7 @@ private:
 
   void NaNTrap(const G4Step*) const;
   uint32_t getDetIDHC(int det, int lay, int depth, const math::XYZVectorD& pos) const;
-  void fillHit(uint32_t id, double dE, double time, int primID, uint16_t depth, double em, int flag);
+  void fillHit(uint32_t id, double dE, double time, int primID, uint16_t depth, double em, int flag, math::XYZPoint position);  
   uint16_t getDepth(bool flag, double crystalDepth, double radl) const;
   double curve_LY(double crystalLength, double crystalDepth) const;
   double getBirkL3(double dE, double step, double chg, double dens) const;
@@ -355,7 +355,7 @@ void CaloSteppingAction::update(const G4Step* aStep) {
                             (aStep->GetStepLength() / CLHEP::cm),
                             aStep->GetPreStepPoint()->GetCharge(),
                             (aStep->GetPreStepPoint()->GetMaterial()->GetDensity() / (CLHEP::g / CLHEP::cm3)));
-        fillHit(unitID, dEStep, time, primID, 0, em, 2);
+        fillHit(unitID, dEStep, time, primID, 0, em, 2,math::XYZPoint(hitPoint.x(), hitPoint.y(), hitPoint.z()));
       }
     } else {
       EcalBaseNumber theBaseNumber;
@@ -383,7 +383,7 @@ void CaloSteppingAction::update(const G4Step* aStep) {
                              aStep->GetPreStepPoint()->GetCharge(),
                              (aStep->GetPreStepPoint()->GetMaterial()->GetDensity() / (CLHEP::g / CLHEP::cm3))) *
                    curve_LY(crystalLength, crystalDepth));
-        fillHit(unitID, dEStep, time, primID, depth, em, (eb ? 0 : 1));
+        fillHit(unitID, dEStep, time, primID, depth, em, (eb ? 0 : 1),math::XYZPoint(hitPoint.x(), hitPoint.y(), hitPoint.z()));
       }
     }
   }
@@ -457,7 +457,7 @@ uint32_t CaloSteppingAction::getDetIDHC(int det, int lay, int depth, const math:
   return (hcNumberingScheme_.get()->getUnitID(tmp));
 }
 
-void CaloSteppingAction::fillHit(uint32_t id, double dE, double time, int primID, uint16_t depth, double em, int flag) {
+void CaloSteppingAction::fillHit(uint32_t id, double dE, double time, int primID, uint16_t depth, double em, int flag, math::XYZPoint position) {  
   CaloHitID currentID(id, time, primID, depth, timeSliceUnit_);
   double edepEM = (em ? dE : 0);
   double edepHAD = (em ? 0 : dE);
@@ -470,6 +470,7 @@ void CaloSteppingAction::fillHit(uint32_t id, double dE, double time, int primID
     aHit.setEventID(eventID_);
     aHit.setID(currentID);
     aHit.addEnergyDeposit(edepEM, edepHAD);
+    aHit.addPosition(position);
     hitMap_[flag][evID] = aHit;
   }
 }
@@ -548,6 +549,7 @@ void CaloSteppingAction::saveHits(int type) {
                                     0.001 * hit.second.getEM(),
                                     0.001 * hit.second.getHadr(),
                                     hit.second.getTimeSlice(),
+                                    hit.second.getPosition(),
                                     hit.second.getTrackID(),
                                     hit.second.getDepth());
   }
