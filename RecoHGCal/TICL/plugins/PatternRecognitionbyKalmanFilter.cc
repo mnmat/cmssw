@@ -305,6 +305,9 @@ void PatternRecognitionbyKalmanFilter<TILES>::makeTrajectories(
     int zside = fts.momentum().eta() > 0 ? +1 : -1;
     PropagationDirection direction = alongMomentum;
     const HGCDiskLayer* layerdisk = hgcTracker_->firstDisk(zside,direction);
+    std::cout << "Enter" << std::endl;
+    std::cout << layerdisk->second->surface().mediumProperties().radLen() << ", " << layerdisk->second->surface().mediumProperties().xi() << std::endl;
+    std::cout << "Exit" << std::endl;
     bool isSilicon = true;
     
     // Extrapolate track from the tracker to first layer of HGCAL

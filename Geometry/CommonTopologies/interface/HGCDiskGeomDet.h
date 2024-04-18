@@ -17,6 +17,7 @@ class HGCDiskGeomDet : public GeomDet {
         int layer() const { return layer_; }
         float rmin() const { return rmin_; }
         float rmax() const { return rmax_; }
+
         bool isSilicon() const { // The enum values were taken from DataFormats/DetId/interface/DetId.h
             if(subdet_ == DetId::HGCalEE || subdet_ == DetId::HGCalHSi){
                 return true;
