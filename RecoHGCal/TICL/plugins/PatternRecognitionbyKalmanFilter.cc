@@ -147,20 +147,6 @@ PatternRecognitionbyKalmanFilter<TILES>::advanceOneLayer(const Start &start,
   // Fill TempTrajectories
   std::sort(meas.begin(), meas.end(),TrajMeasLessEstim());
   for (const TrajectoryMeasurement &tm : meas){
-
-
-    // DELETE ME: Test for Global and Local points
-
-    std::cout << tsos.globalPosition() << std::endl;
-    std::cout << tsos.localPosition() << std::endl;
-    std::cout << (tm.recHit())->localPosition() << std::endl;
-    std::cout << (tm.recHit())->projectionMatrix() << std::endl;
-
-    // DELETE ME: End
-
-
-
-
     TrajectoryStateOnSurface updated = updator_->update(tm.forwardPredictedState(),*tm.recHit());
     ret.push_back(traj.foundHits() ? traj: TempTrajectory(traj.direction(),0));
     ret.back().push(TrajectoryMeasurement(tm.forwardPredictedState(),
