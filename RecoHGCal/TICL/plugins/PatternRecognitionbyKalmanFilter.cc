@@ -43,8 +43,6 @@ template <typename TILES>
 PatternRecognitionbyKalmanFilter<TILES>::PatternRecognitionbyKalmanFilter(const edm::ParameterSet &conf, edm::ConsumesCollector iC)
     : PatternRecognitionAlgoBaseT<TILES>(conf, iC),
       caloGeomToken_(iC.esConsumes<CaloGeometry, CaloGeometryRecord>()),
-      radlen_(conf.getParameter<std::vector<double>>("radlen")),
-      xi_(conf.getParameter<std::vector<double>>("xi")),
       propName_(conf.getParameter<std::string>("propagator")),
       propNameOppo_(conf.getParameter<std::string>("propagatorOpposite")),
       bfieldtoken_(iC.esConsumes<MagneticField, IdealMagneticFieldRecord>()),
@@ -305,9 +303,6 @@ void PatternRecognitionbyKalmanFilter<TILES>::makeTrajectories(
     int zside = fts.momentum().eta() > 0 ? +1 : -1;
     PropagationDirection direction = alongMomentum;
     const HGCDiskLayer* layerdisk = hgcTracker_->firstDisk(zside,direction);
-    std::cout << "Enter" << std::endl;
-    std::cout << layerdisk->second->surface().mediumProperties().radLen() << ", " << layerdisk->second->surface().mediumProperties().xi() << std::endl;
-    std::cout << "Exit" << std::endl;
     bool isSilicon = true;
     
     // Extrapolate track from the tracker to first layer of HGCAL
@@ -376,8 +371,6 @@ void PatternRecognitionbyKalmanFilter<TILES>::dumpTiles(const TILES &tiles) cons
 template <typename TILES>
 void PatternRecognitionbyKalmanFilter<TILES>::fillPSetDescription(edm::ParameterSetDescription &iDesc) {
   iDesc.add<int>("algo_verbosity", 0);
-  iDesc.add<std::vector<double>>("radlen",{});
-  iDesc.add<std::vector<double>>("xi",{});
   iDesc.add<std::string>("propagator", "PropagatorWithMaterial"); 
   iDesc.add<std::string>("propagatorOpposite", "PropagatorWithMaterialOpposite");
   iDesc.add<std::string>("estimator", "Chi2");

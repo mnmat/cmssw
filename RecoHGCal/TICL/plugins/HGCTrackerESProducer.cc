@@ -66,8 +66,6 @@ private:
   // ----------member data ---------------------------
 
   edm::ESGetToken<CaloGeometry, CaloGeometryRecord> caloGeomToken_;
-  std::string name_ = "Helo, m";
-
   std::vector<HGCDiskGeomDet *> disksPos_, disksNeg_;
   hgcal::RecHitTools rhtools_;
 
@@ -162,14 +160,10 @@ void HGCTrackerESProducer::makeDisks(int subdet, const CaloGeometry* geom_) {
 
 // ------------ method called to produce the data  ------------
 HGCTrackerESProducer::ReturnType HGCTrackerESProducer::produce(const CaloGeometryRecord& iRecord) {
-  std::cout << "Entered HGCTracker produce method" << std::endl;
-
   const CaloGeometry* geom = &(iRecord.get(caloGeomToken_));
   rhtools_.setGeometry(*geom);
 
   auto product = std::make_unique<HGCTracker>(HGCTracker(geom, radlen_, xi_));
-  std::cout << "Done HGCTracker producer" << std::endl;
-
   return product;
 }
 

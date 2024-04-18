@@ -50,8 +50,6 @@ namespace ticl {
   private:
     // Declarations for Constructor
     edm::ESGetToken<CaloGeometry, CaloGeometryRecord> caloGeomToken_;
-    const std::vector<double> radlen_;
-    const std::vector<double> xi_;
     const std::string propName_;
     const std::string propNameOppo_;
     edm::ESGetToken<MagneticField, IdealMagneticFieldRecord> bfieldtoken_;
