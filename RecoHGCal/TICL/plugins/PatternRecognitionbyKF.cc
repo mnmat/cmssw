@@ -155,7 +155,8 @@ PatternRecognitionbyKF<TILES>::advanceOneLayer(const Start &start,
   // Check if propagated state falls within boundaries of disk. 
   // If not, change the target disk type (Silicon or Scintillator) using switchDisk() and repeat propagation step.
   float r = sqrt(pow(tsos.globalPosition().x(),2)+pow(tsos.globalPosition().y(),2));
-  if ((((disk->rmin() > r) && (!isSilicon)) || (((r > disk->rmax()) && (isSilicon)))) && (int(disk->layer()) >= int(rhtools_.firstLayerBH()))) {
+  if ((((disk->rmin() > r) && (!isSilicon)) || (((r > disk->rmax()) && (isSilicon))))) { //&& (int(disk->layer()) >= int(rhtools_.firstLayerBH()))
+    std::cout << "Enter Switch Disk" << std::endl;
     disk = switchDisk(disk, disks, isSilicon);
     isSilicon = !isSilicon;
     tsos = prop.propagate(start, disk->surface());
@@ -212,7 +213,7 @@ void PatternRecognitionbyKF<TILES>::makeDisks(int subdet, const CaloGeometry* ge
         if (rho < rmin[layer]) rmin[layer] = rho;
     }
 
-  int layer = ddd->firstLayer(); // FIXME: Can be made less stupid
+  int layer = ddd->getLayerOffset(); // FIXME: Can be made less stupid
   for (int i = 0; i < numdisks; ++i) {
     if (countPos[i]) {
       HGCDiskGeomDet* disk = new HGCDiskGeomDet(subdet, +1, layer, zsumPos[i]/countPos[i], rmin[i], rmax[i], radlen_[layer], xi_[layer]);
