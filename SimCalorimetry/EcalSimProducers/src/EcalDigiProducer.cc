@@ -348,18 +348,43 @@ void EcalDigiProducer::accumulateCaloHits(HitsHandle const &ebHandle,
                                           HitsHandle const &eeHandle,
                                           HitsHandle const &esHandle,
                                           int bunchCrossing) {
+  
+
+
+
+  
   if (m_doEB && ebHandle.isValid()) {
+    std::cout << "Barrel" << std::endl;
+    auto hits = *ebHandle.product();
+    for (std::vector<PCaloHit>::const_iterator it = hits.begin(), itEnd = hits.end(); it != itEnd; ++it) {
+      std::cout << (*it).energy() << ", " << (*it).time() << ", " << (*it).id() << ", " << (*it).energyEM() << ", " << (*it).energyHad()<< ", " << (*it).getPosition()<< ", " << (*it).depth() << ", " << std::endl;
+    }
+    std::cerr << "Add PCaloHits to Barrel Digitizer" << std::endl;
     m_BarrelDigitizer->add(*ebHandle.product(), bunchCrossing, randomEngine_);
+    std::cerr << "Done w. PCaloHits to Barrel Digitizer" << std::endl;
 
     if (m_apdSeparateDigi) {
+      std::cerr << "Add PCaloHits to APD Digitizer" << std::endl;
       m_APDDigitizer->add(*ebHandle.product(), bunchCrossing, randomEngine_);
+      std::cerr << "Done w. PCaloHits to APD Digitizer" << std::endl;
+
     }
     if (m_componentSeparateDigi) {
+          
+      std::cerr << "Add PCaloHits to Component Digitizer" << std::endl;
       m_ComponentDigitizer->add(*ebHandle.product(), bunchCrossing, randomEngine_);
+      std::cerr << "Done w. PCaloHits to Component Digitizer" << std::endl;
+
     }
   }
 
   if (m_doEE && eeHandle.isValid()) {
+    std::cout << "HGCAL" << std::endl;
+    auto hits = *eeHandle.product();
+    for (std::vector<PCaloHit>::const_iterator it = hits.begin(), itEnd = hits.end(); it != itEnd; ++it) {
+      std::cout << (*it).depth() << std::endl;
+    }
+
     m_EndcapDigitizer->add(*eeHandle.product(), bunchCrossing, randomEngine_);
   }
 

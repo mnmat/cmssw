@@ -1,5 +1,6 @@
 <lcgdict>
-  <class name="PCaloHit" ClassVersion="11">
+  <class name="PCaloHit" ClassVersion="12">
+   <version ClassVersion="12" checksum="1715875865"/>
    <version ClassVersion="11" checksum="1242086304"/>
    <version ClassVersion="10" checksum="682759659"/>
   </class>

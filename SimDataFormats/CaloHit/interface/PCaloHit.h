@@ -10,13 +10,18 @@
 
 class PCaloHit {
 public:
-  PCaloHit(float e = 0., float t = 0., int i = 0, float emFraction = 1., uint16_t d = 0)
-      : myEnergy(e), myEMFraction(emFraction), myTime(t), myItra(i), myDepth(d) {}
+  PCaloHit(float e = 0., float t = 0., int i = 0, float emFraction = 1., uint16_t d = 0, math::XYZPoint position = math::XYZPoint(0.0, 0.0, 0.0))
+      : myEnergy(e), myEMFraction(emFraction), myTime(t), myItra(i), myDepth(d), myPosition(position) {
+        std::cout << "1st Constructor" << std::endl;
+      }
 
-  PCaloHit(unsigned int id, float e = 0., float t = 0., int i = 0, float emFraction = 1., uint16_t d = 0)
-      : myEnergy(e), myEMFraction(emFraction), myTime(t), myItra(i), detId(id), myDepth(d) {}
-  PCaloHit(float eEM, float eHad, float t, int i = 0, uint16_t d = 0);
-  PCaloHit(unsigned int id, float eEM, float eHad, float t, math::XYZPoint position, int i = 0, uint16_t d = 0);
+  PCaloHit(unsigned int id, float e = 0., float t = 0., int i = 0, float emFraction = 1., uint16_t d = 0, math::XYZPoint position = math::XYZPoint(0.0, 0.0, 0.0))
+      : myEnergy(e), myEMFraction(emFraction), myTime(t), myItra(i), detId(id), myDepth(d), myPosition(position) {
+        std::cout << "2st Constructor" << std::endl;
+
+      }
+  PCaloHit(float eEM, float eHad, float t, int i = 0, uint16_t d = 0, math::XYZPoint position = math::XYZPoint(0.0, 0.0, 0.0));
+  PCaloHit(unsigned int id, float eEM, float eHad, float t, int i = 0, uint16_t d = 0, math::XYZPoint position = math::XYZPoint(0.0, 0.0, 0.0));
 
   //Names
   static const char *name() { return "Hit"; }
@@ -54,7 +59,7 @@ public:
   void setTime(float t) { myTime = t; }
 
   //mmatthew: Position information. Do not add this to main release!!!!
-  math::XYZPoint getPosition() const {return thePosition;}
+  math::XYZPoint getPosition() const {return myPosition;}
 
   //Comparisons
 
@@ -76,7 +81,7 @@ protected:
   unsigned int detId;
   uint16_t myDepth;
   EncodedEventId theEventId;
-  math::XYZPoint thePosition;
+  math::XYZPoint myPosition;
 };
 
 #include <iosfwd>

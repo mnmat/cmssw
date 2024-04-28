@@ -1,14 +1,18 @@
 #include "SimDataFormats/CaloHit/interface/PCaloHit.h"
 #include <iostream>
 
-PCaloHit::PCaloHit(float eEM, float eHad, float t, int i, uint16_t d) : myTime(t), myItra(i), myDepth(d) {
+PCaloHit::PCaloHit(float eEM, float eHad, float t, int i, uint16_t d, math::XYZPoint position) : myTime(t), myItra(i), myDepth(d),myPosition(position) {
+  std::cout << "3rd Constructor" << std::endl;
+
   myEnergy = eEM + eHad;
   myEMFraction = (myEnergy <= 0.f ? 1.f : eEM / myEnergy);
 }
 
-PCaloHit::PCaloHit(unsigned int id, float eEM, float eHad, float t, math::XYZPoint position, int i, uint16_t d)
+PCaloHit::PCaloHit(unsigned int id, float eEM, float eHad, float t, int i, uint16_t d, math::XYZPoint position)
 //PCaloHit::PCaloHit(unsigned int id, float eEM, float eHad, float t, int i, uint16_t d)
-    : myTime(t), myItra(i), detId(id), myDepth(d) {
+    : myTime(t), myItra(i), detId(id), myDepth(d),myPosition(position) {
+  std::cout << "4th Constructor" << std::endl;
+
   myEnergy = eEM + eHad;
   myEMFraction = (myEnergy <= 0.f ? 1.f : eEM / myEnergy);
 }

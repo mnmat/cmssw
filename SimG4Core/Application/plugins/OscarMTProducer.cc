@@ -323,6 +323,7 @@ void OscarMTProducer::produce(edm::Event& e, const edm::EventSetup& es) {
   for (auto& calo : sCalo) {
     const std::vector<std::string>& v = calo->getNames();
     for (auto& name : v) {
+      std::cerr << name << std::endl;
       std::unique_ptr<edm::PCaloHitContainer> product(new edm::PCaloHitContainer);
       calo->fillHits(*product, name);
       if (0 < m_verbose && product != nullptr && !product->empty())

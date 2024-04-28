@@ -1166,6 +1166,7 @@ void CalorimetryManager::updatePreshower(const std::map<CaloHitID, float>& hitMa
 void CalorimetryManager::loadFromEcalBarrel(edm::PCaloHitContainer& c) const {
   c.reserve(c.size() + EBMapping_.size());
   for (unsigned i = 0; i < EBMapping_.size(); i++) {
+    std::cout << "loadFromEcalBarrel" << std::endl;
     c.push_back(PCaloHit(EBDetId::unhashIndex(EBMapping_[i].first.unitID()),
                          EBMapping_[i].second,
                          EBMapping_[i].first.timeSlice(),
@@ -1176,6 +1177,7 @@ void CalorimetryManager::loadFromEcalBarrel(edm::PCaloHitContainer& c) const {
 void CalorimetryManager::loadFromEcalEndcap(edm::PCaloHitContainer& c) const {
   c.reserve(c.size() + EEMapping_.size());
   for (unsigned i = 0; i < EEMapping_.size(); i++) {
+    std::cout << "loadFromEcalEndcap" << std::endl;
     c.push_back(PCaloHit(EEDetId::unhashIndex(EEMapping_[i].first.unitID()),
                          EEMapping_[i].second,
                          EEMapping_[i].first.timeSlice(),
@@ -1186,6 +1188,7 @@ void CalorimetryManager::loadFromEcalEndcap(edm::PCaloHitContainer& c) const {
 void CalorimetryManager::loadFromHcal(edm::PCaloHitContainer& c) const {
   c.reserve(c.size() + HMapping_.size());
   for (unsigned i = 0; i < HMapping_.size(); i++) {
+    std::cout << "loadFromHcal" << std::endl;
     c.push_back(PCaloHit(DetId(HMapping_[i].first.unitID()),
                          HMapping_[i].second,
                          HMapping_[i].first.timeSlice(),
@@ -1196,6 +1199,7 @@ void CalorimetryManager::loadFromHcal(edm::PCaloHitContainer& c) const {
 void CalorimetryManager::loadFromPreshower(edm::PCaloHitContainer& c) const {
   c.reserve(c.size() + ESMapping_.size());
   for (unsigned i = 0; i < ESMapping_.size(); i++) {
+    std::cout << "loadFromPreshower" << std::endl;
     c.push_back(PCaloHit(ESMapping_[i].first.unitID(),
                          ESMapping_[i].second,
                          ESMapping_[i].first.timeSlice(),
