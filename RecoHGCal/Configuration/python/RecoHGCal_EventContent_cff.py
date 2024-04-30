@@ -26,7 +26,7 @@ TICL_RECO = cms.PSet(
       ['keep *_tracksterSimTracksterAssociationLinking_*_*' ,'keep *_tracksterSimTracksterAssociationPR_*_*'] +
       ['keep *_tracksterSimTracksterAssociationLinkingPU_*_*' ,'keep *_tracksterSimTracksterAssociationPRPU_*_*'] +
       ['keep *_tracksterSimTracksterAssociationLinkingbyCLUE3D_*_*', 'keep *_tracksterSimTracksterAssociationPRbyCLUE3D_*_*'] +
-      ['keep *_ticlRecHitTile_*_*']
+      ['keep *_ticlRecHitTile_*_*', 'keep *_ticlTrackstersKalmanFilter_*_*']
       )
     )
 
@@ -38,6 +38,7 @@ TICLv5_RECO = cms.PSet(
             'keep *_ticlTrackstersCLUE3DHAD_*_*',
             'keep *_ticlTracksterLinks_*_*',
             'keep *_ticlCandidate_*_*',
+            'keep *_ticlTrackstersKalmanFilter_*_*'
         ]
     )
 )

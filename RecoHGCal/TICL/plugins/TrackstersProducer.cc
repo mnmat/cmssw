@@ -106,9 +106,14 @@ TrackstersProducer::TrackstersProducer(const edm::ParameterSet& ps)
   else if (itername_ == "MIP")
     iterIndex_ = ticl::Trackster::MIP;
 
+
+
   produces<std::vector<Trackster>>();
   produces<std::vector<float>>();  // Mask to be applied at the next iteration
   produces<std::vector<KFHit>>("KFHits").setBranchAlias("KFHits");
+  produces<std::vector<reco::Track>>("HGCALTracks").setBranchAlias("HGCALTracks");
+  produces<std::vector<reco::TrackExtra>>("HGCALTrackExtras").setBranchAlias("HGCALTrackExtras");
+
   }
 
 void TrackstersProducer::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
@@ -153,6 +158,8 @@ void TrackstersProducer::produce(edm::Event& evt, const edm::EventSetup& es) {
   auto result = std::make_unique<std::vector<Trackster>>();
   auto output_mask = std::make_unique<std::vector<float>>();
   auto kfhits = std::make_unique<std::vector<KFHit>>();
+  auto tracks = std::make_unique<std::vector<reco::Track>>();
+  auto trackExtras = std::make_unique<std::vector<reco::TrackExtra>>();
 
   const std::vector<float>& original_layerclusters_mask = evt.get(original_layerclusters_mask_token_);
   const auto& layerClusters = evt.get(clusters_token_);
@@ -191,7 +198,7 @@ void TrackstersProducer::produce(edm::Event& evt, const edm::EventSetup& es) {
 
     // TODO(mmatthew): Delete if conditions once correct function definition for KF is found
     if(itername_ == "KalmanFilter"){ 
-      myAlgo_->makeTrajectories(input,*kfhits);   
+      myAlgo_->makeTrajectories(input,*kfhits,*tracks,*trackExtras); ;   
     } else {
       myAlgo_->makeTracksters(input, *result, seedToTrackstersAssociation);
     }
@@ -216,4 +223,6 @@ void TrackstersProducer::produce(edm::Event& evt, const edm::EventSetup& es) {
   evt.put(std::move(result));
   evt.put(std::move(output_mask));
   evt.put(std::move(kfhits),"KFHits");
+  evt.put(std::move(tracks),"HGCALTracks");
+  evt.put(std::move(trackExtras),"HGCALTrackExtras");
   }

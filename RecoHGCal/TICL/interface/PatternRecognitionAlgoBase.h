@@ -32,7 +32,7 @@ namespace ticl {
     virtual ~PatternRecognitionAlgoBaseT(){};
 
     struct Inputs {
-      const edm::Event& ev;
+      edm::Event& ev;
       const edm::EventSetup& es;
       const std::vector<reco::CaloCluster>& layerClusters;
       const std::vector<float>& mask;
@@ -41,7 +41,7 @@ namespace ticl {
       const std::vector<TICLSeedingRegion>& regions;
       const tensorflow::Session* tfSession;
 
-      Inputs(const edm::Event& eV,
+      Inputs(edm::Event& eV,
              const edm::EventSetup& eS,
              const std::vector<reco::CaloCluster>& lC,
              const std::vector<float>& mS,
@@ -55,7 +55,9 @@ namespace ticl {
     // (mmatthew): makeTrajectories used only by PatternRecognitionbyKalmanFilter. 
     // TODO: combine with makeTracksters as pure virtual function
     virtual void makeTrajectories(const Inputs& input,
-                                std::vector<KFHit>& kfhits) = 0;
+                                std::vector<KFHit>& kfhits,
+                                std::vector<reco::Track>& tracks,
+                                std::vector<reco::TrackExtra>& trackExtras) = 0;
 
     virtual void makeTracksters(const Inputs& input,
                                 std::vector<Trackster>& result,
