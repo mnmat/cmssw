@@ -199,6 +199,7 @@ ticlRecHitTile = ticlLayerTileProducer.clone(
 
 ticlRecHitTileTask = cms.Task(ticlRecHitTile)
 hgcal_ticl_kf.toModify(ticlIterationsTask, func=lambda x : x.add(ticlRecHitTileTask, ticlKalmanFilterStepTask))
+ticlIterLabels = ticlIterLabels
 
 ticlLayerTileHFNoseTask = cms.Task(ticlLayerTileHFNose)
 iterHFNoseTICLTask = cms.Task(

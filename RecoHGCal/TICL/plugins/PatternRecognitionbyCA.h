@@ -26,7 +26,9 @@ namespace ticl {
                 std::unordered_map<int, std::vector<int>>& seedToTracksterAssociation) override;
 
     void makeTrajectories(const typename PatternRecognitionAlgoBaseT<TILES>::Inputs& input,
-                std::vector<KFHit>& kfhits) override {};
+                        std::vector<KFHit>& kfhits,
+                        std::vector<reco::Track>& tracks,
+                        std::vector<reco::TrackExtra>& trackExtras) override {};
 
     void emptyTrackstersFromSeedsTRK(std::vector<Trackster>& tracksters,
                                      std::unordered_map<int, std::vector<int>>& seedToTracksterAssociation,
