@@ -328,7 +328,7 @@ void PatternRecognitionbyKalmanFilter<TILES>::makeTrajectories(
     for(layerdisk = hgcTracker_->nextDisk(layerdisk,direction,isSilicon); layerdisk != nullptr; layerdisk = hgcTracker_->nextDisk(layerdisk,direction,isSilicon)){
       std::vector<TempTrajectory> newcands;
       for(TempTrajectory & cand : traj_kf){
-        TrajectoryStateOnSurface start = cand.lastMeasurement().updatedState();
+        TrajectoryStateOnSurface start = standalonePropagator_? cand.lastMeasurement().predictedState() : cand.lastMeasurement().updatedState();
         std::vector<TempTrajectory> hisTrajs = advanceOneLayer(start, layerdisk, tiles, direction, isSilicon, cand);
         for(TempTrajectory & t : hisTrajs){
           auto lm = t.lastMeasurement();
