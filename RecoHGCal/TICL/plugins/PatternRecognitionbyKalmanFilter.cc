@@ -26,6 +26,8 @@
 
 #include "RecoLocalCalo/HGCalRecAlgos/interface/RecHitTools.h"
 
+#include "RecoTracker/TransientTrackingRecHit/interface/Traj2TrackHits.h"
+
 #include "TrackingTools/GeomPropagators/interface/Propagator.h"
 #include "TrackingTools/KalmanUpdators/interface/Chi2MeasurementEstimatorBase.h"
 #include "TrackingTools/KalmanUpdators/interface/Chi2MeasurementEstimator.h"
@@ -38,6 +40,7 @@
 #include "TrackingTools/TrajectoryState/interface/TrajectoryStateClosestToBeamLine.h"
 #include "TrackingTools/PatternTools/interface/TSCBLBuilderWithPropagator.h"
 
+
 #include "HGCTracker.h"
 
 using namespace ticl;
@@ -46,6 +49,7 @@ template <typename TILES>
 PatternRecognitionbyKalmanFilter<TILES>::PatternRecognitionbyKalmanFilter(const edm::ParameterSet &conf, edm::ConsumesCollector iC)
     : PatternRecognitionAlgoBaseT<TILES>(conf, iC),
       caloGeomToken_(iC.esConsumes<CaloGeometry, CaloGeometryRecord>()),
+      //tTopoToken_(iC.esConsumes<TrackerTopology, TrackerTopologyRcd>()),
       propName_(conf.getParameter<std::string>("propagator")),
       propNameOppo_(conf.getParameter<std::string>("propagatorOpposite")),
       bfieldtoken_(iC.esConsumes<MagneticField, IdealMagneticFieldRecord>()),
@@ -241,6 +245,7 @@ void PatternRecognitionbyKalmanFilter<TILES>::init(
     if (es.get<CaloGeometryRecord>().cacheIdentifier() != geomCacheId_) {
       geomCacheId_ = es.get<CaloGeometryRecord>().cacheIdentifier();
       const CaloGeometry* geom = &es.getData(caloGeomToken_);
+      //ttopo = &es.getData(tTopoToken_);
       rhtools_.setGeometry(*geom);
       hgcTracker_ = &es.getData(hgcTrackerToken_);
     } 
@@ -267,7 +272,8 @@ void PatternRecognitionbyKalmanFilter<TILES>::makeTrajectories(
     const typename PatternRecognitionAlgoBaseT<TILES>::Inputs &input,
     std::vector<KFHit>& kfhits,
     std::vector<reco::Track>& tracks,
-    std::vector<reco::TrackExtra>& trackExtras) {
+    std::vector<reco::TrackExtra>& trackExtras,
+    TrackingRecHitCollection& selHits) {
   
 
 
@@ -277,8 +283,8 @@ void PatternRecognitionbyKalmanFilter<TILES>::makeTrajectories(
   const TILES &tiles = input.tiles;
 
   using namespace reco;
+  TrackingRecHitRefProd rHits = input.ev.template getRefBeforePut<TrackingRecHitCollection>("HGCALTrackingRecHitCollection");
   reco::TrackExtraRefProd ref_trackextras = input.ev.template getRefBeforePut<TrackExtraCollection>("HGCALTrackExtras");
-
 
   edm::Handle<reco::TrackCollection> tracks_h;
   ev.getByToken(trackToken_,tracks_h);
@@ -327,6 +333,7 @@ void PatternRecognitionbyKalmanFilter<TILES>::makeTrajectories(
         std::vector<TempTrajectory> hisTrajs = advanceOneLayer(start, layerdisk, tiles, direction, isSilicon, cand);
         for(TempTrajectory & t : hisTrajs){
           auto lm = t.lastMeasurement();
+           std::cout << (lm.recHitR().det() != nullptr) << std::endl;
           newcands.push_back(t);
           // Fill KFHit
           TrajectoryStateOnSurface tsos = standalonePropagator_? lm.predictedState(): lm.updatedState();
@@ -422,25 +429,41 @@ void PatternRecognitionbyKalmanFilter<TILES>::makeTrajectories(
     reco::TrackExtra out_trackExtras = reco::TrackExtra(outpos, outmom, true, inpos, inmom, true, outertsos.curvilinearError(), outerId, innertsos.curvilinearError(), innerId, trajectory.direction(), trajectory.seedRef());
     
     out_Track.setExtra(reco::TrackExtraRef(ref_trackextras, 0));
-    
-    trackExtras.push_back(out_trackExtras);
-    tracks.push_back(out_Track);
 
-
-    /*
+  
     reco::TrackExtra::TrajParams trajParams;
     reco::TrackExtra::Chi2sFive chi2s;
     Traj2TrackHits t2t;
-    auto ih = selHits->size(); //selHits TrackingRecHitsCollection
-    t2t(*theTraj, *selHits, trajParams, chi2s);
-    auto ie = selHits->size();
-    tx.setHits(rHits, ih, ie - ih); //rHits TrackingRecHitRefProd
-    tx.setTrajParams(std::move(trajParams), std::move(chi2s));
-    assert(tx.trajParams().size() == tx.recHitsSize());
-    for (; ih < ie; ++ih) {
-      auto const& hit = (*selHits)[ih];
-      track.appendHitPattern(hit, *ttopo);
+    auto ih = selHits.size(); //selHits TrackingRecHitsCollection
+
+
+    // --------------------------- Debugging 
+
+    auto const &meas = trajectory.measurements();
+    std::cout << "Size Measurements: " << meas.size() << std::endl;
+    for (auto& h: meas){
+      std::cout << (h.recHitR().det() != nullptr) << std::endl;
     }
+
+    // -------------------------------------
+
+    t2t(trajectory, selHits, trajParams, chi2s);
+    auto ie = selHits.size();
+    out_trackExtras.setHits(rHits, ih, ie - ih); //rHits TrackingRecHitRefProd
+    std::cout << ie << ", " << ih << std::endl;
+    out_trackExtras.setTrajParams(std::move(trajParams), std::move(chi2s));
+    std::cout << "Size of RecHits: " << trajParams.size() << ", " << out_trackExtras.recHitsSize() << std::endl;
+    assert(out_trackExtras.trajParams().size() == out_trackExtras.recHitsSize());
+
+    //for (; ih < ie; ++ih) {
+    //  auto const& hit = (selHits)[ih];
+    //  out_Track.appendHitPattern(hit, *ttopo);
+    //}
+
+    trackExtras.push_back(out_trackExtras);
+    tracks.push_back(out_Track);
+    /*
+
 
     // ----
     tx.setResiduals(trajectoryToResiduals(*theTraj));

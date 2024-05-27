@@ -45,13 +45,15 @@ namespace ticl {
     void makeTrajectories(const typename PatternRecognitionAlgoBaseT<TILES>::Inputs& input,
                         std::vector<KFHit>& kfhits,
                         std::vector<reco::Track>& tracks,
-                        std::vector<reco::TrackExtra>& trackExtras) override;
+                        std::vector<reco::TrackExtra>& trackExtras,
+                        TrackingRecHitCollection& trackingRecHitCollection) override;
 
     static void fillPSetDescription(edm::ParameterSetDescription& iDesc);
 
   private:
     // Declarations for Constructor
     edm::ESGetToken<CaloGeometry, CaloGeometryRecord> caloGeomToken_;
+    //edm::ESGetToken<TrackerTopology, TrackerTopologyRcd> tTopoToken_;
     const std::string propName_;
     const std::string propNameOppo_;
     edm::ESGetToken<MagneticField, IdealMagneticFieldRecord> bfieldtoken_;
@@ -83,6 +85,7 @@ namespace ticl {
     hgcal::RecHitTools rhtools_;
     std::vector<const HGCRecHit*> recHitCollection;
     const HGCTracker* hgcTracker_;
+    //TrackerTopology ttopo;
 
     static constexpr float etaBinSize = (TILES::constants_type_t::maxEta - TILES::constants_type_t::minEta)/TILES::constants_type_t::nEtaBins;
     static constexpr float phiBinSize = 2*M_PI/TILES::constants_type_t::nPhiBins;

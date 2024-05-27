@@ -57,7 +57,8 @@ namespace ticl {
     virtual void makeTrajectories(const Inputs& input,
                                 std::vector<KFHit>& kfhits,
                                 std::vector<reco::Track>& tracks,
-                                std::vector<reco::TrackExtra>& trackExtras) = 0;
+                                std::vector<reco::TrackExtra>& trackExtras,
+                                TrackingRecHitCollection& trackingRecHitCollection) = 0;
 
     virtual void makeTracksters(const Inputs& input,
                                 std::vector<Trackster>& result,

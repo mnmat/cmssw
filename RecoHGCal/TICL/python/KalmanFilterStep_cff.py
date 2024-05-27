@@ -29,6 +29,19 @@ ticlTrackstersKalmanFilter = _trackstersProducer.clone(
     )
 )
 
+ticlTrackstersStandalonePropagator = _trackstersProducer.clone(
+    filtered_mask = "filteredLayerClustersKalmanFilter:KalmanFilter",
+    layer_clusters_tiles = "ticlRecHitTile",
+    seeding_regions = "ticlSeedingTrk",
+    itername = "KalmanFilter",
+    patternRecognitionBy = "KalmanFilter",
+    pluginPatternRecognitionByKalmanFilter = dict (
+        rescaleFTSError = 1., # used to rescale the Error of the last FTS of the Tracker which is propagated to the first layer of HGCAL
+        scaleWindow = 1.,
+        standalonePropagator = True,
+    )
+)
+
 HGCTrackerESProducer = cms.ESProducer("HGCTrackerESProducer",
     radlen = cms.vdouble(1.53770787, 0.71064359, 1.45345887, 0.57315113, 1.02882455,
         0.92384098, 1.15461784, 0.72404336, 0.9948446 , 1.0107427 ,
@@ -56,4 +69,5 @@ HGCTrackerESProducer = cms.ESProducer("HGCTrackerESProducer",
 ticlKalmanFilterStepTask = cms.Task(ticlSeedingTrk
     ,filteredLayerClustersKalmanFilter
     ,HGCTrackerESProducer
-    ,ticlTrackstersKalmanFilter)
+    ,ticlTrackstersKalmanFilter
+    ,ticlTrackstersStandalonePropagator)

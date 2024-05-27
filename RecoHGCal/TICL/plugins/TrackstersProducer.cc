@@ -113,6 +113,7 @@ TrackstersProducer::TrackstersProducer(const edm::ParameterSet& ps)
   produces<std::vector<KFHit>>("KFHits").setBranchAlias("KFHits");
   produces<std::vector<reco::Track>>("HGCALTracks").setBranchAlias("HGCALTracks");
   produces<std::vector<reco::TrackExtra>>("HGCALTrackExtras").setBranchAlias("HGCALTrackExtras");
+  produces<TrackingRecHitCollection>("HGCALTrackingRecHitCollection").setBranchAlias("HGCALTrackingRecHitCollection");
 
   }
 
@@ -160,6 +161,7 @@ void TrackstersProducer::produce(edm::Event& evt, const edm::EventSetup& es) {
   auto kfhits = std::make_unique<std::vector<KFHit>>();
   auto tracks = std::make_unique<std::vector<reco::Track>>();
   auto trackExtras = std::make_unique<std::vector<reco::TrackExtra>>();
+  auto trackingRecHitCollection = std::make_unique<TrackingRecHitCollection>();
 
   const std::vector<float>& original_layerclusters_mask = evt.get(original_layerclusters_mask_token_);
   const auto& layerClusters = evt.get(clusters_token_);
@@ -198,7 +200,7 @@ void TrackstersProducer::produce(edm::Event& evt, const edm::EventSetup& es) {
 
     // TODO(mmatthew): Delete if conditions once correct function definition for KF is found
     if(itername_ == "KalmanFilter"){ 
-      myAlgo_->makeTrajectories(input,*kfhits,*tracks,*trackExtras); ;   
+      myAlgo_->makeTrajectories(input,*kfhits,*tracks,*trackExtras,*trackingRecHitCollection);
     } else {
       myAlgo_->makeTracksters(input, *result, seedToTrackstersAssociation);
     }
@@ -225,4 +227,5 @@ void TrackstersProducer::produce(edm::Event& evt, const edm::EventSetup& es) {
   evt.put(std::move(kfhits),"KFHits");
   evt.put(std::move(tracks),"HGCALTracks");
   evt.put(std::move(trackExtras),"HGCALTrackExtras");
+  evt.put(std::move(trackingRecHitCollection),"HGCALTrackingRecHitCollection");
   }
