@@ -32,7 +32,8 @@ namespace ticl {
     void makeTrajectories(const typename PatternRecognitionAlgoBaseT<TILES>::Inputs& input,
                         std::vector<KFHit>& kfhits,
                         std::vector<reco::Track>& tracks,
-                        std::vector<reco::TrackExtra>& trackExtras) override {};
+                        std::vector<reco::TrackExtra>& trackExtras,
+                        TrackingRecHitCollection& trackingRecHitCollection) override {};
 
     static void fillPSetDescription(edm::ParameterSetDescription& iDesc);
     void setGeometry(hgcal::RecHitTools const& rhtools) override;

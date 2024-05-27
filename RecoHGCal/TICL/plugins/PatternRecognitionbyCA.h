@@ -28,7 +28,8 @@ namespace ticl {
     void makeTrajectories(const typename PatternRecognitionAlgoBaseT<TILES>::Inputs& input,
                         std::vector<KFHit>& kfhits,
                         std::vector<reco::Track>& tracks,
-                        std::vector<reco::TrackExtra>& trackExtras) override {};
+                        std::vector<reco::TrackExtra>& trackExtras,
+                        TrackingRecHitCollection& trackingRecHitCollection) override {};
 
     void emptyTrackstersFromSeedsTRK(std::vector<Trackster>& tracksters,
                                      std::unordered_map<int, std::vector<int>>& seedToTracksterAssociation,
