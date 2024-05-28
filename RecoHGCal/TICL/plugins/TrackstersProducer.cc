@@ -31,7 +31,6 @@
 #include "PhysicsTools/TensorFlow/interface/TensorFlow.h"
 #include "PhysicsTools/TensorFlow/interface/TfGraphDefWrapper.h"
 
-#include "TrackingTools/TrajectoryState/interface/TrajectoryStateOnSurface.h"
 #include "TrackingTools/PatternTools/interface/TempTrajectory.h"
 
 using namespace ticl;
@@ -111,6 +110,7 @@ TrackstersProducer::TrackstersProducer(const edm::ParameterSet& ps)
   produces<std::vector<Trackster>>();
   produces<std::vector<float>>();  // Mask to be applied at the next iteration
   produces<std::vector<KFHit>>("KFHits").setBranchAlias("KFHits");
+  produces<std::vector<KFHit>>("HGCTrajectories").setBranchAlias("HGCTrajectories");
   }
 
 void TrackstersProducer::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
@@ -155,6 +155,7 @@ void TrackstersProducer::produce(edm::Event& evt, const edm::EventSetup& es) {
   auto result = std::make_unique<std::vector<Trackster>>();
   auto output_mask = std::make_unique<std::vector<float>>();
   auto kfhits = std::make_unique<std::vector<KFHit>>();
+
 
   const std::vector<float>& original_layerclusters_mask = evt.get(original_layerclusters_mask_token_);
   const auto& layerClusters = evt.get(clusters_token_);

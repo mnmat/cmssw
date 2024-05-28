@@ -8,6 +8,7 @@
 <use name="MagneticField/Engine"/>
 <use name="Alignment/TrackerAlignment"/>
 <use name="CondFormats/Alignment"/>
+<use name="CalibTracker/SiPixelESProducers"/>
 <use name="DataFormats/GeometryCommonDetAlgo"/>
 <use name="DataFormats/GeometrySurface"/>
 <use name="DataFormats/Math"/>

@@ -77,7 +77,7 @@ namespace ticl {
     bool standalonePropagator_;
     uint32_t geomCacheId_;
     int trackId;
-    int evtId;
+    int evtId{0};
 
     // Instance Variables
     hgcal::RecHitTools rhtools_;
