@@ -140,6 +140,12 @@ PatternRecognitionbyKalmanFilter<TILES>::advanceOneLayer(const Start &start,
     }
 
     auto mest_pair = (*estimator_).estimate(tsos,*hitptr);
+    [[maybe_unused]] auto vec2 = tsos.localPosition() - hitptr->localPosition();
+    auto dist2 = std::sqrt(std::pow(vec2.x(),2) + std::pow(vec2.y(),2));
+    //auto vec3 = tsos.globalPosition() - hitptr->globalPosition();
+    //auto dist3 = std::sqrt(std::pow(vec3.x(),2) + std::pow(vec3.y(),2) + std::pow(vec3.z(),2));
+    //std::cout << hitptr->rawId() << "," << layer << "," << mest_pair.first << "," << mest_pair.second << "," << dist2 << "," << dist3 << std::endl;
+
     if(mest_pair.first){
       meas.emplace_back(tsos,hitptr,mest_pair.second); // Only store measurements that passes chi2 threshold
     }
@@ -149,20 +155,6 @@ PatternRecognitionbyKalmanFilter<TILES>::advanceOneLayer(const Start &start,
   // Fill TempTrajectories
   std::sort(meas.begin(), meas.end(),TrajMeasLessEstim());
   for (const TrajectoryMeasurement &tm : meas){
-
-
-    // DELETE ME: Test for Global and Local points
-
-    std::cout << tsos.globalPosition() << std::endl;
-    std::cout << tsos.localPosition() << std::endl;
-    std::cout << (tm.recHit())->localPosition() << std::endl;
-    std::cout << (tm.recHit())->projectionMatrix() << std::endl;
-
-    // DELETE ME: End
-
-
-
-
     TrajectoryStateOnSurface updated = updator_->update(tm.forwardPredictedState(),*tm.recHit());
     ret.push_back(traj.foundHits() ? traj: TempTrajectory(traj.direction(),0));
     ret.back().push(TrajectoryMeasurement(tm.forwardPredictedState(),
@@ -285,6 +277,8 @@ void PatternRecognitionbyKalmanFilter<TILES>::makeTrajectories(
   init(ev,es);
   const TILES &tiles = input.tiles;
 
+  dumpTiles(tiles);
+
   edm::Handle<reco::TrackCollection> tracks_h;
   ev.getByToken(trackToken_,tracks_h);
   const reco::TrackCollection& tkx = *tracks_h; 
@@ -309,16 +303,24 @@ void PatternRecognitionbyKalmanFilter<TILES>::makeTrajectories(
     
     // Extrapolate track from the tracker to first layer of HGCAL
     std::vector<TempTrajectory> traj = advanceOneLayer(fts, layerdisk,tiles, direction, isSilicon, TempTrajectory(direction,0));
+    for (TempTrajectory& t : traj){
+      auto lm = t.lastMeasurement();
+      auto tsos = lm.predictedState();
+      auto disk = isSilicon? layerdisk->second : layerdisk->first; 
+      int layer = disk->layer();
+      std::cout << lm.recHit()->rawId() << "," << layer << "," << evtId << std::endl;
+    }
+
     if (traj.empty()){
       edm::LogWarning("PatternRecognitionbyKalmanFilter") << "No valid Trajectory found! Skip track!" << std::endl; 
       trackId++;
       continue;
     }
     std::vector<TempTrajectory> traj_kf;
-    traj_kf.push_back(traj.back());
+    traj_kf.push_back(traj.front());
 
     // Fill KFHit
-    auto lm = traj.back().lastMeasurement();
+    auto lm = traj.front().lastMeasurement();
     int layer = layerdisk->second->layer();
     TrajectoryStateOnSurface tsos = standalonePropagator_? lm.predictedState(): lm.updatedState();
     KFHit *kfhit = new KFHit(tsos, lm.recHit()->geographicalId(), tk, trackId, layer);
@@ -330,7 +332,15 @@ void PatternRecognitionbyKalmanFilter<TILES>::makeTrajectories(
       for(TempTrajectory & cand : traj_kf){
         TrajectoryStateOnSurface start = standalonePropagator_? cand.lastMeasurement().predictedState() : cand.lastMeasurement().updatedState();
         std::vector<TempTrajectory> hisTrajs = advanceOneLayer(start, layerdisk, tiles, direction, isSilicon, cand);
-        for(TempTrajectory & t : hisTrajs){
+        for (TempTrajectory& t : hisTrajs){
+          auto lm = t.lastMeasurement();
+          auto tsos = lm.predictedState();
+          auto disk = isSilicon? layerdisk->second : layerdisk->first; 
+          int layer = disk->layer();
+
+          std::cout << lm.recHit()->rawId() << "," << layer << "," << evtId << std::endl;
+        }
+        for(TempTrajectory& t : hisTrajs){
           auto lm = t.lastMeasurement();
           newcands.push_back(t);
           // Fill KFHit
@@ -345,6 +355,7 @@ void PatternRecognitionbyKalmanFilter<TILES>::makeTrajectories(
     }
     trackId++;
   }
+  evtId++;
 }
 
 template <typename TILES>
@@ -356,14 +367,16 @@ void PatternRecognitionbyKalmanFilter<TILES>::dumpTiles(const TILES &tiles) cons
   auto lastLayerPerSide = static_cast<int>(rhtools_.lastLayer(false));
   edm::LogInfo("PatternRecognitionbyKalmanFilter") << lastLayerPerSide << std::endl;
   int maxLayer = 2 * lastLayerPerSide - 1;
+  int count = 0;
   for (int layer = 0; layer <= maxLayer; layer++) {
-    for (int ieta = 0; ieta < nEtaBin; ieta++) {
+    for (int ieta = 0; ieta <= nEtaBin; ieta++) {
       auto offset = ieta * nPhiBin;
-      for (int phi = 0; phi < nPhiBin; phi++) {
+      for (int phi = 0; phi <= nPhiBin; phi++) {
         int iphi = ((phi % nPhiBin + nPhiBin) % nPhiBin);
         if (!tiles[layer][offset + iphi].empty()) {
           edm::LogInfo("PatternRecognitionbyKalmanFilter") << "Layer: " << layer << " ieta: " << ieta << " phi: " << phi
                                                          << " " << tiles[layer][offset + iphi].size() << std::endl;
+          count=count+tiles[layer][offset + iphi].size();
         }
       }
     }
