@@ -961,7 +961,6 @@ LocalError HGCalGeometry::getLocalError(const DetId& id) const {
     float var;
     if (isInitHGCSi){
       var = (subDetId.type() == HGCSiliconDetId::HGCalFine ? HGCSiFineError:HGCSiCoarseError);   
-      std::cout << "HGCSiliconError from Cache: " << var << std::endl;
     }
     else {
       var = calculateHexError(id);

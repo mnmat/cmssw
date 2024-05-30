@@ -12,12 +12,10 @@ class PCaloHit {
 public:
   PCaloHit(float e = 0., float t = 0., int i = 0, float emFraction = 1., uint16_t d = 0, math::XYZPoint position = math::XYZPoint(0.0, 0.0, 0.0))
       : myEnergy(e), myEMFraction(emFraction), myTime(t), myItra(i), myDepth(d), myPosition(position) {
-        std::cout << "1st Constructor" << std::endl;
       }
 
   PCaloHit(unsigned int id, float e = 0., float t = 0., int i = 0, float emFraction = 1., uint16_t d = 0, math::XYZPoint position = math::XYZPoint(0.0, 0.0, 0.0))
       : myEnergy(e), myEMFraction(emFraction), myTime(t), myItra(i), detId(id), myDepth(d), myPosition(position) {
-        std::cout << "2st Constructor" << std::endl;
 
       }
   PCaloHit(float eEM, float eHad, float t, int i = 0, uint16_t d = 0, math::XYZPoint position = math::XYZPoint(0.0, 0.0, 0.0));

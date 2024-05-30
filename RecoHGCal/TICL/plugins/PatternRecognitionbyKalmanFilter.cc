@@ -322,7 +322,8 @@ void PatternRecognitionbyKalmanFilter<TILES>::makeTrajectories(
     // Fill KFHit
     auto lm = traj.front().lastMeasurement();
     int layer = layerdisk->second->layer();
-    TrajectoryStateOnSurface tsos = standalonePropagator_? lm.predictedState(): lm.updatedState();
+    //TrajectoryStateOnSurface tsos = standalonePropagator_? lm.predictedState(): lm.updatedState();
+    TrajectoryStateOnSurface tsos = lm.predictedState();
     KFHit *kfhit = new KFHit(tsos, lm.recHit()->geographicalId(), tk, trackId, layer);
     kfhits.push_back(*kfhit);
 
@@ -344,7 +345,8 @@ void PatternRecognitionbyKalmanFilter<TILES>::makeTrajectories(
           auto lm = t.lastMeasurement();
           newcands.push_back(t);
           // Fill KFHit
-          TrajectoryStateOnSurface tsos = standalonePropagator_? lm.predictedState(): lm.updatedState();
+          //TrajectoryStateOnSurface tsos = standalonePropagator_? lm.predictedState(): lm.updatedState();
+          TrajectoryStateOnSurface tsos = lm.predictedState();
           layer = layerdisk->second->layer();
           KFHit *kfhit = new KFHit(tsos, lm.recHit()->geographicalId(), tk, trackId, layer);
           kfhits.push_back(*kfhit);

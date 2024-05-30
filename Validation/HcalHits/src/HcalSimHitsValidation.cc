@@ -293,7 +293,6 @@ void HcalSimHitsValidation::analyze(edm::Event const &ev, edm::EventSetup const 
   if (!evtMC.isValid()) {
     edm::LogVerbatim("OutputInfo") << "no HepMCProduct found";
   }
-
   // MC particle with highest pt is taken as a direction reference
   double maxPt = -99999.;
 
@@ -309,7 +308,6 @@ void HcalSimHitsValidation::analyze(edm::Event const &ev, edm::EventSetup const 
       eta_MC = etap;
     }
   }
-
   double partR = 0.3;
 
   // Hcal SimHits
@@ -339,6 +337,7 @@ void HcalSimHitsValidation::analyze(edm::Event const &ev, edm::EventSetup const 
     else
       cell = HcalDetId(SimHits->id());
 
+
     auto cellGeometry = geometry_->getSubdetectorGeometry(cell)->getGeometry(cell);
     double etaS = cellGeometry->getPosition().eta();
     double phiS = cellGeometry->getPosition().phi();
@@ -348,8 +347,10 @@ void HcalSimHitsValidation::analyze(edm::Event const &ev, edm::EventSetup const 
     int depth = cell.depth();
     double ieta = cell.ieta();
 
+
     // Energy in Cone
     double r = dR(eta_MC, phi_MC, etaS, phiS);
+
 
     if (r < partR) {
       eta_diff = std::abs(eta_MC - etaS);
@@ -367,6 +368,7 @@ void HcalSimHitsValidation::analyze(edm::Event const &ev, edm::EventSetup const 
       else if (sub == 4 && (depth == 2 || depth == 4))
         HcalCone += en * calib_HF2;
     }
+
 
     if (auxPlots_) {
       // HB
@@ -418,6 +420,7 @@ void HcalSimHitsValidation::analyze(edm::Event const &ev, edm::EventSetup const 
   // Ecal EB SimHits
   double EcalCone = 0;
 
+
   if (!ebHits_.empty()) {
     const auto &SimHitResultEB = &ev.get(tok_ecalEB_);
 
@@ -436,7 +439,6 @@ void HcalSimHitsValidation::analyze(edm::Event const &ev, edm::EventSetup const 
         EcalCone += en;
     }
   }  // ebHits_
-
   // Ecal EE SimHits
   if (!eeHits_.empty()) {
     const auto &SimHitResultEE = &ev.get(tok_ecalEE_);

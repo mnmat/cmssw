@@ -163,6 +163,7 @@ void EBHitResponseImpl<constset>::putAnalogSignal(const PCaloHit& hit, CLHEP::He
 template <class constset>
 double EBHitResponseImpl<constset>::apdSignalAmplitude(const PCaloHit& hit, CLHEP::HepRandomEngine* engine) const {
   int iddepth = (hit.depth() & PCaloHit::kEcalDepthIdMask);
+  std::cout << hit.depth() << ", " << iddepth << std::endl;
   assert(1 == iddepth || 2 == iddepth);
 
   double npe(hit.energy() * (2 == iddepth ? apdParameters()->simToPELow() : apdParameters()->simToPEHigh()));
