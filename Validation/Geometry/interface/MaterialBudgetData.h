@@ -120,6 +120,31 @@ public:
   float getHGC_EEConnectorIL() const { return theHGC_EEConnectorIL; }
   float getHGC_HEConnectorIL() const { return theHGC_HEConnectorIL; }
 
+
+  float getTotalXI() const { return theTotalXI; }
+  float getSupportXI() const { return theSupportXI; }
+  float getSensitiveXI() const { return theSensitiveXI; }
+  float getCablesXI() const { return theCablesXI; }
+  float getCoolingXI() const { return theCoolingXI; }
+  float getElectronicsXI() const { return theElectronicsXI; }
+  float getOtherXI() const { return theOtherXI; }
+  float getAirXI() const { return theAirXI; }
+  //HGCal
+  float getCopperXI() const { return theCopperXI; }
+  float getH_ScintillatorXI() const { return theH_ScintillatorXI; }
+  float getLeadXI() const { return theLeadXI; }
+  float getEpoxyXI() const { return theEpoxyXI; }
+  float getKaptonXI() const { return theKaptonXI; }
+  float getAluminiumXI() const { return theAluminiumXI; }
+  float getHGC_G10_FR4XI() const { return theHGC_G10_FR4XI; }
+  float getSiliconXI() const { return theSiliconXI; }
+  float getStainlessSteelXI() const { return theStainlessSteelXI; }
+  float getWCuXI() const { return theWCuXI; }
+  float getPolystyreneXI() const { return thePolystyreneXI; }
+  float getHGC_EEConnectorXI() const { return theHGC_EEConnectorXI; }
+  float getHGC_HEConnectorXI() const { return theHGC_HEConnectorXI; }
+
+
   float getEta() const { return theEta; }
   float getPhi() const { return thePhi; }
 
@@ -180,6 +205,28 @@ public:
   float getHGC_EEConnectorDil(int is) const { return theHGC_EEConnectorDil[is]; }
   float getHGC_HEConnectorDil(int is) const { return theHGC_HEConnectorDil[is]; }
 
+  float getStepDxi(int is) { return theDxi[is]; }
+  float getSupportDxi(int is) const { return theSupportDxi[is]; }
+  float getSensitiveDxi(int is) const { return theSensitiveDxi[is]; }
+  float getCablesDxi(int is) const { return theCablesDxi[is]; }
+  float getCoolingDxi(int is) const { return theCoolingDxi[is]; }
+  float getElectronicsDxi(int is) const { return theElectronicsDxi[is]; }
+  float getOtherDxi(int is) const { return theOtherDxi[is]; }
+  float getAirDxi(int is) const { return theAirDxi[is]; }
+  float getCopperDxi(int is) const { return theCopperDxi[is]; }
+  float getH_ScintillatorDxi(int is) const { return theH_ScintillatorDxi[is]; }
+  float getLeadDxi(int is) const { return theLeadDxi[is]; }
+  float getEpoxyDxi(int is) const { return theEpoxyDxi[is]; }
+  float getKaptonDxi(int is) const { return theKaptonDxi[is]; }
+  float getAluminiumDxi(int is) const { return theAluminiumDxi[is]; }
+  float getHGC_G10_FR4Dxi(int is) const { return theHGC_G10_FR4Dxi[is]; }
+  float getSiliconDxi(int is) const { return theSiliconDxi[is]; }
+  float getStainlessSteelDxi(int is) const { return theStainlessSteelDxi[is]; }
+  float getWCuDxi(int is) const { return theWCuDxi[is]; }
+  float getPolystyreneDxi(int is) const { return thePolystyreneDxi[is]; }
+  float getHGC_EEConnectorDxi(int is) const { return theHGC_EEConnectorDxi[is]; }
+  float getHGC_HEConnectorDxi(int is) const { return theHGC_HEConnectorDxi[is]; }
+
   double getStepInitialX(int is) { return theInitialX[is]; }
   double getStepInitialY(int is) { return theInitialY[is]; }
   double getStepInitialZ(int is) { return theInitialZ[is]; }
@@ -229,6 +276,7 @@ public:
   std::string getStepMaterialName(int is) { return theMaterialName[is]; }
   float getStepMaterialX0(int is) { return theMaterialX0[is]; }
   float getStepMaterialLambda0(int is) { return theMaterialLambda0[is]; }
+  float getStepMaterialXi(int is) { return theMaterialXi[is]; }
   float getStepMaterialDensity(int is) { return theMaterialDensity[is]; }
 
   bool allStepsON() { return allStepsToTree; }
@@ -297,6 +345,7 @@ private:
   float thePolystyreneMB;
   float theHGC_EEConnectorMB;
   float theHGC_HEConnectorMB;
+
   float theTotalIL;
   float theSupportIL;
   float theSensitiveIL;
@@ -333,6 +382,29 @@ private:
   float thePolystyreneIL;
   float theHGC_EEConnectorIL;
   float theHGC_HEConnectorIL;
+
+
+  float theTotalXI;
+  float theSupportXI;
+  float theSensitiveXI;
+  float theCablesXI;
+  float theCoolingXI;
+  float theElectronicsXI;
+  float theOtherXI;
+  float theAirXI;
+  float theCopperXI;
+  float theH_ScintillatorXI;
+  float theLeadXI;
+  float theEpoxyXI;
+  float theKaptonXI;
+  float theAluminiumXI;
+  float theHGC_G10_FR4XI;
+  float theSiliconXI;
+  float theStainlessSteelXI;
+  float theWCuXI;
+  float thePolystyreneXI;
+  float theHGC_EEConnectorXI;
+  float theHGC_HEConnectorXI;
 
   int theStepN;
   std::array<double, MAXNUMBERSTEPS> theInitialX;
@@ -387,6 +459,29 @@ private:
   std::array<float, MAXNUMBERSTEPS> theHGC_EEConnectorDil;
   std::array<float, MAXNUMBERSTEPS> theHGC_HEConnectorDil;
 
+  std::array<float, MAXNUMBERSTEPS> theDxi;
+  std::array<float, MAXNUMBERSTEPS> theSupportDxi;
+  std::array<float, MAXNUMBERSTEPS> theSensitiveDxi;
+  std::array<float, MAXNUMBERSTEPS> theCablesDxi;
+  std::array<float, MAXNUMBERSTEPS> theCoolingDxi;
+  std::array<float, MAXNUMBERSTEPS> theElectronicsDxi;
+  std::array<float, MAXNUMBERSTEPS> theOtherDxi;
+  std::array<float, MAXNUMBERSTEPS> theAirDxi;
+  std::array<float, MAXNUMBERSTEPS> theCopperDxi;
+  std::array<float, MAXNUMBERSTEPS> theH_ScintillatorDxi;
+  std::array<float, MAXNUMBERSTEPS> theLeadDxi;
+  std::array<float, MAXNUMBERSTEPS> theEpoxyDxi;
+  std::array<float, MAXNUMBERSTEPS> theKaptonDxi;
+  std::array<float, MAXNUMBERSTEPS> theAluminiumDxi;
+  std::array<float, MAXNUMBERSTEPS> theHGC_G10_FR4Dxi;
+  std::array<float, MAXNUMBERSTEPS> theSiliconDxi;
+  std::array<float, MAXNUMBERSTEPS> theStainlessSteelDxi;
+  std::array<float, MAXNUMBERSTEPS> theWCuDxi;
+  std::array<float, MAXNUMBERSTEPS> thePolystyreneDxi;
+  std::array<float, MAXNUMBERSTEPS> theHGC_EEConnectorDxi;
+  std::array<float, MAXNUMBERSTEPS> theHGC_HEConnectorDxi;
+
+
   std::array<int, MAXNUMBERSTEPS> theVolumeID;
   std::array<std::string, MAXNUMBERSTEPS> theVolumeName;
   std::array<int, MAXNUMBERSTEPS> theVolumeCopy;
@@ -407,6 +502,7 @@ private:
   std::array<std::string, MAXNUMBERSTEPS> theMaterialName;
   std::array<float, MAXNUMBERSTEPS> theMaterialX0;
   std::array<float, MAXNUMBERSTEPS> theMaterialLambda0;
+  std::array<float, MAXNUMBERSTEPS> theMaterialXi;
   std::array<float, MAXNUMBERSTEPS> theMaterialDensity;
 
   std::array<int, MAXNUMBERSTEPS> theStepID;

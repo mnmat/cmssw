@@ -35,6 +35,7 @@ void MaterialBudgetData::dataStartTrack(const G4Track* aTrack) {
   theStepN = 0;
   theTotalMB = 0;
   theTotalIL = 0;
+  theTotalXI = 0;
   theEta = 0;
   thePhi = 0;
   theID = 0;
@@ -87,6 +88,31 @@ void MaterialBudgetData::dataStartTrack(const G4Track* aTrack) {
   thePolystyreneIL = 0.f;
   theHGC_EEConnectorIL = 0.f;
   theHGC_HEConnectorIL = 0.f;
+
+
+  theSupportXI = 0.f;
+  theSensitiveXI = 0.f;
+  theCoolingXI = 0.f;
+  theElectronicsXI = 0.f;
+  theOtherXI = 0.f;
+
+  //HGCal
+  theAirXI = 0.f;
+  theCablesXI = 0.f;
+  theCopperXI = 0.f;
+  theH_ScintillatorXI = 0.f;
+  theLeadXI = 0.f;
+  theEpoxyXI = 0.f;
+  theKaptonXI = 0.f;
+  theAluminiumXI = 0.f;
+  theHGC_G10_FR4XI = 0.f;
+  theSiliconXI = 0.f;
+  theStainlessSteelXI = 0.f;
+  theWCuXI = 0.f;
+  thePolystyreneXI = 0.f;
+  theHGC_EEConnectorXI = 0.f;
+  theHGC_HEConnectorXI = 0.f;
+
 
   theSupportFractionMB = 0.f;
   theSensitiveFractionMB = 0.f;
@@ -145,8 +171,6 @@ void MaterialBudgetData::dataStartTrack(const G4Track* aTrack) {
 }
 
 void MaterialBudgetData::dataEndTrack(const G4Track* aTrack) {
-
-  std::cout << "End Track" << std::endl;
 
   LogDebug("MaterialBudget") << "MaterialBudgetData: [OVAL] MaterialBudget "
                              << G4EventManager::GetEventManager()->GetConstCurrentEvent()->GetEventID()
@@ -211,6 +235,10 @@ void MaterialBudgetData::dataPerStep(const G4Step* aStep) {
   G4double radlen = theMaterialPre->GetRadlen();
   G4double intlen = theMaterialPre->GetNuclearInterLength();
   G4double density = theMaterialPre->GetDensity() / densityConvertionFactor;  // always g/cm3
+
+  G4double ne = theMaterialPre->GetElectronDensity()*CLHEP::cm3;
+  G4double xi = 0.307075 * (ne/6.0221415e23) * 0.5 / 1000; // MeV / cm, as defined in DataFormats/GeometrySurface/interface/MediumProperties.h
+  xi = xi / CLHEP::cm; //steplength given in mm so need to convert to MeV / mm
 
   G4String materialName = static_cast<std::string>(dd4hep::dd::noNamespace(theMaterialPre->GetName()));
 
@@ -366,6 +394,7 @@ void MaterialBudgetData::dataPerStep(const G4Step* aStep) {
 
   float dmb = steplen / radlen;
   float dil = steplen / intlen;
+  float dxi = steplen * xi;
 
   G4VPhysicalVolume* pv = aStep->GetPreStepPoint()->GetPhysicalVolume();
   const G4VTouchable* t = aStep->GetPreStepPoint()->GetTouchable();
@@ -389,6 +418,8 @@ void MaterialBudgetData::dataPerStep(const G4Step* aStep) {
       theStepN = MAXNUMBERSTEPS - 1;
     theDmb[theStepN] = dmb;
     theDil[theStepN] = dil;
+    theDxi[theStepN] = dxi;
+
     theSupportDmb[theStepN] = (dmb * theSupportFractionMB);
     theSensitiveDmb[theStepN] = (dmb * theSensitiveFractionMB);
     theCoolingDmb[theStepN] = (dmb * theCoolingFractionMB);
@@ -445,6 +476,29 @@ void MaterialBudgetData::dataPerStep(const G4Step* aStep) {
     theHGC_EEConnectorDil[theStepN] = (dil * theHGC_EEConnectorFractionIL);
     theHGC_HEConnectorDil[theStepN] = (dil * theHGC_HEConnectorFractionIL);
 
+    theSupportDxi[theStepN] = (dxi * theSupportFractionMB);
+    theSensitiveDxi[theStepN] = (dxi * theSensitiveFractionMB);
+    theCoolingDxi[theStepN] = (dxi * theCoolingFractionMB);
+    theElectronicsDxi[theStepN] = (dxi * theElectronicsFractionMB);
+    theOtherDxi[theStepN] = (dxi * theOtherFractionMB);
+    //HGCal
+    theAirDxi[theStepN] = (dxi * theAirFractionMB);
+    theCablesDxi[theStepN] = (dxi * theCablesFractionMB);
+    theCopperDxi[theStepN] = (dxi * theCopperFractionMB);
+    theH_ScintillatorDxi[theStepN] = (dxi * theH_ScintillatorFractionMB);
+    theLeadDxi[theStepN] = (dxi * theLeadFractionMB);
+    theEpoxyDxi[theStepN] = (dxi * theEpoxyFractionMB);
+    theKaptonDxi[theStepN] = (dxi * theKaptonFractionMB);
+    theAluminiumDxi[theStepN] = (dxi * theAluminiumFractionMB);
+    theHGC_G10_FR4Dxi[theStepN] = (dxi * theHGC_G10_FR4FractionMB);
+    theSiliconDxi[theStepN] = (dxi * theSiliconFractionMB);
+    theStainlessSteelDxi[theStepN] = (dxi * theStainlessSteelFractionMB);
+    theWCuDxi[theStepN] = (dxi * theWCuFractionMB);
+    thePolystyreneDxi[theStepN] = (dxi * thePolystyreneFractionMB);
+    theHGC_EEConnectorDxi[theStepN] = (dxi * theHGC_EEConnectorFractionMB);
+    theHGC_HEConnectorDxi[theStepN] = (dxi * theHGC_HEConnectorFractionMB);
+
+
     theInitialX[theStepN] = prePos.x();
     theInitialY[theStepN] = prePos.y();
     theInitialZ[theStepN] = prePos.z();
@@ -470,6 +524,7 @@ void MaterialBudgetData::dataPerStep(const G4Step* aStep) {
     theMaterialName[theStepN] = materialName;
     theMaterialX0[theStepN] = radlen;
     theMaterialLambda0[theStepN] = intlen;
+    theMaterialXi[theStepN] = xi;
     theMaterialDensity[theStepN] = density;
     theStepID[theStepN] = track->GetDefinition()->GetPDGEncoding();
     theStepInitialPt[theStepN] = prePoint->GetMomentum().perp();
@@ -511,7 +566,12 @@ void MaterialBudgetData::dataPerStep(const G4Step* aStep) {
                                << " Support " << theSupportDil[theStepN] << " Sensitive " << theSensitiveDil[theStepN]
                                << " Cables " << theCablesDil[theStepN] << " Cooling " << theCoolingDil[theStepN]
                                << " Electronics " << theElectronicsDil[theStepN] << " Other " << theOtherDil[theStepN]
-                               << " Air " << theAirDil[theStepN];
+                               << " Air " << theAirDil[theStepN] << std::endl
+                               << "\tDelta Xi = " << theDxi[theStepN] << std::endl
+                               << " Support " << theSupportDxi[theStepN] << " Sensitive " << theSensitiveDxi[theStepN]
+                               << " Cables " << theCablesDxi[theStepN] << " Cooling " << theCoolingDxi[theStepN]
+                               << " Electronics " << theElectronicsDxi[theStepN] << " Other " << theOtherDxi[theStepN]
+                               << " Air " << theAirDxi[theStepN];
 
     if (interactionPre)
       LogDebug("MaterialBudget") << "MaterialBudgetData: Process Pre " << interactionPre->GetProcessName() << " type "
@@ -572,6 +632,7 @@ void MaterialBudgetData::dataPerStep(const G4Step* aStep) {
   theIntLen = intlen;
   theTotalMB += dmb;
   theTotalIL += dil;
+  theTotalXI += dxi;
 
   theSupportMB += (dmb * theSupportFractionMB);
   theSensitiveMB += (dmb * theSensitiveFractionMB);
@@ -617,6 +678,28 @@ void MaterialBudgetData::dataPerStep(const G4Step* aStep) {
   thePolystyreneIL += (dil * thePolystyreneFractionIL);
   theHGC_EEConnectorIL += (dil * theHGC_EEConnectorFractionIL);
   theHGC_HEConnectorIL += (dil * theHGC_HEConnectorFractionIL);
+
+  theSupportXI += (dxi * theSupportFractionMB);
+  theSensitiveXI += (dxi * theSensitiveFractionMB);
+  theCoolingXI += (dxi * theCoolingFractionMB);
+  theElectronicsXI += (dxi * theElectronicsFractionMB);
+  theOtherXI += (dxi * theOtherFractionMB);
+  //HGCal
+  theAirXI += (dxi * theAirFractionMB);
+  theCablesXI += (dxi * theCablesFractionMB);
+  theCopperXI += (dxi * theCopperFractionMB);
+  theH_ScintillatorXI += (dxi * theH_ScintillatorFractionMB);
+  theLeadXI += (dxi * theLeadFractionMB);
+  theEpoxyXI += (dxi * theEpoxyFractionMB);
+  theKaptonXI += (dxi * theKaptonFractionMB);
+  theAluminiumXI += (dxi * theAluminiumFractionMB);
+  theHGC_G10_FR4XI += (dxi * theHGC_G10_FR4FractionMB);
+  theSiliconXI += (dxi * theSiliconFractionMB);
+  theStainlessSteelXI += (dxi * theStainlessSteelFractionMB);
+  theWCuXI += (dxi * theWCuFractionMB);
+  thePolystyreneXI += (dxi * thePolystyreneFractionMB);
+  theHGC_EEConnectorXI += (dxi * theHGC_EEConnectorFractionMB);
+  theHGC_HEConnectorXI += (dxi * theHGC_HEConnectorFractionMB);
 
   // rr
 
