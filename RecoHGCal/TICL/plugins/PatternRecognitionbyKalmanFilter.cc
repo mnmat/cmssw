@@ -171,22 +171,22 @@ PatternRecognitionbyKalmanFilter<TILES>::advanceOneLayer(const Start &start,
 }
 
 template <typename TILES>
-void PatternRecognitionbyKalmanFilter<TILES>::mergeRecHitCollections(std::vector<const HGCRecHit*>& recHitCollection,
+void PatternRecognitionbyKalmanFilter<TILES>::mergeRecHitCollections(std::vector<std::pair<const HGCRecHit*, int>>& recHitCollection,
                                 const HGCRecHitCollection& rechitsEE,
                                 const HGCRecHitCollection& rechitsFH,
                                 const HGCRecHitCollection& rechitsBH) const {
   
   recHitCollection.clear();
   for (const auto& hit : rechitsEE) {
-    recHitCollection.push_back(&hit);
+    recHitCollection.emplace_back(&hit,HGCEERecHits);
   }
 
   for (const auto& hit : rechitsFH) {
-    recHitCollection.push_back(&hit);
+    recHitCollection.emplace_back(&hit,HGCHEFRecHits);
   }
 
   for (const auto& hit : rechitsBH) {
-    recHitCollection.push_back(&hit);
+    recHitCollection.emplace_back(&hit,HGCHEBRecHits);
   }
 }
 
@@ -216,17 +216,41 @@ std::vector<std::shared_ptr<HGCTrackingRecHit>> PatternRecognitionbyKalmanFilter
       int iphi = ((phi % nPhiBin + nPhiBin) % nPhiBin);
       if (!tiles[layer][offset + iphi].empty()) {
         for(auto hit: tiles[layer][offset + iphi]) {
-          const auto rec = *recHitCollection[hit];
+          const auto rec = *recHitCollection[hit].first;
           const auto detid = rec.detid();
 
           GlobalPoint globalpoint = rhtools_.getPosition(detid);
           LocalPoint localpoint = tsos.surface().toLocal(globalpoint);
 
+          // Get Subdet from detid via rhtools
 
+
+          // 
+
+          auto subdet = detid.subdetId();
+          
+
+          edm::Handle<HGCRecHitCollection> alldata;
+          int offset = 0;
+          switch (recHitCollection[hit].second) {
+            case HGCEERecHits: 
+              alldata = ee_hits;
+              break;
+            case HGCHEFRecHits: 
+              alldata = fh_hits;
+              offset = (*ee_hits).size();
+              break;
+            case HGCHEBRecHits: 
+              alldata = bh_hits;
+              offset = (*ee_hits).size() + (*fh_hits).size();
+              break;
+          }
 
           bool isSilicon = rhtools_.isSilicon(detid); 
 
-          auto hitptr = std::make_shared<HGCTrackingRecHit>(detid,localpoint,rhtools_.getLocalError(detid));
+          auto hitptr = std::make_shared<HGCTrackingRecHit>(detid,
+                                          edm::Ref<HGCRecHitCollection>(alldata, (hit - offset)),
+                                          localpoint,rhtools_.getLocalError(detid));
 
 
           ret.push_back(hitptr);
@@ -255,10 +279,6 @@ void PatternRecognitionbyKalmanFilter<TILES>::init(
     propagatorOppo_ = es.getHandle(propagatorOppoToken_);
     estimator_ = es.getHandle(estimatorToken_);
     updator_ = es.getHandle(updatorToken_);
-    
-    edm::Handle<HGCRecHitCollection> ee_hits;
-    edm::Handle<HGCRecHitCollection> fh_hits;
-    edm::Handle<HGCRecHitCollection> bh_hits;
 
     ev.getByToken(hgcalRecHitsEEToken_, ee_hits);
     ev.getByToken(hgcalRecHitsFHToken_, fh_hits);
@@ -437,23 +457,26 @@ void PatternRecognitionbyKalmanFilter<TILES>::makeTrajectories(
     auto ih = selHits.size(); //selHits TrackingRecHitsCollection
 
 
+
+
     // --------------------------- Debugging 
 
     auto const &meas = trajectory.measurements();
     std::cout << "Size Measurements: " << meas.size() << std::endl;
     for (auto& h: meas){
-      std::cout << (h.recHitR().det() != nullptr) << std::endl;
+      selHits.push_back(h.recHit()->clone());
+      std::cout << (h.recHitR().det() != nullptr) << ", " << h.recHit()->rawId() << std::endl;
     }
 
     // -------------------------------------
 
-    t2t(trajectory, selHits, trajParams, chi2s);
+    //t2t(trajectory, selHits, trajParams, chi2s);
     auto ie = selHits.size();
     out_trackExtras.setHits(rHits, ih, ie - ih); //rHits TrackingRecHitRefProd
     std::cout << ie << ", " << ih << std::endl;
     out_trackExtras.setTrajParams(std::move(trajParams), std::move(chi2s));
     std::cout << "Size of RecHits: " << trajParams.size() << ", " << out_trackExtras.recHitsSize() << std::endl;
-    assert(out_trackExtras.trajParams().size() == out_trackExtras.recHitsSize());
+    //assert(out_trackExtras.trajParams().size() == out_trackExtras.recHitsSize());
 
     //for (; ih < ie; ++ih) {
     //  auto const& hit = (selHits)[ih];

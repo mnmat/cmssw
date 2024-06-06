@@ -65,6 +65,7 @@ namespace ticl {
     edm::EDGetTokenT<HGCRecHitCollection> hgcalRecHitsEEToken_; 
     edm::EDGetTokenT<HGCRecHitCollection> hgcalRecHitsFHToken_;
     edm::EDGetTokenT<HGCRecHitCollection> hgcalRecHitsBHToken_;
+
     edm::ESHandle<MagneticField> bfield_;
     edm::ESHandle<Propagator> propagator_;
     edm::ESHandle<Chi2MeasurementEstimatorBase> estimator_;
@@ -72,6 +73,9 @@ namespace ticl {
     edm::ESHandle<Propagator> propagatorOppo_;
     edm::ESGetToken<HGCDiskGeomDetVector,CaloGeometryRecord> diskToken_;
     edm::ESGetToken<HGCTracker,CaloGeometryRecord> hgcTrackerToken_;
+    edm::Handle<HGCRecHitCollection> ee_hits;
+    edm::Handle<HGCRecHitCollection> fh_hits;
+    edm::Handle<HGCRecHitCollection> bh_hits;
 
     double rescaleFTSError_;
     double scaleWindow_;
@@ -83,9 +87,15 @@ namespace ticl {
 
     // Instance Variables
     hgcal::RecHitTools rhtools_;
-    std::vector<const HGCRecHit*> recHitCollection;
+    std::vector<std::pair<const HGCRecHit*, int>> recHitCollection;
     const HGCTracker* hgcTracker_;
     //TrackerTopology ttopo;
+
+    enum TColl{
+      HGCEERecHits,
+      HGCHEFRecHits,
+      HGCHEBRecHits,    
+    };
 
     static constexpr float etaBinSize = (TILES::constants_type_t::maxEta - TILES::constants_type_t::minEta)/TILES::constants_type_t::nEtaBins;
     static constexpr float phiBinSize = 2*M_PI/TILES::constants_type_t::nPhiBins;
@@ -105,7 +115,7 @@ namespace ticl {
       PropagationDirection direction, 
       bool &isSilicon,
       TempTrajectory traj);
-    virtual void mergeRecHitCollections(std::vector<const HGCRecHit*>& recHitCollection,
+    virtual void mergeRecHitCollections(std::vector<std::pair<const HGCRecHit*, int>>& recHitCollection,
         const HGCRecHitCollection& recHitsEE,
         const HGCRecHitCollection& recHitsFH,
         const HGCRecHitCollection& recHitsBH) const;
