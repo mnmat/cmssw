@@ -27,6 +27,7 @@
 <use name="RecoLocalCalo/HGCalRecAlgos"/>
 <use name="RecoLocalCalo/HGCalRecProducers"/>
 <use name="RecoHGCal/TICL"/>
+<use name="RecoTracker/TrackProducer"/>
 <use name="RecoParticleFlow/PFProducer"/>
 <use name="SimDataFormats/Associations"/>
 <use name="SimDataFormats/CaloAnalysis"/>

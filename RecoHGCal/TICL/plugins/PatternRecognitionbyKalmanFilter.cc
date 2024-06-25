@@ -27,6 +27,7 @@
 #include "RecoLocalCalo/HGCalRecAlgos/interface/RecHitTools.h"
 
 #include "RecoTracker/TransientTrackingRecHit/interface/Traj2TrackHits.h"
+#include "RecoTracker/TrackProducer/src/TrajectoryToResiduals.h"
 
 #include "TrackingTools/GeomPropagators/interface/Propagator.h"
 #include "TrackingTools/KalmanUpdators/interface/Chi2MeasurementEstimatorBase.h"
@@ -470,6 +471,8 @@ void PatternRecognitionbyKalmanFilter<TILES>::makeTrajectories(
 
     // -------------------------------------
 
+
+
     //t2t(trajectory, selHits, trajParams, chi2s);
     auto ie = selHits.size();
     out_trackExtras.setHits(rHits, ih, ie - ih); //rHits TrackingRecHitRefProd
@@ -482,6 +485,8 @@ void PatternRecognitionbyKalmanFilter<TILES>::makeTrajectories(
     //  auto const& hit = (selHits)[ih];
     //  out_Track.appendHitPattern(hit, *ttopo);
     //}
+
+    out_trackExtras.setResiduals(trajectoryToResiduals(trajectory));
 
     trackExtras.push_back(out_trackExtras);
     tracks.push_back(out_Track);
