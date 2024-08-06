@@ -7,6 +7,8 @@
 #include "RecoTracker/Record/interface/TrackerRecoGeometryRecord.h"
 #include "RecoMuon/Records/interface/MuonRecoGeometryRecord.h"
 #include "RecoMTD/Records/interface/MTDRecoGeometryRecord.h"
+#include "Geometry/Records/interface/CaloRecoGeometryRecord.h"
+
 //#include "RecoTracker/Record/interface/NavigationSchoolRecord.h"
 //#include "MagneticField/Records/interface/IdealMagneticFieldRecord.h"
 
@@ -14,7 +16,7 @@
 
 class RecoGeometryRecord : public edm::eventsetup::DependentRecordImplementation<
                                RecoGeometryRecord,
-                               edm::mpl::Vector<TrackerRecoGeometryRecord, MuonRecoGeometryRecord, MTDRecoGeometryRecord
+                               edm::mpl::Vector<TrackerRecoGeometryRecord, MuonRecoGeometryRecord, MTDRecoGeometryRecord, CaloRecoGeometryRecord
                                                 //,NavigationSchoolRecord,
                                                 //IdealMagneticFieldRecord
                                                 > > {};
