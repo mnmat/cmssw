@@ -485,7 +485,7 @@ void PatternRecognitionbyKalmanFilter<TILES>::makeTrajectories(
     //  out_Track.appendHitPattern(hit, *ttopo);
     //}
 
-    out_trackExtras.setResiduals(trajectoryToResiduals(trajectory));
+    //out_trackExtras.setResiduals(trajectoryToResiduals(trajectory));
 
     trackExtras.push_back(out_trackExtras);
     tracks.push_back(out_Track);
