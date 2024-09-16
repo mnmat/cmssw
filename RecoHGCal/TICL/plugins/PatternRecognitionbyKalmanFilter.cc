@@ -118,7 +118,9 @@ PatternRecognitionbyKalmanFilter<TILES>::advanceOneLayer(const Start &start,
   auto disk = isSilicon? diskLayer->second : diskLayer->first;         
   const Propagator &prop = (direction == alongMomentum ? *propagator_ : *propagatorOppo_);
   TrajectoryStateOnSurface tsos = prop.propagate(start, disk->surface());
-  if (!tsos.isValid()) return ret; 
+  if (!tsos.isValid()){
+    return ret; 
+  }
 
   // Find recHits
   int layer = disk->layer();
@@ -342,159 +344,152 @@ void PatternRecognitionbyKalmanFilter<TILES>::makeTrajectories(
     auto lm = traj.back().lastMeasurement();
     int layer = layerdisk->second->layer();
     TrajectoryStateOnSurface tsos = standalonePropagator_? lm.predictedState(): lm.updatedState();
-    KFHit *kfhit = new KFHit(tsos, lm.recHit()->geographicalId(), tk, trackId, layer);
+    KFHit *kfhit = new KFHit(lm.predictedState(), lm.recHit()->geographicalId(), tk, trackId, layer);
     kfhits.push_back(*kfhit);
 
     // Loop over all disks to create trajectory
     for(layerdisk = hgcTracker_->nextDisk(layerdisk,direction,isSilicon); layerdisk != nullptr; layerdisk = hgcTracker_->nextDisk(layerdisk,direction,isSilicon)){
+
       std::vector<TempTrajectory> newcands;
       for(TempTrajectory & cand : traj_kf){
         TrajectoryStateOnSurface start = cand.lastMeasurement().updatedState();
         std::vector<TempTrajectory> hisTrajs = advanceOneLayer(start, layerdisk, tiles, direction, isSilicon, cand);
         for(TempTrajectory & t : hisTrajs){
           auto lm = t.lastMeasurement();
-           std::cout << (lm.recHitR().det() != nullptr) << std::endl;
           newcands.push_back(t);
           // Fill KFHit
           TrajectoryStateOnSurface tsos = standalonePropagator_? lm.predictedState(): lm.updatedState();
           layer = layerdisk->second->layer();
-          KFHit *kfhit = new KFHit(tsos, lm.recHit()->geographicalId(), tk, trackId, layer);
+          KFHit *kfhit = new KFHit(lm.predictedState(), lm.recHit()->geographicalId(), tk, trackId, layer);
           kfhits.push_back(*kfhit);
           break; // TODO: Currently only creates one TSOS per layer. Future versions should allow for multiple TSOS per layer with a cleaning step.
         }
       }
-      traj_kf.swap(newcands);
-
-
-
+      if (!newcands.empty()){
+        traj_kf.swap(newcands);
+      } else {
+        break;
+      }
     }
     trackId++;
 
     // Create TrackCandidates
+    if (!traj_kf.empty()){
+      Trajectory trajectory = traj_kf[0].toTrajectory();
+      /*
+      edm::OwnVector<TrackingRecHit> hitsForTrackCandidate;
+      for (auto r : trajectory.recHits()){
+        hitsForTrackCandidate.push_back((r)->clone());
+      };
+      TrajectoryStateOnSurface initialTSOS = traj_kf[0].firstMeasurement().updatedState();
+      TrajectorySeed seed = trajectory.seed();
+      int seedIndex = 0;
+      PTrajectoryStateOnDet PTSOD = trajectoryStateTransform::persistentState(initialTSOS, hitsForTrackCandidate.front().geographicalId().rawId());
+      //signed char nLoops = t.nLoops();
+      //auto stopReason = t.stopReason();
+      //TrackCandidate tc(hitsForTrackCandidate, seed, PTSOD, edm::RefToBase<TrajectorySeed>(seed, seedIndex)); 
+      //TrackCandidate tc(rh); 
+      TrackCandidate tc(hitsForTrackCandidate, seed, PTSOD); 
 
+      */
+      
+      // ------------
+      // Build Tracks
+      // ------------
 
-    Trajectory trajectory = traj_kf[0].toTrajectory();
-    /*
-    edm::OwnVector<TrackingRecHit> hitsForTrackCandidate;
-    for (auto r : trajectory.recHits()){
-      hitsForTrackCandidate.push_back((r)->clone());
-    };
-    TrajectoryStateOnSurface initialTSOS = traj_kf[0].firstMeasurement().updatedState();
-    TrajectorySeed seed = trajectory.seed();
-    int seedIndex = 0;
-    PTrajectoryStateOnDet PTSOD = trajectoryStateTransform::persistentState(initialTSOS, hitsForTrackCandidate.front().geographicalId().rawId());
-    //signed char nLoops = t.nLoops();
-    //auto stopReason = t.stopReason();
-    //TrackCandidate tc(hitsForTrackCandidate, seed, PTSOD, edm::RefToBase<TrajectorySeed>(seed, seedIndex)); 
-    //TrackCandidate tc(rh); 
-    TrackCandidate tc(hitsForTrackCandidate, seed, PTSOD); 
-
-    */
-    
-    // ------------
-    // Build Tracks
-    // ------------
-
-    if (trajectory.isValid()!= true){
-      std::cout << "Skipped building Tracks" << std::endl;
-      continue;
-    }
-    // degrees of freedom
-    int ndof = 0;
-    for (auto const& tm : trajectory.measurements()) {
-      auto const& h = tm.recHitR();
-      if (h.isValid()){
-        ndof = ndof + float(h.dimension()) * h.weight();  // two virtual calls!
+      if (trajectory.isValid()!= true){
+        std::cout << "Skipped building Tracks" << std::endl;
+        continue;
       }
-    }
-    ndof = ndof - 5;
-    // Track Parameters
-    auto chi2 = tk.chi2(); // needs updating
-    auto charge = tk.charge();
-    auto pos = tk.referencePoint(); // needs updating
-    auto mom = tk.momentum();
-    auto covariance = tk.covariance(); // needs updating
-    auto algo = reco::TrackBase::undefAlgorithm;
+      // degrees of freedom
+      int ndof = 0;
+      for (auto const& tm : trajectory.measurements()) {
+        auto const& h = tm.recHitR();
+        if (h.isValid()){
+          ndof = ndof + float(h.dimension()) * h.weight();  // two virtual calls!
+        }
+      }
+      ndof = ndof - 5;
+      // Track Parameters
+      auto chi2 = tk.chi2(); // needs updating
+      auto charge = tk.charge();
+      auto pos = tk.referencePoint(); // needs updating
+      auto mom = tk.momentum();
+      auto covariance = tk.covariance(); // needs updating
+      auto algo = reco::TrackBase::undefAlgorithm;
+      reco::Track out_Track = reco::Track(chi2, ndof, pos, mom, charge, covariance, algo);
 
-    reco::Track out_Track = reco::Track(chi2, ndof, pos, mom, charge, covariance, algo);
-
-    // Create TrackExtra
-  
-    TrajectoryStateOnSurface outertsos;
-    TrajectoryStateOnSurface innertsos;
-    unsigned int innerId, outerId;
-
-    // ---  NOTA BENE: the convention is to sort hits and measurements "along the momentum".
-    // This is consistent with innermost and outermost labels only for tracks from LHC collision
-    if (trajectory.direction() == alongMomentum) {
-      outertsos = trajectory.lastMeasurement().updatedState();
-      innertsos = trajectory.firstMeasurement().updatedState();
-      outerId = trajectory.lastMeasurement().recHit()->geographicalId().rawId();
-      innerId = trajectory.firstMeasurement().recHit()->geographicalId().rawId();
-    } else {
-      outertsos = trajectory.firstMeasurement().updatedState();
-      innertsos = trajectory.lastMeasurement().updatedState();
-      outerId = trajectory.firstMeasurement().recHit()->geographicalId().rawId();
-      innerId = trajectory.lastMeasurement().recHit()->geographicalId().rawId();
-    }
-
-    GlobalPoint v = outertsos.globalParameters().position();
-    GlobalVector p = outertsos.globalParameters().momentum();
-    math::XYZVector outmom(p.x(), p.y(), p.z());
-    math::XYZPoint outpos(v.x(), v.y(), v.z());
-    v = innertsos.globalParameters().position();
-    p = innertsos.globalParameters().momentum();
-    math::XYZVector inmom(p.x(), p.y(), p.z());
-    math::XYZPoint inpos(v.x(), v.y(), v.z());
-    reco::TrackExtra out_trackExtras = reco::TrackExtra(outpos, outmom, true, inpos, inmom, true, outertsos.curvilinearError(), outerId, innertsos.curvilinearError(), innerId, trajectory.direction(), trajectory.seedRef());
+      // Create TrackExtra
     
-    out_Track.setExtra(reco::TrackExtraRef(ref_trackextras, 0));
+      TrajectoryStateOnSurface outertsos;
+      TrajectoryStateOnSurface innertsos;
+      unsigned int innerId, outerId;
 
-  
-    reco::TrackExtra::TrajParams trajParams;
-    reco::TrackExtra::Chi2sFive chi2s;
-    Traj2TrackHits t2t;
-    auto ih = selHits.size(); //selHits TrackingRecHitsCollection
+      // ---  NOTA BENE: the convention is to sort hits and measurements "along the momentum".
+      // This is consistent with innermost and outermost labels only for tracks from LHC collision
+      if (trajectory.direction() == alongMomentum) {
+        outertsos = trajectory.lastMeasurement().updatedState();
+        innertsos = trajectory.firstMeasurement().updatedState();
+        outerId = trajectory.lastMeasurement().recHit()->geographicalId().rawId();
+        innerId = trajectory.firstMeasurement().recHit()->geographicalId().rawId();
+      } else {
+        outertsos = trajectory.firstMeasurement().updatedState();
+        innertsos = trajectory.lastMeasurement().updatedState();
+        outerId = trajectory.firstMeasurement().recHit()->geographicalId().rawId();
+        innerId = trajectory.lastMeasurement().recHit()->geographicalId().rawId();
+      }
+
+      GlobalPoint v = outertsos.globalParameters().position();
+      GlobalVector p = outertsos.globalParameters().momentum();
+      math::XYZVector outmom(p.x(), p.y(), p.z());
+      math::XYZPoint outpos(v.x(), v.y(), v.z());
+      v = innertsos.globalParameters().position();
+      p = innertsos.globalParameters().momentum();
+      math::XYZVector inmom(p.x(), p.y(), p.z());
+      math::XYZPoint inpos(v.x(), v.y(), v.z());
+      reco::TrackExtra out_trackExtras = reco::TrackExtra(outpos, outmom, true, inpos, inmom, true, outertsos.curvilinearError(), outerId, innertsos.curvilinearError(), innerId, trajectory.direction(), trajectory.seedRef());
+      
+      out_Track.setExtra(reco::TrackExtraRef(ref_trackextras, 0));
+
+    
+      reco::TrackExtra::TrajParams trajParams;
+      reco::TrackExtra::Chi2sFive chi2s;
+      Traj2TrackHits t2t;
+      auto ih = selHits.size(); //selHits TrackingRecHitsCollection
+
+      // --------------------------- Debugging 
+
+      auto const &meas = trajectory.measurements();
+      for (auto& h: meas){
+        selHits.push_back(h.recHit()->clone());
+      }
+
+      // -------------------------------------
 
 
 
+      //t2t(trajectory, selHits, trajParams, chi2s);
+      auto ie = selHits.size();
+      out_trackExtras.setHits(rHits, ih, ie - ih); //rHits TrackingRecHitRefProd
+      out_trackExtras.setTrajParams(std::move(trajParams), std::move(chi2s));
+      //assert(out_trackExtras.trajParams().size() == out_trackExtras.recHitsSize());
 
-    // --------------------------- Debugging 
+      //for (; ih < ie; ++ih) {
+      //  auto const& hit = (selHits)[ih];
+      //  out_Track.appendHitPattern(hit, *ttopo);
+      //}
 
-    auto const &meas = trajectory.measurements();
-    std::cout << "Size Measurements: " << meas.size() << std::endl;
-    for (auto& h: meas){
-      selHits.push_back(h.recHit()->clone());
-      std::cout << (h.recHitR().det() != nullptr) << ", " << h.recHit()->rawId() << std::endl;
+      //out_trackExtras.setResiduals(trajectoryToResiduals(trajectory));
+
+      trackExtras.push_back(out_trackExtras);
+      tracks.push_back(out_Track);
+      /*
+
+
+      // ----
+      tx.setResiduals(trajectoryToResiduals(*theTraj));
+      */ 
     }
-
-    // -------------------------------------
-
-
-
-    //t2t(trajectory, selHits, trajParams, chi2s);
-    auto ie = selHits.size();
-    out_trackExtras.setHits(rHits, ih, ie - ih); //rHits TrackingRecHitRefProd
-    std::cout << ie << ", " << ih << std::endl;
-    out_trackExtras.setTrajParams(std::move(trajParams), std::move(chi2s));
-    std::cout << "Size of RecHits: " << trajParams.size() << ", " << out_trackExtras.recHitsSize() << std::endl;
-    //assert(out_trackExtras.trajParams().size() == out_trackExtras.recHitsSize());
-
-    //for (; ih < ie; ++ih) {
-    //  auto const& hit = (selHits)[ih];
-    //  out_Track.appendHitPattern(hit, *ttopo);
-    //}
-
-    //out_trackExtras.setResiduals(trajectoryToResiduals(trajectory));
-
-    trackExtras.push_back(out_trackExtras);
-    tracks.push_back(out_Track);
-    /*
-
-
-    // ----
-    tx.setResiduals(trajectoryToResiduals(*theTraj));
-    */
   }
 }
 
