@@ -338,13 +338,13 @@ void PatternRecognitionbyKalmanFilter<TILES>::makeTrajectories(
       continue;
     }
     std::vector<TempTrajectory> traj_kf;
-    traj_kf.push_back(traj.back());
+    traj_kf.push_back(traj.front());
 
     // Fill KFHit
-    auto lm = traj.back().lastMeasurement();
+    auto lm = traj.front().lastMeasurement();
     int layer = layerdisk->second->layer();
     TrajectoryStateOnSurface tsos = standalonePropagator_? lm.predictedState(): lm.updatedState();
-    KFHit *kfhit = new KFHit(lm.predictedState(), lm.recHit()->geographicalId(), tk, trackId, layer);
+    KFHit *kfhit = new KFHit(tsos, lm.recHit()->geographicalId(), tk, trackId, layer);
     kfhits.push_back(*kfhit);
 
     // Loop over all disks to create trajectory
@@ -352,7 +352,7 @@ void PatternRecognitionbyKalmanFilter<TILES>::makeTrajectories(
 
       std::vector<TempTrajectory> newcands;
       for(TempTrajectory & cand : traj_kf){
-        TrajectoryStateOnSurface start = cand.lastMeasurement().updatedState();
+        TrajectoryStateOnSurface start = standalonePropagator_? cand.lastMeasurement().predictedState() : cand.lastMeasurement().updatedState();
         std::vector<TempTrajectory> hisTrajs = advanceOneLayer(start, layerdisk, tiles, direction, isSilicon, cand);
         for(TempTrajectory & t : hisTrajs){
           auto lm = t.lastMeasurement();
@@ -360,7 +360,7 @@ void PatternRecognitionbyKalmanFilter<TILES>::makeTrajectories(
           // Fill KFHit
           TrajectoryStateOnSurface tsos = standalonePropagator_? lm.predictedState(): lm.updatedState();
           layer = layerdisk->second->layer();
-          KFHit *kfhit = new KFHit(lm.predictedState(), lm.recHit()->geographicalId(), tk, trackId, layer);
+          KFHit *kfhit = new KFHit(tsos, lm.recHit()->geographicalId(), tk, trackId, layer);
           kfhits.push_back(*kfhit);
           break; // TODO: Currently only creates one TSOS per layer. Future versions should allow for multiple TSOS per layer with a cleaning step.
         }
