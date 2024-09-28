@@ -143,8 +143,13 @@ PatternRecognitionbyKalmanFilter<TILES>::advanceOneLayer(const Start &start,
         isSilicon = !isSilicon;
         disk = isSilicon? diskLayer->second : diskLayer->first; // Get correct disk for layer
         tsos = prop.propagate(start, disk->surface());
+        if (!tsos.isValid()){
+          // TODO: The boundaries are defined via the center of the detid which is not correct. Add sidelength of sensor!
+          return ret; 
+        }
       }
     }
+
 
     auto mest_pair = (*estimator_).estimate(tsos,*hitptr);
     if(mest_pair.first){
