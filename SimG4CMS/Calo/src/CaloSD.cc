@@ -968,6 +968,7 @@ bool CaloSD::saveHit(CaloG4Hit* aHit, int k) {
                                 aHit->getEM() / CLHEP::GeV,
                                 aHit->getHadr() / CLHEP::GeV,
                                 time,
+                                aHit->getPosition(),
                                 aHit->getTrackID(),
                                 aHit->getDepth());
   }
@@ -991,7 +992,7 @@ bool CaloSD::saveHit(CaloG4Hit* aHit, int k) {
 #endif
 
     slave[k].get()->processHits(
-        aHit->getUnitID(), aHit->getEM() / CLHEP::GeV, aHit->getHadr() / CLHEP::GeV, time, tkID, aHit->getDepth());
+      aHit->getUnitID(), aHit->getEM() / CLHEP::GeV, aHit->getHadr() / CLHEP::GeV, time, aHit->getPosition(), tkID, aHit->getDepth());
   }
 
 #ifdef EDM_ML_DEBUG
