@@ -39,7 +39,11 @@
 #include "TrackingTools/TrajectoryState/interface/TrajectoryStateTransform.h"
 #include "TrackingTools/TrajectoryState/interface/TrajectoryStateClosestToBeamLine.h"
 #include "TrackingTools/PatternTools/interface/TSCBLBuilderWithPropagator.h"
+#include "TrackPropagation/Geant4e/interface/Geant4ePropagator.h"
 
+#include "G4ErrorPropagatorData.hh"
+#include "G4ErrorPropagatorManager.hh"
+#include "G4ErrorSurfaceTarget.hh"
 
 #include "HGCTracker.h"
 

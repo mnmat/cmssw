@@ -38,6 +38,7 @@
 <use name="fastjet"/>
 <use name="TrackingTools/PatternTools"/>
 <use name="Geometry/CommonTopologies"/>
+<use name="geant4"/>
 <library file="*.cc" name="RecoHGCalTICLPlugins">
   <flags EDM_PLUGIN="1"/>
 </library>

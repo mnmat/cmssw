@@ -54,6 +54,7 @@ Geant4ePropagator::Geant4ePropagator(const MagneticField *field,
   // has to be called here, doing it later will not load the G4 physics list
   // properly when using the G4 ES Producer. Reason: unclear
   ensureGeant4eIsInitilized(true);
+  std::cout << "Geant4ePropagator: Happy Halloween" << std::endl;
 }
 
 /** Destructor.

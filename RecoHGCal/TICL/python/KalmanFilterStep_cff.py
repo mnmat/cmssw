@@ -4,6 +4,7 @@ from RecoHGCal.TICL.TICLSeedingRegions_cff import ticlSeedingTrk
 from RecoHGCal.TICL.trackstersProducer_cfi import trackstersProducer as _trackstersProducer
 from RecoHGCal.TICL.filteredLayerClustersProducer_cfi import filteredLayerClustersProducer as _filteredLayerClustersProducer
 from RecoHGCal.TICL.ticlLayerTileProducer_cfi import ticlLayerTileProducer
+from TrackPropagation.Geant4e.Geant4ePropagator_cfi import Geant4ePropagator
 
 # CLUSTER FILTERING/MASKING
 # Layer Clusters not used by Kalman Filter implementation but necessary for TracksterProducer. Masking strategy a work in progress!
@@ -15,7 +16,24 @@ filteredLayerClustersKalmanFilter = _filteredLayerClustersProducer.clone(
     iteration_label = "KalmanFilter",
 )
 
+
 # PATTERN RECOGNITION
+
+from SimG4Core.Application.g4SimHits_cfi import g4SimHits as _g4SimHits
+
+geoprotest = cms.EDProducer("GeometryProducer",
+     GeoFromDD4hep = cms.bool(False),
+     UseMagneticField = cms.bool(True),
+     UseSensitiveDetectors = cms.bool(False),
+     MagneticField =  _g4SimHits.MagneticField.clone()
+)
+
+#from Configuration.ProcessModifiers.dd4hep_cff import dd4hep
+#dd4hep.toModify(geoprotest, GeoFromDD4hep = True )
+
+Geant4ePropagatorTest = Geant4ePropagator.clone(
+    ComponentName=cms.string("Geant4ePropagatorTest")
+)
 
 ticlTrackstersKalmanFilter = _trackstersProducer.clone(
     filtered_mask = "filteredLayerClustersKalmanFilter:KalmanFilter",
@@ -26,7 +44,8 @@ ticlTrackstersKalmanFilter = _trackstersProducer.clone(
     pluginPatternRecognitionByKalmanFilter = dict (
         rescaleFTSError = 2., # used to rescale the Error of the last FTS of the Tracker which is propagated to the first layer of HGCAL
         scaleWindow = 1.,
-        propagator = "RungeKuttaTrackerPropagator",
+        #propagator = "RungeKuttaTrackerPropagator",
+        propagator = "Geant4ePropagatorTest",
     )
 )
 
@@ -40,7 +59,8 @@ ticlTrackstersStandalonePropagator = _trackstersProducer.clone(
         rescaleFTSError = 2., # used to rescale the Error of the last FTS of the Tracker which is propagated to the first layer of HGCAL
         scaleWindow = 1.,
         standalonePropagator = True,
-        propagator = "RungeKuttaTrackerPropagator",
+        #propagator = "RungeKuttaTrackerPropagator",
+        propagator = "Geant4ePropagatorTest",
     )
 )
 
@@ -68,7 +88,9 @@ HGCTrackerESProducer = cms.ESProducer("HGCTrackerESProducer",
         0.00378711, 0.004295657)
     )
 
-ticlKalmanFilterStepTask = cms.Task(ticlSeedingTrk
+ticlKalmanFilterStepTask = cms.Task(
+    geoprotest
+    ,ticlSeedingTrk
     ,filteredLayerClustersKalmanFilter
     ,HGCTrackerESProducer
     ,ticlTrackstersKalmanFilter
