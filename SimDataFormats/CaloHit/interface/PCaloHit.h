@@ -10,17 +10,17 @@
 
 class PCaloHit {
 public:
-  PCaloHit(float e = 0., float t = 0., int i = 0, float emFraction = 1., uint16_t d = 0, math::XYZPoint position = math::XYZPoint(0.0, 0.0, 0.0))
-      : myEnergy(e), myEMFraction(emFraction), myTime(t), myItra(i), myDepth(d), myPosition(position) {}
+  PCaloHit(float e = 0., float t = 0., int i = 0, float emFraction = 1., uint16_t d = 0, math::XYZPoint position = math::XYZPoint(0.0, 0.0, 0.0),int parentID = 0)
+      : myEnergy(e), myEMFraction(emFraction), myTime(t), myItra(i), myDepth(d), myPosition(position),myParentID(parentID) {}
       
 
-  PCaloHit(unsigned int id, float e = 0., float t = 0., int i = 0, float emFraction = 1., uint16_t d = 0, math::XYZPoint position = math::XYZPoint(0.0, 0.0, 0.0))
-      : myEnergy(e), myEMFraction(emFraction), myTime(t), myItra(i), detId(id), myDepth(d), myPosition(position) {
+  PCaloHit(unsigned int id, float e = 0., float t = 0., int i = 0, float emFraction = 1., uint16_t d = 0, math::XYZPoint position = math::XYZPoint(0.0, 0.0, 0.0),int parentID = 0)
+      : myEnergy(e), myEMFraction(emFraction), myTime(t), myItra(i), detId(id), myDepth(d), myPosition(position),myParentID(parentID) {
         std::cout << "2st Constructor" << std::endl;
 
       }
-  PCaloHit(float eEM, float eHad, float t, int i = 0, uint16_t d = 0, math::XYZPoint position = math::XYZPoint(0.0, 0.0, 0.0));
-  PCaloHit(unsigned int id, float eEM, float eHad, float t, int i = 0, uint16_t d = 0, math::XYZPoint position = math::XYZPoint(0.0, 0.0, 0.0));
+  PCaloHit(float eEM, float eHad, float t, int i = 0, uint16_t d = 0, math::XYZPoint position = math::XYZPoint(0.0, 0.0, 0.0), int parentID = 0);
+  PCaloHit(unsigned int id, float eEM, float eHad, float t, int i = 0, uint16_t d = 0, math::XYZPoint position = math::XYZPoint(0.0, 0.0, 0.0), int parentID = 0);
 
 
   //Names
@@ -59,6 +59,7 @@ public:
   void setTime(float t) { myTime = t; }
 
   math::XYZPoint getPosition() const {return myPosition;}
+  int getParentID() const {return myParentID;}
 
   //Comparisons
 
@@ -81,6 +82,7 @@ protected:
   uint16_t myDepth;
   EncodedEventId theEventId;
   math::XYZPoint myPosition;
+  int myParentID;
 };
 
 #include <iosfwd>

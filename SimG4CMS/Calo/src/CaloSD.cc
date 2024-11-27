@@ -650,6 +650,8 @@ CaloG4Hit* CaloSD::createNewHit(const G4Step* aStep, const G4Track* theTrack, in
   aHit->setEntryLocal(entranceLocal.x(), entranceLocal.y(), entranceLocal.z());
   aHit->setPosition(posGlobal.x(), posGlobal.y(), posGlobal.z());
   aHit->setIncidentEnergy(incidentEnergy);
+  aHit->setParentID(theTrack->GetParentID());
+  std::cout << "Parent ID: " << theTrack->GetParentID() << std::endl;
   updateHit(aHit, k);
 
   storeHit(aHit, k);
@@ -970,7 +972,8 @@ bool CaloSD::saveHit(CaloG4Hit* aHit, int k) {
                                 time,
                                 aHit->getPosition(),
                                 aHit->getTrackID(),
-                                aHit->getDepth());
+                                aHit->getDepth(),
+                                aHit->getParentID());
   }
   // Regular, not-fine way:
   else {
@@ -991,8 +994,9 @@ bool CaloSD::saveHit(CaloG4Hit* aHit, int k) {
     edm::LogVerbatim("DoFineCalo") << "Saving hit " << shortreprID(aHit) << " with trackID=" << tkID;
 #endif
 
+    std::cout << "GetParentID:" <<aHit->getParentID() << std::endl;
     slave[k].get()->processHits(
-        aHit->getUnitID(), aHit->getEM() / CLHEP::GeV, aHit->getHadr() / CLHEP::GeV, time, aHit->getPosition(), tkID, aHit->getDepth());
+        aHit->getUnitID(), aHit->getEM() / CLHEP::GeV, aHit->getHadr() / CLHEP::GeV, time, aHit->getPosition(), tkID, aHit->getDepth(),aHit->getParentID());
   }
 
 #ifdef EDM_ML_DEBUG
