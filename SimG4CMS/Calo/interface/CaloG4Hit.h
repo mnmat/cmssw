@@ -78,6 +78,9 @@ public:
 
   double getEnergyDeposit() const { return (elem + hadr); }
 
+  void setParentID(int id){parentID = id;};
+  int getParentID(){return parentID;};
+
 private:
   math::XYZPoint entry;       //Entry point (Global coordinate)
   math::XYZPoint entryLocal;  //Entry point (Local  coordinate)
@@ -88,6 +91,7 @@ private:
   CaloHitID hitID;            //Identification number of the hit given
                               //by primary particle, Cell ID, Time of
                               //the hit
+  int parentID;               //Added for PatternRecongitionByKalmanFilter; Used to study delta rays
 };
 
 class CaloG4HitLess {
