@@ -1,7 +1,10 @@
 #ifndef SimDataFormats_PCaloHit_H
 #define SimDataFormats_PCaloHit_H
 
+#include "DataFormats/GeometryVector/interface/LocalPoint.h"
+#include "DataFormats/GeometryVector/interface/LocalVector.h"
 #include "SimDataFormats/EncodedEventId/interface/EncodedEventId.h"
+#include "DataFormats/Math/interface/Point3D.h"
 
 #include <iosfwd>
 
@@ -10,13 +13,14 @@
 namespace io_v1 {
   class PCaloHit {
   public:
-    PCaloHit(float e = 0., float t = 0., int i = 0, float emFraction = 1., uint16_t d = 0)
-        : myEnergy(e), myEMFraction(emFraction), myTime(t), myItra(i), myDepth(d) {}
-
-    PCaloHit(unsigned int id, float e = 0., float t = 0., int i = 0, float emFraction = 1., uint16_t d = 0)
-        : myEnergy(e), myEMFraction(emFraction), myTime(t), myItra(i), detId(id), myDepth(d) {}
-    PCaloHit(float eEM, float eHad, float t, int i = 0, uint16_t d = 0);
-    PCaloHit(unsigned int id, float eEM, float eHad, float t, int i = 0, uint16_t d = 0);
+    PCaloHit(float e = 0., float t = 0., int i = 0, float emFraction = 1., uint16_t d = 0, math::XYZPoint position = math::XYZPoint(0.0, 0.0, 0.0),int parentID = 0)
+        : myEnergy(e), myEMFraction(emFraction), myTime(t), myItra(i), myDepth(d), myPosition(position), myParentID(parentID) {}
+    PCaloHit(unsigned int id, float e = 0., float t = 0., int i = 0, float emFraction = 1., uint16_t d = 0, math::XYZPoint position = math::XYZPoint(0.0, 0.0, 0.0),int parentID = 0)
+        : myEnergy(e), myEMFraction(emFraction), myTime(t), myItra(i), detId(id), myDepth(d), myPosition(position), myParentID(parentID) {
+          std::cout << "2st Constructor" << std::endl;
+        }
+    PCaloHit(float eEM, float eHad, float t, int i = 0, uint16_t d = 0, math::XYZPoint position = math::XYZPoint(0.0, 0.0, 0.0), int parentID = 0);
+    PCaloHit(unsigned int id, float eEM, float eHad, float t, int i = 0, uint16_t d = 0, math::XYZPoint position = math::XYZPoint(0.0, 0.0, 0.0), int parentID = 0);
 
     //Names
     static const char *name() { return "Hit"; }
@@ -53,7 +57,10 @@ namespace io_v1 {
     // new method used by the new transient CF
     void setTime(float t) { myTime = t; }
 
-    //Comparisons
+    math::XYZPoint getPosition() const {return myPosition;}
+    int getParentID() const {return myParentID;}
+
+  //Comparisons
 
     bool operator<(const PCaloHit &d) const { return myEnergy < d.myEnergy; }
 
@@ -73,6 +80,8 @@ namespace io_v1 {
     unsigned int detId;
     uint16_t myDepth;
     EncodedEventId theEventId;
+    math::XYZPoint myPosition;
+    int myParentID;
   };
 
   std::ostream &operator<<(std::ostream &, const PCaloHit &);
