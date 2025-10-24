@@ -28,6 +28,7 @@ CaloG4Hit::CaloG4Hit(const CaloG4Hit& right) {
   hadr = right.hadr;
   theIncidentEnergy = right.theIncidentEnergy;
   hitID = right.hitID;
+  parentID = right.parentID;
 }
 
 const CaloG4Hit& CaloG4Hit::operator=(const CaloG4Hit& right) {
@@ -38,6 +39,7 @@ const CaloG4Hit& CaloG4Hit::operator=(const CaloG4Hit& right) {
   hadr = right.hadr;
   theIncidentEnergy = right.theIncidentEnergy;
   hitID = right.hitID;
+  parentID = right.parentID;
 
   return *this;
 }

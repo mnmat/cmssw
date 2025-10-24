@@ -2,13 +2,14 @@
 #include <iostream>
 
 namespace io_v1 {
-  PCaloHit::PCaloHit(float eEM, float eHad, float t, int i, uint16_t d) : myTime(t), myItra(i), myDepth(d) {
+
+  PCaloHit::PCaloHit(float eEM, float eHad, float t, int i, uint16_t d, math::XYZPoint position, int parentID) : myTime(t), myItra(i), myDepth(d),myPosition(position), myParentID(parentID) {  
     myEnergy = eEM + eHad;
     myEMFraction = (myEnergy <= 0.f ? 1.f : eEM / myEnergy);
   }
 
-  PCaloHit::PCaloHit(unsigned int id, float eEM, float eHad, float t, int i, uint16_t d)
-      : myTime(t), myItra(i), detId(id), myDepth(d) {
+  PCaloHit::PCaloHit(unsigned int id, float eEM, float eHad, float t, int i, uint16_t d, math::XYZPoint position, int parentID)
+      : myTime(t), myItra(i), detId(id), myDepth(d),myPosition(position),myParentID(parentID) {    
     myEnergy = eEM + eHad;
     myEMFraction = (myEnergy <= 0.f ? 1.f : eEM / myEnergy);
   }
