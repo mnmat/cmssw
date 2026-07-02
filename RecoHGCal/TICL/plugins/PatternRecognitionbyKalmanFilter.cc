@@ -455,8 +455,7 @@ void PatternRecognitionbyKalmanFilter<TILES>::makeTrajectories(
       math::XYZPoint inpos(v.x(), v.y(), v.z());
       reco::TrackExtra out_trackExtras = reco::TrackExtra(outpos, outmom, true, inpos, inmom, true, outertsos.curvilinearError(), outerId, innertsos.curvilinearError(), innerId, trajectory.direction(), trajectory.seedRef());
       
-      out_Track.setExtra(reco::TrackExtraRef(ref_trackextras, 0));
-
+      out_Track.setExtra(reco::TrackExtraRef(ref_trackextras, trackExtras.size()));
     
       reco::TrackExtra::TrajParams trajParams;
       reco::TrackExtra::Chi2sFive chi2s;
