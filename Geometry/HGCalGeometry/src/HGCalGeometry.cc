@@ -933,9 +933,9 @@ void HGCalGeometry::fillLocalErrorCache(){
       isInitHFNose = true;
     } else {
       HGCSiliconDetId subDetId(id);
-      bool &isInitHGCSi = subDetId.type() == HGCSiliconDetId::HGCalFine ? isInitHGCSiFine : isInitHGCSiCoarse;
+      bool &isInitHGCSi = subDetId.type() == HGCSiliconDetId::HGCalHD120 ? isInitHGCSiFine : isInitHGCSiCoarse;
       if (isInitHGCSi) continue;
-      (subDetId.type()== HGCSiliconDetId::HGCalFine? HGCSiFineError:HGCSiCoarseError) = calculateHexError(id);
+      (subDetId.type()== HGCSiliconDetId::HGCalHD120 ? HGCSiFineError:HGCSiCoarseError) = calculateHexError(id);
       isInitHGCSi = true;
     }
   }
@@ -965,10 +965,10 @@ LocalError HGCalGeometry::getLocalError(const DetId& id) const {
     lError = LocalError(var,0,var);
   } else {
     auto subDetId = HGCSiliconDetId(id);
-    const bool isInitHGCSi = subDetId.type() == HGCSiliconDetId::HGCalFine ? isInitHGCSiFine : isInitHGCSiCoarse;
+    const bool isInitHGCSi = subDetId.type() == HGCSiliconDetId::HGCalHD120 ? isInitHGCSiFine : isInitHGCSiCoarse;
     float var;
     if (isInitHGCSi){
-      var = (subDetId.type() == HGCSiliconDetId::HGCalFine ? HGCSiFineError:HGCSiCoarseError);   
+      var = (subDetId.type() == HGCSiliconDetId::HGCalHD120 ? HGCSiFineError:HGCSiCoarseError);   
     }
     else {
       var = calculateHexError(id);

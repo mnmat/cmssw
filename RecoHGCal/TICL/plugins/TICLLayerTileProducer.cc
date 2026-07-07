@@ -30,7 +30,8 @@ class TICLLayerTileProducer : public edm::stream::EDProducer<edm::stream::WatchR
   static void fillDescriptions(edm::ConfigurationDescriptions &descriptions);
 
 private:
-  TileParameters getTileParameters(const reco::CaloCluster& lc); 
+  void produceLCTiles(edm::Event &evt, TICLLayerTiles* result, TICLLayerTilesBarrel* resultBarrel, TICLLayerTilesHFNose* resultHFNose);
+  void produceRecHitTiles(edm::Event &evt, TICLLayerTiles* result);
   TileParameters getTileParameters(const HGCRecHit& hit); 
 
   template<typename T, typename U> void fillTiles(T& results, 
@@ -53,38 +54,71 @@ private:
   int offset_ = 0;
 };
 
-TileParameters TICLLayerTileProducer::getTileParameters(const reco::CaloCluster& lc){
-  const auto firstHitDetId = lc.hitsAndFractions()[0].first;
-  bool isBarrelLC = rhtools_.isBarrel(firstHitDetId);
-  int layer = rhtools_.getLayerWithOffset(firstHitDetId);
-  if (!isBarrelLC) {
-    layer += rhtools_.lastLayer(doNose_) * ((rhtools_.zside(firstHitDetId) + 1) >> 1) - 1;
+void TICLLayerTileProducer::produceLCTiles(edm::Event &evt,
+  TICLLayerTiles* result,
+  TICLLayerTilesBarrel* resultBarrel,
+  TICLLayerTilesHFNose* resultHFNose) {
+  edm::Handle<std::vector<reco::CaloCluster>> cluster_h;
+  doNose_ ? evt.getByToken(clusters_HFNose_token_, cluster_h)
+  : evt.getByToken(clusters_token_, cluster_h);
+
+  int lcId = offset_;
+  for (auto const &lc : *cluster_h) {
+    const auto firstHitDetId = lc.hitsAndFractions()[0].first;
+    int layer = rhtools_.getLayerWithOffset(firstHitDetId);
+    bool isBarrelLC = rhtools_.isBarrel(firstHitDetId);
+    if (!isBarrelLC) {
+      layer += rhtools_.lastLayer(doNose_) * ((rhtools_.zside(firstHitDetId) + 1) >> 1) - 1;
+    }
+    assert(layer >= 0);
+
+    if (doNose_) {
+      resultHFNose->fill(layer, lc.eta(), lc.phi(), lcId);
+      LogDebug("TICLLayerTileProducer") << "Adding layerClusterId: " << lcId << " into bin [eta,phi]: [ "
+                                        << (*resultHFNose)[layer].etaBin(lc.eta()) << ", "
+                                        << (*resultHFNose)[layer].phiBin(lc.phi()) << "] for layer: " << layer;
+    } else if (doBarrel_ && isBarrelLC) {
+      resultBarrel->fill(layer, lc.eta(), lc.phi(), lcId);
+      LogDebug("TICLLayerTileProducer") << "Adding layerClusterId: " << lcId << " into bin [eta,phi]: [ "
+                                        << (*resultBarrel)[layer].etaBin(lc.eta()) << ", "
+                                        << (*resultBarrel)[layer].phiBin(lc.phi()) << "] for layer: " << layer;
+    } else if (!isBarrelLC) {
+      result->fill(layer, lc.eta(), lc.phi(), lcId);
+      LogDebug("TICLLayerTileProducer") << "Adding layerClusterId: " << lcId << " into bin [eta,phi]: [ "
+                                        << (*result)[layer].etaBin(lc.eta()) << ", "
+                                        << (*result)[layer].phiBin(lc.phi()) << "] for layer: " << layer;
+    }
+    lcId++;
   }
-  float eta = lc.eta();
-  float phi = lc.phi();
-  return TileParameters{layer,eta,phi};
 }
 
-TileParameters TICLLayerTileProducer::getTileParameters(const HGCRecHit& hit){
-  int layer = rhtools_.getLayerWithOffset(hit.detid()) +
-              rhtools_.lastLayer(doNose_) * ((rhtools_.zside(hit.detid()) + 1) >> 1) - 1;
-  
-  float eta = rhtools_.getEta(hit.detid());
-  float phi = rhtools_.getPhi(hit.detid());
-  return TileParameters{layer,eta,phi};
-}
+void TICLLayerTileProducer::produceRecHitTiles(edm::Event &evt, TICLLayerTiles* result) {
+  edm::Handle<HGCRecHitCollection> ee_hits_h, fh_hits_h, bh_hits_h, hfnose_hits_h;
 
-template<typename T,typename U> void TICLLayerTileProducer::fillTiles(T& results, const U& objects){
-  int objId = offset_;
-  for (auto const &obj : objects) {
-    TileParameters par = getTileParameters(obj);
-    results.fill(par.layer, par.eta, par.phi, objId);
-    LogDebug("TICLLayerTileProducer") << "Adding objectId: " << objId << " into bin [eta,phi]: [ "
-                                      << (results)[par.layer].etaBin(par.eta) << ", " << (results)[par.layer].phiBin(par.phi)
-                                      << "] for layer: " << par.layer << std::endl;
-    objId++;
+  auto fillFromRecHits = [this](TICLLayerTiles* result, const HGCRecHitCollection& hits) {    
+    int hitId = offset_;
+    for (auto const &hit : hits) {
+      int layer = rhtools_.getLayerWithOffset(hit.detid()) +
+      rhtools_.lastLayer(doNose_) * ((rhtools_.zside(hit.detid()) + 1) >> 1) - 1;
+      float eta = rhtools_.getEta(hit.detid());
+      float phi = rhtools_.getPhi(hit.detid());
+      result->fill(layer, eta, phi, hitId);
+      hitId++;
+    }
+    offset_ = hitId;
+  };
+
+  if (doNose_) {
+    evt.getByToken(hgcalRecHitsHFNoseToken_, hfnose_hits_h);
+    fillFromRecHits(result,*hfnose_hits_h);
+  } else {
+    evt.getByToken(hgcalRecHitsEEToken_, ee_hits_h);
+    evt.getByToken(hgcalRecHitsFHToken_, fh_hits_h);
+    evt.getByToken(hgcalRecHitsBHToken_, bh_hits_h);
+    fillFromRecHits(result,*ee_hits_h);
+    fillFromRecHits(result,*fh_hits_h);
+    fillFromRecHits(result,*bh_hits_h);
   }
-  offset_ = objId;
 }
 
 TICLLayerTileProducer::TICLLayerTileProducer(const edm::ParameterSet &ps)
@@ -118,58 +152,22 @@ void TICLLayerTileProducer::beginRun(edm::Run const &, edm::EventSetup const &es
 }
 
 void TICLLayerTileProducer::produce(edm::Event &evt, const edm::EventSetup &) {
-  std::unique_ptr<TICLLayerTilesHFNose> resultHFNose;
-  std::unique_ptr<TICLLayerTiles> result;
-  std::unique_ptr<TICLLayerTilesBarrel> resultBarrel;
-  if (doNose_) {
-    resultHFNose = std::make_unique<TICLLayerTilesHFNose>();
-  } else {
-    if (doBarrel_)
-      resultBarrel = std::make_unique<TICLLayerTilesBarrel>();
-    result = std::make_unique<TICLLayerTiles>();
-  }
+  auto resultHFNose = doNose_ ? std::make_unique<TICLLayerTilesHFNose>() : nullptr;
+  auto resultBarrel = (doBarrel_ && !doNose_) ? std::make_unique<TICLLayerTilesBarrel>() : nullptr;
+  auto result = doNose_ ? nullptr : std::make_unique<TICLLayerTiles>();
 
   offset_ = 0;
-   
-  edm::Handle<std::vector<reco::CaloCluster>> cluster_h;
-  edm::Handle<HGCRecHitCollection> ee_hits_h;
-  edm::Handle<HGCRecHitCollection> fh_hits_h;
-  edm::Handle<HGCRecHitCollection> bh_hits_h;
-  edm::Handle<HGCRecHitCollection> hfnose_hits_h;
 
-  if (isLC_){
-    doNose_ ? evt.getByToken(clusters_HFNose_token_, cluster_h) : evt.getByToken(clusters_token_, cluster_h);
-    if (doNose_){
-      fillTiles<TICLLayerTilesHFNose,std::vector<reco::CaloCluster>>(*resultHFNose, *cluster_h);
-    } else if (doBarrel_ && isBarrelLC) {
-      fillTiles<TICLLayerTilesBarrel,std::vector<reco::CaloCluster>>(*resultBarrel, *cluster_h);
-    } else {
-      fillTiles<TICLLayerTiles,std::vector<reco::CaloCluster>>(*result, *cluster_h);
-    }
+  if (isLC_) {
+    produceLCTiles(evt, result.get(), resultBarrel.get(), resultHFNose.get());
   } else {
-    if (doNose_){
-      evt.getByToken(hgcalRecHitsHFNoseToken_, hfnose_hits_h);
-      fillTiles<TICLLayerTiles, HGCRecHitCollection>(*result, *hfnose_hits_h);
-    }
-    else{
-      evt.getByToken(hgcalRecHitsEEToken_, ee_hits_h);
-      evt.getByToken(hgcalRecHitsFHToken_, fh_hits_h);
-      evt.getByToken(hgcalRecHitsBHToken_, bh_hits_h);
-
-      fillTiles<TICLLayerTiles, HGCRecHitCollection>(*result, *ee_hits_h);
-      fillTiles<TICLLayerTiles, HGCRecHitCollection>(*result, *fh_hits_h);
-      fillTiles<TICLLayerTiles, HGCRecHitCollection>(*result, *bh_hits_h);
-    }
+    produceRecHitTiles(evt, result.get());
   }
 
-  if (doNose_){
-    evt.put(std::move(resultHFNose));
-  }
-  else{
-    if (doBarrel_)
-      evt.put(std::move(resultBarrel), "ticlLayerTilesBarrel");
-    else
-      evt.put(std::move(result));
+  if (doNose_) evt.put(std::move(resultHFNose));
+  else {
+    if (doBarrel_) evt.put(std::move(resultBarrel), "ticlLayerTilesBarrel");
+    evt.put(std::move(result));
   }
 }
 

@@ -40,7 +40,7 @@ namespace ticl {
       const edm::ValueMap<std::pair<float, float>>& layerClustersTime;
       const TILES& tiles;
       const std::vector<TICLSeedingRegion>& regions;
-      Inputs(const edm::Event& eV,
+      Inputs(edm::Event& eV,
              const edm::EventSetup& eS,
              const std::vector<reco::CaloCluster>& lC,
              const std::vector<float>& mS,

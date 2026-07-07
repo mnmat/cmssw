@@ -5,6 +5,8 @@
 #define __RecoHGCal_TICL_PRbyKF_H__
 #include <memory>  // unique_ptr
 
+#include "FWCore/ParameterSet/interface/ParameterSetDescription.h"
+
 #include "DataFormats/TrackReco/interface/Track.h"
 #include "DataFormats/TrackReco/interface/TrackFwd.h"
 #include "DataFormats/HGCRecHit/interface/HGCRecHitCollections.h"
@@ -42,6 +44,11 @@ namespace ticl {
                         std::vector<Trackster>& result,
                         std::unordered_map<int, std::vector<int>>& seedToTracksterAssociation) override {};
 
+    void filter(std::vector<Trackster>& output,
+      const std::vector<Trackster>& inTracksters,
+      const typename PatternRecognitionAlgoBaseT<TILES>::Inputs& input,
+      std::unordered_map<int, std::vector<int>>& seedToTracksterAssociation) override {};
+          
     void makeTrajectories(const typename PatternRecognitionAlgoBaseT<TILES>::Inputs& input,
                         std::vector<KFHit>& kfhits,
                         std::vector<reco::Track>& tracks,
@@ -49,6 +56,7 @@ namespace ticl {
                         TrackingRecHitCollection& trackingRecHitCollection) override;
 
     static void fillPSetDescription(edm::ParameterSetDescription& iDesc);
+    void setGeometry(hgcal::RecHitTools const& rhtools) override {};
 
   private:
     // Declarations for Constructor

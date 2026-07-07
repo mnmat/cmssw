@@ -27,7 +27,7 @@
 #include "RecoLocalCalo/HGCalRecAlgos/interface/RecHitTools.h"
 
 #include "RecoTracker/TransientTrackingRecHit/interface/Traj2TrackHits.h"
-#include "RecoTracker/TrackProducer/src/TrajectoryToResiduals.h"
+//#include "RecoTracker/TrackProducer/src/TrajectoryToResiduals.h"
 
 #include "TrackingTools/GeomPropagators/interface/Propagator.h"
 #include "TrackingTools/KalmanUpdators/interface/Chi2MeasurementEstimatorBase.h"
