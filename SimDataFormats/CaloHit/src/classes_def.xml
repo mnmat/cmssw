@@ -1,5 +1,6 @@
 <lcgdict>
-  <class name="io_v1::PCaloHit" ClassVersion="3">
+  <class name="io_v1::PCaloHit" ClassVersion="4">
+   <version ClassVersion="4" checksum="2054048197"/>
    <version ClassVersion="3" checksum="2244110187"/>
   </class>
   <class name="std::vector<io_v1::PCaloHit>"/>
