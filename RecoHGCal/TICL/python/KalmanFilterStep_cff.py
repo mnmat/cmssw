@@ -1,7 +1,8 @@
 import FWCore.ParameterSet.Config as cms
 
 from RecoHGCal.TICL.TICLSeedingRegions_cff import ticlSeedingTrk
-from RecoHGCal.TICL.trackstersProducer_cfi import trackstersProducer as _trackstersProducer
+#from RecoHGCal.TICL.trackstersProducer_cfi import trackstersProducer as _trackstersProducer
+from RecoHGCal.TICL.hgcTracksProducer_cfi import hgcTracksProducer as _hgcTracksProducer
 from RecoHGCal.TICL.filteredLayerClustersProducer_cfi import filteredLayerClustersProducer as _filteredLayerClustersProducer
 from RecoHGCal.TICL.ticlLayerTileProducer_cfi import ticlLayerTileProducer
 
@@ -17,26 +18,24 @@ filteredLayerClustersKalmanFilter = _filteredLayerClustersProducer.clone(
 
 # PATTERN RECOGNITION
 
-ticlTrackstersKalmanFilter = _trackstersProducer.clone(
-    filtered_mask = "filteredLayerClustersKalmanFilter:KalmanFilter",
-    layer_clusters_tiles = "ticlRecHitTile",
-    seeding_regions = "ticlSeedingTrk",
+ticlTrackstersKalmanFilter = _hgcTracksProducer.clone(
+    rechit_tiles = "ticlRecHitTile",
     itername = "KalmanFilter",
-    patternRecognitionBy = "KalmanFilter",
-    pluginPatternRecognitionByKalmanFilter = dict (
+    seeding_regions = "ticlSeedingTrk",
+    hgcTrackingBy = "KalmanFilter",
+    pluginHGCTrackingByKalmanFilter = dict (
         rescaleFTSError = 2., # used to rescale the Error of the last FTS of the Tracker which is propagated to the first layer of HGCAL
         scaleWindow = 1.,
         propagator = "RungeKuttaTrackerPropagator",
     )
 )
 
-ticlTrackstersStandalonePropagator = _trackstersProducer.clone(
-    filtered_mask = "filteredLayerClustersKalmanFilter:KalmanFilter",
-    layer_clusters_tiles = "ticlRecHitTile",
-    seeding_regions = "ticlSeedingTrk",
+ticlTrackstersStandalonePropagator = _hgcTracksProducer.clone(
+    rechit_tiles = "ticlRecHitTile",
     itername = "KalmanFilter",
-    patternRecognitionBy = "KalmanFilter",
-    pluginPatternRecognitionByKalmanFilter = dict (
+    seeding_regions = "ticlSeedingTrk",
+    hgcTrackingBy = "KalmanFilter",
+    pluginHGCTrackingByKalmanFilter = dict (
         rescaleFTSError = 2., # used to rescale the Error of the last FTS of the Tracker which is propagated to the first layer of HGCAL
         scaleWindow = 1.,
         standalonePropagator = True,
@@ -44,35 +43,30 @@ ticlTrackstersStandalonePropagator = _trackstersProducer.clone(
     )
 )
 
-ticlTrackstersKalmanFilterG4e = _trackstersProducer.clone(
-    filtered_mask = "filteredLayerClustersKalmanFilter:KalmanFilter",
-    layer_clusters_tiles = "ticlRecHitTile",
-    seeding_regions = "ticlSeedingTrk",
+ticlTrackstersKalmanFilterG4e = _hgcTracksProducer.clone(
+    rechit_tiles = "ticlRecHitTile",
     itername = "KalmanFilter",
-    patternRecognitionBy = "KalmanFilter",
-    pluginPatternRecognitionByKalmanFilter = dict (
+    seeding_regions = "ticlSeedingTrk",
+    hgcTrackingBy = "KalmanFilter",
+    pluginHGCTrackingByKalmanFilter = dict (
         rescaleFTSError = 2., # used to rescale the Error of the last FTS of the Tracker which is propagated to the first layer of HGCAL
         scaleWindow = 1.,
         propagator = "Geant4ePropagator",
     )
 )
 
-ticlTrackstersStandalonePropagatorG4e = _trackstersProducer.clone(
-    filtered_mask = "filteredLayerClustersKalmanFilter:KalmanFilter",
-    layer_clusters_tiles = "ticlRecHitTile",
-    seeding_regions = "ticlSeedingTrk",
+ticlTrackstersStandalonePropagatorG4e = _hgcTracksProducer.clone(
+    rechit_tiles = "ticlRecHitTile",
     itername = "KalmanFilter",
-    patternRecognitionBy = "KalmanFilter",
-    pluginPatternRecognitionByKalmanFilter = dict (
+    seeding_regions = "ticlSeedingTrk",
+    hgcTrackingBy = "KalmanFilter",
+    pluginHGCTrackingByKalmanFilter = dict (
         rescaleFTSError = 2., # used to rescale the Error of the last FTS of the Tracker which is propagated to the first layer of HGCAL
         scaleWindow = 1.,
         standalonePropagator = True,
         propagator = "Geant4ePropagator",
     )
 )
-
-
-
 
 HGCTrackerESProducer = cms.ESProducer("HGCTrackerESProducer",
     radlen = cms.vdouble(1.53770787, 0.71064359, 1.45345887, 0.57315113, 1.02882455,

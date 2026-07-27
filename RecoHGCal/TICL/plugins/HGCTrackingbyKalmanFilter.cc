@@ -5,7 +5,7 @@
 #include <vector>
 #include <typeinfo>
 
-#include "PatternRecognitionbyKalmanFilter.h"
+#include "HGCTrackingbyKalmanFilter.h"
 
 #include "DataFormats/TrajectorySeed/interface/PropagationDirection.h"
 #include "DataFormats/TrackReco/interface/Track.h"
@@ -47,8 +47,8 @@
 using namespace ticl;
 
 template <typename TILES>
-PatternRecognitionbyKalmanFilter<TILES>::PatternRecognitionbyKalmanFilter(const edm::ParameterSet &conf, edm::ConsumesCollector iC)
-    : PatternRecognitionAlgoBaseT<TILES>(conf, iC),
+HGCTrackingbyKalmanFilter<TILES>::HGCTrackingbyKalmanFilter(const edm::ParameterSet &conf, edm::ConsumesCollector iC)
+    : HGCTrackingAlgoBaseT<TILES>(conf, iC),
       caloGeomToken_(iC.esConsumes<CaloGeometry, CaloGeometryRecord>()),
       //tTopoToken_(iC.esConsumes<TrackerTopology, TrackerTopologyRcd>()),
       propName_(conf.getParameter<std::string>("propagator")),
@@ -72,7 +72,7 @@ PatternRecognitionbyKalmanFilter<TILES>::PatternRecognitionbyKalmanFilter(const 
 
 
 template <typename TILES>
-std::pair<float,float> PatternRecognitionbyKalmanFilter<TILES>::covarianceTransform(const TrajectoryStateOnSurface &tsos){
+std::pair<float,float> HGCTrackingbyKalmanFilter<TILES>::covarianceTransform(const TrajectoryStateOnSurface &tsos){
   // Calculates local error in eta-phi of TSOS for propagation step. Used in calculation of size of search window for fast querying.
 
   // Get Position
@@ -107,7 +107,7 @@ std::pair<float,float> PatternRecognitionbyKalmanFilter<TILES>::covarianceTransf
 template<typename TILES>
 template<class Start> 
 std::vector<TempTrajectory>
-PatternRecognitionbyKalmanFilter<TILES>::advanceOneLayer(const Start &start, 
+HGCTrackingbyKalmanFilter<TILES>::advanceOneLayer(const Start &start, 
                                               const HGCDiskLayer * diskLayer, 
                                               const TILES &tiles, PropagationDirection direction, 
                                               bool &isSilicon, 
@@ -179,7 +179,7 @@ PatternRecognitionbyKalmanFilter<TILES>::advanceOneLayer(const Start &start,
 }
 
 template <typename TILES>
-void PatternRecognitionbyKalmanFilter<TILES>::mergeRecHitCollections(std::vector<std::pair<const HGCRecHit*, int>>& recHitCollection,
+void HGCTrackingbyKalmanFilter<TILES>::mergeRecHitCollections(std::vector<std::pair<const HGCRecHit*, int>>& recHitCollection,
                                 const HGCRecHitCollection& rechitsEE,
                                 const HGCRecHitCollection& rechitsFH,
                                 const HGCRecHitCollection& rechitsBH) const {
@@ -199,7 +199,7 @@ void PatternRecognitionbyKalmanFilter<TILES>::mergeRecHitCollections(std::vector
 }
 
 template <typename TILES>
-std::vector<std::shared_ptr<HGCTrackingRecHit>> PatternRecognitionbyKalmanFilter<TILES>::measurements(
+std::vector<std::shared_ptr<HGCTrackingRecHit>> HGCTrackingbyKalmanFilter<TILES>::measurements(
       const TrajectoryStateOnSurface &tsos, 
       const TILES &tiles, 
       int layer){
@@ -270,7 +270,7 @@ return ret;
 }
 
 template <typename TILES>
-void PatternRecognitionbyKalmanFilter<TILES>::init(
+void HGCTrackingbyKalmanFilter<TILES>::init(
     const edm::Event& ev, const edm::EventSetup& es){
 
     //Get Calo Geometry
@@ -296,8 +296,8 @@ void PatternRecognitionbyKalmanFilter<TILES>::init(
 
 
 template <typename TILES>
-void PatternRecognitionbyKalmanFilter<TILES>::makeTrajectories(
-    const typename PatternRecognitionAlgoBaseT<TILES>::Inputs &input,
+void HGCTrackingbyKalmanFilter<TILES>::makeTrajectories(
+    const typename HGCTrackingAlgoBaseT<TILES>::Inputs &input,
     std::vector<KFHit>& kfhits,
     std::vector<reco::Track>& tracks,
     std::vector<reco::TrackExtra>& trackExtras,
@@ -318,7 +318,7 @@ void PatternRecognitionbyKalmanFilter<TILES>::makeTrajectories(
   ev.getByToken(trackToken_,tracks_h);
   const reco::TrackCollection& tkx = *tracks_h; 
   if (tkx.empty()){
-    edm::LogWarning("PatternRecognitionbyKalmanFilter") << "No seeding track found! Exited PatternRecognitionbyKalmanFilter!" << std::endl;
+    edm::LogWarning("HGCTrackingbyKalmanFilter") << "No seeding track found! Exited HGCTrackingbyKalmanFilter!" << std::endl;
     return;
   }
 
@@ -328,7 +328,7 @@ void PatternRecognitionbyKalmanFilter<TILES>::makeTrajectories(
     FreeTrajectoryState fts = trajectoryStateTransform::outerFreeState(tk,bfield_.product());
     if (rescaleFTSError_!=1){
       // Rescale error of the FTS to account for transition from Tracker to HGCAL
-      edm::LogInfo("PatternRecognitionbyKalmanFilter") << "Rescaling FTS used to seed HGCAL tracks! Rescaling factor: " << rescaleFTSError_;
+      edm::LogInfo("HGCTrackingbyKalmanFilter") << "Rescaling FTS used to seed HGCAL tracks! Rescaling factor: " << rescaleFTSError_;
       fts.rescaleError(rescaleFTSError_);
     }
     int zside = fts.momentum().eta() > 0 ? +1 : -1;
@@ -339,7 +339,7 @@ void PatternRecognitionbyKalmanFilter<TILES>::makeTrajectories(
     // Extrapolate track from the tracker to first layer of HGCAL
     std::vector<TempTrajectory> traj = advanceOneLayer(fts, layerdisk,tiles, direction, isSilicon, TempTrajectory(direction,0));
     if (traj.empty()){
-      edm::LogWarning("PatternRecognitionbyKalmanFilter") << "No valid Trajectory found! Skip track!" << std::endl; 
+      edm::LogWarning("HGCTrackingbyKalmanFilter") << "No valid Trajectory found! Skip track!" << std::endl; 
       trackId++;
       continue;
     }
@@ -499,13 +499,13 @@ void PatternRecognitionbyKalmanFilter<TILES>::makeTrajectories(
 }
 
 template <typename TILES>
-void PatternRecognitionbyKalmanFilter<TILES>::dumpTiles(const TILES &tiles) const {
-  edm::LogInfo("PatternRecognitionbyKalmanFilter") << "Entered dumpTiles" << std::endl;
+void HGCTrackingbyKalmanFilter<TILES>::dumpTiles(const TILES &tiles) const {
+  edm::LogInfo("HGCTrackingbyKalmanFilter") << "Entered dumpTiles" << std::endl;
   constexpr int nEtaBin = TILES::constants_type_t::nEtaBins;
   constexpr int nPhiBin = TILES::constants_type_t::nPhiBins;
-  edm::LogInfo("PatternRecognitionbyKalmanFilter") << nEtaBin << "\t" <<nPhiBin << std::endl;
+  edm::LogInfo("HGCTrackingbyKalmanFilter") << nEtaBin << "\t" <<nPhiBin << std::endl;
   auto lastLayerPerSide = static_cast<int>(rhtools_.lastLayer(false));
-  edm::LogInfo("PatternRecognitionbyKalmanFilter") << lastLayerPerSide << std::endl;
+  edm::LogInfo("HGCTrackingbyKalmanFilter") << lastLayerPerSide << std::endl;
   int maxLayer = 2 * lastLayerPerSide - 1;
   for (int layer = 0; layer <= maxLayer; layer++) {
     for (int ieta = 0; ieta < nEtaBin; ieta++) {
@@ -513,7 +513,7 @@ void PatternRecognitionbyKalmanFilter<TILES>::dumpTiles(const TILES &tiles) cons
       for (int phi = 0; phi < nPhiBin; phi++) {
         int iphi = ((phi % nPhiBin + nPhiBin) % nPhiBin);
         if (!tiles[layer][offset + iphi].empty()) {
-          edm::LogInfo("PatternRecognitionbyKalmanFilter") << "Layer: " << layer << " ieta: " << ieta << " phi: " << phi
+          edm::LogInfo("HGCTrackingbyKalmanFilter") << "Layer: " << layer << " ieta: " << ieta << " phi: " << phi
                                                          << " " << tiles[layer][offset + iphi].size() << std::endl;
         }
       }
@@ -522,7 +522,7 @@ void PatternRecognitionbyKalmanFilter<TILES>::dumpTiles(const TILES &tiles) cons
 }
 
 template <typename TILES>
-void PatternRecognitionbyKalmanFilter<TILES>::fillPSetDescription(edm::ParameterSetDescription &iDesc) {
+void HGCTrackingbyKalmanFilter<TILES>::fillPSetDescription(edm::ParameterSetDescription &iDesc) {
   iDesc.add<int>("algo_verbosity", 0);
   iDesc.add<std::string>("propagator", "PropagatorWithMaterial"); 
   iDesc.add<std::string>("propagatorOpposite", "PropagatorWithMaterialOpposite");
@@ -536,5 +536,5 @@ void PatternRecognitionbyKalmanFilter<TILES>::fillPSetDescription(edm::Parameter
   iDesc.add<bool>("standalonePropagator",false); // If true, does not perform the update step of the Kalman Filter but only the propagation step
 }
 
-template class ticl::PatternRecognitionbyKalmanFilter<TICLLayerTiles>;
-template class ticl::PatternRecognitionbyKalmanFilter<TICLLayerTilesHFNose>;
+template class ticl::HGCTrackingbyKalmanFilter<TICLLayerTiles>;
+//template class ticl::HGCTrackingbyKalmanFilter<TICLLayerTilesHFNose>;
