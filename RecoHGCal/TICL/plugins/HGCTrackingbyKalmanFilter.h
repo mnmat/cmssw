@@ -1,9 +1,11 @@
 // Author: Mark Matthewman - mark.matthewman@cern.ch
-// Date: 04/2021
+// Date: 07/2026
 
-#ifndef __RecoHGCal_TICL_PRbyKF_H__
-#define __RecoHGCal_TICL_PRbyKF_H__
+#ifndef __RecoHGCal_TICL_HGCTrackingbyKalmanFilter_H__
+#define __RecoHGCal_TICL_HGCTrackingbyKalmanFilter_H__
 #include <memory>  // unique_ptr
+
+#include "FWCore/ParameterSet/interface/ParameterSetDescription.h"
 
 #include "FWCore/ParameterSet/interface/ParameterSetDescription.h"
 
@@ -19,7 +21,7 @@
 #include "MagneticField/Records/interface/IdealMagneticFieldRecord.h"
 #include "MagneticField/Engine/interface/MagneticField.h"
 
-#include "RecoHGCal/TICL/interface/PatternRecognitionAlgoBase.h"
+#include "RecoHGCal/TICL/interface/HGCTrackingAlgoBase.h"
 
 #include "RecoLocalCalo/HGCalRecAlgos/interface/RecHitTools.h"
 
@@ -35,21 +37,12 @@
 
 namespace ticl {
   template <typename TILES>
-  class PatternRecognitionbyKalmanFilter final : public PatternRecognitionAlgoBaseT<TILES> {
+  class HGCTrackingbyKalmanFilter final : public HGCTrackingAlgoBaseT<TILES> {
   public:
-    PatternRecognitionbyKalmanFilter(const edm::ParameterSet& conf, edm::ConsumesCollector);
-    ~PatternRecognitionbyKalmanFilter() override = default;
+    HGCTrackingbyKalmanFilter(const edm::ParameterSet& conf, edm::ConsumesCollector);
+    ~HGCTrackingbyKalmanFilter() override = default;
 
-    void makeTracksters(const typename PatternRecognitionAlgoBaseT<TILES>::Inputs& input,
-                        std::vector<Trackster>& result,
-                        std::unordered_map<int, std::vector<int>>& seedToTracksterAssociation) override {};
-
-    void filter(std::vector<Trackster>& output,
-      const std::vector<Trackster>& inTracksters,
-      const typename PatternRecognitionAlgoBaseT<TILES>::Inputs& input,
-      std::unordered_map<int, std::vector<int>>& seedToTracksterAssociation) override {};
-          
-    void makeTrajectories(const typename PatternRecognitionAlgoBaseT<TILES>::Inputs& input,
+    void makeTrajectories(const typename HGCTrackingAlgoBaseT<TILES>::Inputs& input,
                         std::vector<KFHit>& kfhits,
                         std::vector<reco::Track>& tracks,
                         std::vector<reco::TrackExtra>& trackExtras,
@@ -59,9 +52,7 @@ namespace ticl {
     void setGeometry(hgcal::RecHitTools const& rhtools) override {};
 
   private:
-    // Declarations for Constructor
     edm::ESGetToken<CaloGeometry, CaloGeometryRecord> caloGeomToken_;
-    //edm::ESGetToken<TrackerTopology, TrackerTopologyRcd> tTopoToken_;
     const std::string propName_;
     const std::string propNameOppo_;
     edm::ESGetToken<MagneticField, IdealMagneticFieldRecord> bfieldtoken_;
@@ -84,12 +75,12 @@ namespace ticl {
     edm::Handle<HGCRecHitCollection> ee_hits;
     edm::Handle<HGCRecHitCollection> fh_hits;
     edm::Handle<HGCRecHitCollection> bh_hits;
-
+    
     double rescaleFTSError_;
     double scaleWindow_;
 
     bool standalonePropagator_;
-    uint32_t geomCacheId_;
+    uint64_t geomCacheId_;
     int trackId;
     int evtId;
 
@@ -97,7 +88,6 @@ namespace ticl {
     hgcal::RecHitTools rhtools_;
     std::vector<std::pair<const HGCRecHit*, int>> recHitCollection;
     const HGCTracker* hgcTracker_;
-    //TrackerTopology ttopo;
 
     enum TColl{
       HGCEERecHits,
@@ -130,4 +120,5 @@ namespace ticl {
     void init(const edm::Event& evt, const edm::EventSetup& es);
   };
 }  // namespace ticl
+
 #endif

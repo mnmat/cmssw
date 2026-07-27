@@ -1,7 +1,6 @@
 #include "RecoHGCal/TICL/plugins/PatternRecognitionPluginFactory.h"
 #include "PatternRecognitionbyCA.h"
 #include "PatternRecognitionbyCLUE3D.h"
-#include "PatternRecognitionbyKalmanFilter.h"
 #include "PatternRecognitionbyFastJet.h"
 #include "PatternRecognitionbyRecovery.h"
 #include "FWCore/ParameterSet/interface/ValidatedPluginFactoryMacros.h"
@@ -13,7 +12,6 @@ EDM_REGISTER_VALIDATED_PLUGINFACTORY(PatternRecognitionBarrelFactory, "PatternRe
 
 DEFINE_EDM_VALIDATED_PLUGIN(PatternRecognitionFactory, ticl::PatternRecognitionbyCA<TICLLayerTiles>, "CA");
 DEFINE_EDM_VALIDATED_PLUGIN(PatternRecognitionFactory, ticl::PatternRecognitionbyCLUE3D<TICLLayerTiles>, "CLUE3D");
-DEFINE_EDM_VALIDATED_PLUGIN(PatternRecognitionFactory, ticl::PatternRecognitionbyKalmanFilter<TICLLayerTiles>, "KalmanFilter");
 DEFINE_EDM_VALIDATED_PLUGIN(PatternRecognitionFactory, ticl::PatternRecognitionbyFastJet<TICLLayerTiles>, "FastJet");
 DEFINE_EDM_VALIDATED_PLUGIN(PatternRecognitionFactory, ticl::PatternRecognitionbyRecovery<TICLLayerTiles>, "Recovery");
 
