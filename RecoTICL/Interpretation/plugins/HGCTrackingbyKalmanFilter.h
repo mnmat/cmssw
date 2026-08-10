@@ -80,6 +80,7 @@ namespace ticl {
     double scaleWindow_;
 
     bool standalonePropagator_;
+    bool doBackwardPropagation_;
     uint64_t geomCacheId_;
     int trackId;
     int evtId;

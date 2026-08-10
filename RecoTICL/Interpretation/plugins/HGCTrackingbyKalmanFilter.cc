@@ -115,8 +115,14 @@ HGCTrackingbyKalmanFilter<TILES>::advanceOneLayer(const Start &start,
 
   std::vector<TempTrajectory> ret;
 
-  // Propagate to next disk                                                                   
-  auto disk = isSilicon? diskLayer->second : diskLayer->first;         
+  // Propagate to next disk      
+  HGCDiskGeomDet* disk;
+  if (diskLayer->first == nullptr){
+    disk = diskLayer->second;
+    isSilicon = true;
+  } else {
+    disk = isSilicon? diskLayer->second : diskLayer->first;
+  }                                                            
   const Propagator &prop = (direction == alongMomentum ? *propagator_ : *propagatorOppo_);
   TrajectoryStateOnSurface tsos = prop.propagate(start, disk->surface());
   if (!tsos.isValid()){
@@ -325,14 +331,24 @@ void HGCTrackingbyKalmanFilter<TILES>::makeTrajectories(
   // Build TSOS in HGCAL starting from tracks
   trackId = 0;
   for(auto tk: tkx){
-    FreeTrajectoryState fts = trajectoryStateTransform::outerFreeState(tk,bfield_.product());
+    FreeTrajectoryState fts;
+    if (doBackwardPropagation_){
+      fts = trajectoryStateTransform::outerFreeState(tk,bfield_.product());
+    } else {
+      fts = trajectoryStateTransform::outerFreeState(tk,bfield_.product());
+    }
     if (rescaleFTSError_!=1){
       // Rescale error of the FTS to account for transition from Tracker to HGCAL
       edm::LogInfo("HGCTrackingbyKalmanFilter") << "Rescaling FTS used to seed HGCAL tracks! Rescaling factor: " << rescaleFTSError_;
       fts.rescaleError(rescaleFTSError_);
     }
     int zside = fts.momentum().eta() > 0 ? +1 : -1;
-    PropagationDirection direction = alongMomentum;
+    PropagationDirection direction;
+    if (doBackwardPropagation_){
+      direction = oppositeToMomentum;
+    } else {
+      direction = alongMomentum;
+    }
     const HGCDiskLayer* layerdisk = hgcTracker_->firstDisk(zside,direction);
     bool isSilicon = true;
     
@@ -534,6 +550,7 @@ void HGCTrackingbyKalmanFilter<TILES>::fillPSetDescription(edm::ParameterSetDesc
   iDesc.add<double>("rescaleFTSError",1);
   iDesc.add<double>("scaleWindow",1);
   iDesc.add<bool>("standalonePropagator",false); // If true, does not perform the update step of the Kalman Filter but only the propagation step
+  iDesc.add<bool>("doBackwardPropagation",false); // If true, propagates the TSOS along the momentum direction. If false, propagates the TSOS opposite to the momentum direction
 }
 
 template class ticl::HGCTrackingbyKalmanFilter<TICLLayerTiles>;
