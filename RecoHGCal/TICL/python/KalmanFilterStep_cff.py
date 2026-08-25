@@ -26,6 +26,7 @@ ticlTrackstersKalmanFilter = _hgcTracksProducer.clone(
     pluginHGCTrackingByKalmanFilter = dict (
         rescaleFTSError = 2., # used to rescale the Error of the last FTS of the Tracker which is propagated to the first layer of HGCAL
         scaleWindow = 1.,
+        standalonePropagator = False,
         propagator = "RungeKuttaTrackerPropagator",
     )
 )

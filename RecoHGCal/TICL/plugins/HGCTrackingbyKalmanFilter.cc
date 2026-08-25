@@ -67,6 +67,7 @@ HGCTrackingbyKalmanFilter<TILES>::HGCTrackingbyKalmanFilter(const edm::Parameter
       rescaleFTSError_(conf.getParameter<double>("rescaleFTSError")),
       scaleWindow_(conf.getParameter<double>("scaleWindow")),
       standalonePropagator_(conf.getParameter<bool>("standalonePropagator")),
+      doBackwardPropagation_(conf.getParameter<bool>("doBackwardPropagation")),
       geomCacheId_(0)
       {};
 
@@ -333,7 +334,7 @@ void HGCTrackingbyKalmanFilter<TILES>::makeTrajectories(
   for(auto tk: tkx){
     FreeTrajectoryState fts;
     if (doBackwardPropagation_){
-      fts = trajectoryStateTransform::outerFreeState(tk,bfield_.product());
+      fts = trajectoryStateTransform::innerFreeState(tk,bfield_.product());
     } else {
       fts = trajectoryStateTransform::outerFreeState(tk,bfield_.product());
     }
