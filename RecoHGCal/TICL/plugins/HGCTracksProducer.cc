@@ -87,7 +87,6 @@ void HGCTracksProducer::produce(edm::Event& evt, const edm::EventSetup& es) {
   const auto& tiles = evt.get(rechit_tiles_token_);
   const auto& seeding_regions = evt.get(seeding_regions_token_);
 
-
   if (!seeding_regions.empty()){
     const typename ticl::HGCTrackingAlgoBaseT<TICLLayerTiles>::Inputs input(evt, es, tiles, seeding_regions);
     myAlgo_->makeTrajectories(input, *kfhits, *tracks, *trackExtras, *trackingRecHitCollection);
