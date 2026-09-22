@@ -6,6 +6,10 @@ HGCDiskGeomDet::HGCDiskGeomDet(int subdet, int zside, int layer, float z, float 
             GeomDet( Disk::build(Disk::PositionType(0,0,z), Disk::RotationType(), SimpleDiskBounds(rmin, rmax, -20, 20)).get() ),
             subdet_(subdet), zside_(zside), layer_(layer), rmin_(rmin), rmax_(rmax)
 {
+    uint32_t rawId = (static_cast<uint32_t>(subdet_) << DetId::kDetOffset) |
+                  (static_cast<uint32_t>(layer_) << 1) |
+                  (zside_ > 0 ? 1u : 0u);
+    setDetId(DetId(rawId));
     if (radlen > 0) {
         (const_cast<Plane &>(surface())).setMediumProperties(MediumProperties(radlen,xi));
     }

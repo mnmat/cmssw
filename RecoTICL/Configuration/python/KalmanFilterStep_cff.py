@@ -27,6 +27,7 @@ ticlTrackstersKalmanFilter = _hgcTracksProducer.clone(
         scaleWindow = 1.,
         standalonePropagator = False,
         propagator = "RungeKuttaTrackerPropagator",
+        doSmoothing = True,
     )
 )
 
@@ -40,6 +41,7 @@ ticlTrackstersStandalonePropagator = _hgcTracksProducer.clone(
         scaleWindow = 1.,
         standalonePropagator = True,
         propagator = "RungeKuttaTrackerPropagator",
+        doSmoothing = True,
     )
 )
 
@@ -52,6 +54,7 @@ ticlTrackstersKalmanFilterG4e = _hgcTracksProducer.clone(
         rescaleFTSError = 2., # used to rescale the Error of the last FTS of the Tracker which is propagated to the first layer of HGCAL
         scaleWindow = 1.,
         propagator = "Geant4ePropagator",
+        doSmoothing = True,
     )
 )
 
@@ -65,6 +68,7 @@ ticlTrackstersStandalonePropagatorG4e = _hgcTracksProducer.clone(
         scaleWindow = 1.,
         standalonePropagator = True,
         propagator = "Geant4ePropagator",
+        doSmoothing = True,
     )
 )
 
