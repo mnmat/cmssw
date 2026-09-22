@@ -32,6 +32,8 @@
 #include "TrackingTools/Records/interface/TrackingComponentsRecord.h"
 #include "TrackingTools/KalmanUpdators/interface/Chi2MeasurementEstimatorBase.h"
 #include "TrackingTools/KalmanUpdators/interface/Chi2MeasurementEstimator.h"
+#include "TrackingTools/TrackFitters/interface/KFTrajectorySmoother.h"
+#include "TrackingTools/TrackFitters/interface/KFTrajectoryFitter.h"
 
 #include "HGCTracker.h"
 
@@ -81,6 +83,8 @@ namespace ticl {
 
     bool standalonePropagator_;
     bool doBackwardPropagation_;
+    bool doSmoothing_;
+
     uint64_t geomCacheId_;
     int trackId;
     int evtId;
@@ -89,6 +93,8 @@ namespace ticl {
     hgcal::RecHitTools rhtools_;
     std::vector<std::pair<const HGCRecHit*, int>> recHitCollection;
     const HGCTracker* hgcTracker_;
+
+    //KFTrajectorySmoother smoother_;
 
     enum TColl{
       HGCEERecHits,
