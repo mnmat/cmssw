@@ -68,6 +68,7 @@ HGCTrackingbyKalmanFilter<TILES>::HGCTrackingbyKalmanFilter(const edm::Parameter
       scaleWindow_(conf.getParameter<double>("scaleWindow")),
       standalonePropagator_(conf.getParameter<bool>("standalonePropagator")),
       doBackwardPropagation_(conf.getParameter<bool>("doBackwardPropagation")),
+      doSmoothing_(conf.getParameter<bool>("doSmoothing")),
       geomCacheId_(0)
       {};
 
@@ -158,13 +159,12 @@ HGCTrackingbyKalmanFilter<TILES>::advanceOneLayer(const Start &start,
       }
     }
 
-
+    hitptr->setDet(*disk);
     auto mest_pair = (*estimator_).estimate(tsos,*hitptr);
     if(mest_pair.first){
       meas.emplace_back(tsos,hitptr,mest_pair.second); // Only store measurements that passes chi2 threshold
     }
   }
-
 
   // Fill TempTrajectories
   std::sort(meas.begin(), meas.end(),TrajMeasLessEstim());
@@ -182,6 +182,8 @@ HGCTrackingbyKalmanFilter<TILES>::advanceOneLayer(const Start &start,
   auto missing = TrackingRecHit::missing;
   ret.push_back(traj.foundHits()? traj : TempTrajectory(traj.direction(),0));
   ret.back().push(TrajectoryMeasurement(tsos, std::make_shared<InvalidTrackingRecHit>(*disk,missing)));
+  auto rawId = ret.back().measurements()[-1].recHit()->rawId();
+  std::cout << "Invalid hit found on layer: " << HGCDiskGeomDet::layerFromRawId(rawId) << std::endl;
   return ret;
 }
 
@@ -310,12 +312,11 @@ void HGCTrackingbyKalmanFilter<TILES>::makeTrajectories(
     std::vector<reco::TrackExtra>& trackExtras,
     TrackingRecHitCollection& selHits) {
   
-
-
   edm::EventSetup const &es = input.es;
   edm::Event const &ev = input.ev;
   init(ev,es);
   const TILES &tiles = input.tiles;
+  KFTrajectorySmoother smoother_(*propagator_, *updator_, *estimator_,5, 3);
 
   using namespace reco;
   TrackingRecHitRefProd rHits = input.ev.template getRefBeforePut<TrackingRecHitCollection>("HGCALTrackingRecHitCollection");
@@ -367,8 +368,8 @@ void HGCTrackingbyKalmanFilter<TILES>::makeTrajectories(
     auto lm = traj.front().lastMeasurement();
     int layer = layerdisk->second->layer();
     TrajectoryStateOnSurface tsos = standalonePropagator_? lm.predictedState(): lm.updatedState();
-    KFHit *kfhit = new KFHit(tsos, lm.recHit()->geographicalId(), tk, trackId, layer);
-    kfhits.push_back(*kfhit);
+    // KFHit *kfhit = new KFHit(tsos, lm.recHit()->geographicalId(), tk, trackId, layer);
+    // kfhits.push_back(*kfhit);
 
     // Loop over all disks to create trajectory
     for(layerdisk = hgcTracker_->nextDisk(layerdisk,direction,isSilicon); layerdisk != nullptr; layerdisk = hgcTracker_->nextDisk(layerdisk,direction,isSilicon)){
@@ -381,10 +382,10 @@ void HGCTrackingbyKalmanFilter<TILES>::makeTrajectories(
           auto lm = t.lastMeasurement();
           newcands.push_back(t);
           // Fill KFHit
-          TrajectoryStateOnSurface tsos = standalonePropagator_? lm.predictedState(): lm.updatedState();
-          layer = layerdisk->second->layer();
-          KFHit *kfhit = new KFHit(tsos, lm.recHit()->geographicalId(), tk, trackId, layer);
-          kfhits.push_back(*kfhit);
+          // TrajectoryStateOnSurface tsos = standalonePropagator_? lm.predictedState(): lm.updatedState();
+          // layer = layerdisk->second->layer();
+          // KFHit *kfhit = new KFHit(tsos, lm.recHit()->geographicalId(), tk, trackId, layer);
+          // kfhits.push_back(*kfhit);
           break; // TODO: Currently only creates one TSOS per layer. Future versions should allow for multiple TSOS per layer with a cleaning step.
         }
       }
@@ -394,11 +395,13 @@ void HGCTrackingbyKalmanFilter<TILES>::makeTrajectories(
         break;
       }
     }
-    trackId++;
-
     // Create TrackCandidates
+
+    // Smooth Trajectories
     if (!traj_kf.empty()){
-      Trajectory trajectory = traj_kf[0].toTrajectory();
+      Trajectory mytrajectory = traj_kf[0].toTrajectory();
+      // if (trajectories.empty()) continue;
+
       /*
       edm::OwnVector<TrackingRecHit> hitsForTrackCandidate;
       for (auto r : trajectory.recHits()){
@@ -420,10 +423,43 @@ void HGCTrackingbyKalmanFilter<TILES>::makeTrajectories(
       // Build Tracks
       // ------------
 
-      if (trajectory.isValid()!= true){
+      if (mytrajectory.isValid()!= true){
         std::cout << "Skipped building Tracks" << std::endl;
         continue;
       }
+
+      // Smooth trajectory
+
+      std::shared_ptr<const TrajectorySeed> pseed(new TrajectorySeed({}, {}, direction));
+      mytrajectory.setSharedSeed(pseed);
+      Trajectory trajectory;
+      if (doSmoothing_){
+        trajectory = smoother_.trajectories(mytrajectory)[0];
+      } else {
+        trajectory = mytrajectory;
+        std::cout << "No Smoothing applied" << std::endl;
+      }
+
+
+      auto meas = trajectory.measurements();
+      for (auto it = meas.rbegin(); it != meas.rend(); ++it) {
+      //for (auto& tm : trajectory.measurements()){
+        TrajectoryStateOnSurface tsos = standalonePropagator_? it->predictedState(): it->updatedState();
+        auto detid = it->recHit()->geographicalId();
+        int layer;
+        if (detid.rawId() == 0) continue;
+        auto testgeom = static_cast<const HGCalGeometry*>(rhtools_.getSubdetectorGeometry(detid));
+        if (testgeom->present(detid.rawId())){
+          layer = rhtools_.getLayerWithOffset(detid.rawId());
+        }
+        else {
+          layer = HGCDiskGeomDet::layerFromRawId(detid.rawId());
+        }
+        KFHit *kfhit = new KFHit(tsos, detid, tk, trackId, layer);
+        kfhits.push_back(*kfhit);
+      }
+
+
       // degrees of freedom
       int ndof = 0;
       for (auto const& tm : trajectory.measurements()) {
@@ -450,16 +486,34 @@ void HGCTrackingbyKalmanFilter<TILES>::makeTrajectories(
 
       // ---  NOTA BENE: the convention is to sort hits and measurements "along the momentum".
       // This is consistent with innermost and outermost labels only for tracks from LHC collision
-      if (trajectory.direction() == alongMomentum) {
-        outertsos = trajectory.lastMeasurement().updatedState();
-        innertsos = trajectory.firstMeasurement().updatedState();
-        outerId = trajectory.lastMeasurement().recHit()->geographicalId().rawId();
-        innerId = trajectory.firstMeasurement().recHit()->geographicalId().rawId();
+      if (!doBackwardPropagation_){
+        if (mytrajectory.direction() == alongMomentum) {
+          std::cout << "Along Momentum" << std::endl;
+          outertsos = mytrajectory.lastMeasurement().updatedState();
+          innertsos = mytrajectory.firstMeasurement().updatedState();
+          outerId = mytrajectory.lastMeasurement().recHit()->geographicalId().rawId();
+          innerId = mytrajectory.firstMeasurement().recHit()->geographicalId().rawId();
+          std::cout << "First hit on layer: " << rhtools_.getLayerWithOffset(innerId) << std::endl;
+        } else {
+          std::cout << "Opposite Momentum" << std::endl;
+          outertsos = mytrajectory.firstMeasurement().updatedState();
+          innertsos = mytrajectory.lastMeasurement().updatedState();
+          outerId = mytrajectory.firstMeasurement().recHit()->geographicalId().rawId();
+          innerId = mytrajectory.lastMeasurement().recHit()->geographicalId().rawId();
+          std::cout << "First hit on layer: " << rhtools_.getLayerWithOffset(innerId) << std::endl;
+        }
       } else {
-        outertsos = trajectory.firstMeasurement().updatedState();
-        innertsos = trajectory.lastMeasurement().updatedState();
-        outerId = trajectory.firstMeasurement().recHit()->geographicalId().rawId();
-        innerId = trajectory.lastMeasurement().recHit()->geographicalId().rawId();
+        if (mytrajectory.direction() == oppositeToMomentum) {
+          outertsos = mytrajectory.lastMeasurement().updatedState();
+          innertsos = mytrajectory.firstMeasurement().updatedState();
+          outerId = mytrajectory.lastMeasurement().recHit()->geographicalId().rawId();
+          innerId = mytrajectory.firstMeasurement().recHit()->geographicalId().rawId();
+        } else {
+          outertsos = mytrajectory.firstMeasurement().updatedState();
+          innertsos = mytrajectory.lastMeasurement().updatedState();
+          outerId = mytrajectory.firstMeasurement().recHit()->geographicalId().rawId();
+          innerId = mytrajectory.lastMeasurement().recHit()->geographicalId().rawId();
+        }
       }
 
       GlobalPoint v = outertsos.globalParameters().position();
@@ -481,9 +535,19 @@ void HGCTrackingbyKalmanFilter<TILES>::makeTrajectories(
 
       // --------------------------- Debugging 
 
-      auto const &meas = trajectory.measurements();
-      for (auto& h: meas){
-        selHits.push_back(h.recHit()->clone());
+      //auto const &meas = trajectory.measurements();
+      if (!doBackwardPropagation_){
+        if (trajectory.direction() == alongMomentum){
+          for (auto& h : meas) selHits.push_back(h.recHit()->clone());
+        } else {
+          for (auto it = meas.rbegin(); it != meas.rend(); ++it) selHits.push_back(it->recHit()->clone());
+        }
+      } else {
+        if (trajectory.direction() == oppositeToMomentum){
+          for (auto& h : meas) selHits.push_back(h.recHit()->clone());
+        } else {
+          for (auto it = meas.rbegin(); it != meas.rend(); ++it) selHits.push_back(it->recHit()->clone());
+        }
       }
 
       // -------------------------------------
@@ -512,6 +576,7 @@ void HGCTrackingbyKalmanFilter<TILES>::makeTrajectories(
       tx.setResiduals(trajectoryToResiduals(*theTraj));
       */ 
     }
+    trackId++;
   }
 }
 
@@ -552,6 +617,7 @@ void HGCTrackingbyKalmanFilter<TILES>::fillPSetDescription(edm::ParameterSetDesc
   iDesc.add<double>("scaleWindow",1);
   iDesc.add<bool>("standalonePropagator",false); // If true, does not perform the update step of the Kalman Filter but only the propagation step
   iDesc.add<bool>("doBackwardPropagation",false); // If true, propagates the TSOS along the momentum direction. If false, propagates the TSOS opposite to the momentum direction
+  iDesc.add<bool>("doSmoothing",false);
 }
 
 template class ticl::HGCTrackingbyKalmanFilter<TICLLayerTiles>;

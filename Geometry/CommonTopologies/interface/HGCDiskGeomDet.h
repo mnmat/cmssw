@@ -28,6 +28,11 @@ class HGCDiskGeomDet : public GeomDet {
             else throw cms::Exception("LogicError", "Subdetector not defined");
         }
 
+        // These functions are used to decode the disks own synthetic id. This in turn can be used to identify the GeomDets of invalid hits. 
+        // WARNING: Never use the detid stored with the GeomDet with the RecHitTools as they don't describe cell-level sensor objects
+        static int layerFromRawId(uint32_t rawId) { return static_cast<int>((rawId >> 1) & 0x7F); }
+        static int zsideFromRawId(uint32_t rawId) { return (rawId & 0x1u) ? +1 : -1; }
+
     protected:
         const int subdet_, zside_, layer_;
         const float rmin_, rmax_;
