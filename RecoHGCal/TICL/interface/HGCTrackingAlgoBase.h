@@ -42,7 +42,8 @@ namespace ticl{
                                 std::vector<KFHit>& kfhits,
                                 std::vector<reco::Track>& tracks,
                                 std::vector<reco::TrackExtra>& trackExtras,
-                                TrackingRecHitCollection& trackingRecHitCollection) = 0;
+                                TrackingRecHitCollection& trackingRecHitCollection,
+                                std::vector<int>& trackIds) = 0;
 
     virtual void setGeometry(hgcal::RecHitTools const& rhtools) = 0;
 

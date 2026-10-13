@@ -310,7 +310,8 @@ void HGCTrackingbyKalmanFilter<TILES>::makeTrajectories(
     std::vector<KFHit>& kfhits,
     std::vector<reco::Track>& tracks,
     std::vector<reco::TrackExtra>& trackExtras,
-    TrackingRecHitCollection& selHits) {
+    TrackingRecHitCollection& selHits,
+    std::vector<int>& hgcSeedTrackIdx) {
   
   edm::EventSetup const &es = input.es;
   edm::Event const &ev = input.ev;
@@ -571,6 +572,7 @@ void HGCTrackingbyKalmanFilter<TILES>::makeTrajectories(
 
       trackExtras.push_back(out_trackExtras);
       tracks.push_back(out_Track);
+      hgcSeedTrackIdx.push_back(trackId);
       /*
 
 

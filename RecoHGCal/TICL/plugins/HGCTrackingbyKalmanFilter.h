@@ -48,7 +48,8 @@ namespace ticl {
                         std::vector<KFHit>& kfhits,
                         std::vector<reco::Track>& tracks,
                         std::vector<reco::TrackExtra>& trackExtras,
-                        TrackingRecHitCollection& trackingRecHitCollection) override;
+                        TrackingRecHitCollection& trackingRecHitCollection,
+                        std::vector<int>& trackIds) override;
 
     static void fillPSetDescription(edm::ParameterSetDescription& iDesc);
     void setGeometry(hgcal::RecHitTools const& rhtools) override {};
