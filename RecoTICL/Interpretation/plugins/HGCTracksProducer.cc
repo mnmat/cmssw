@@ -76,6 +76,7 @@ HGCTracksProducer::HGCTracksProducer(const edm::ParameterSet& ps)
   produces<std::vector<reco::Track>>("HGCALTracks");
   produces<std::vector<reco::TrackExtra>>("HGCALTrackExtras");
   produces<TrackingRecHitCollection>("HGCALTrackingRecHitCollection");
+  produces<std::vector<int>>("HGCSeedingTrackIds");
 }
 
 void HGCTracksProducer::produce(edm::Event& evt, const edm::EventSetup& es) {
@@ -83,19 +84,21 @@ void HGCTracksProducer::produce(edm::Event& evt, const edm::EventSetup& es) {
   auto tracks = std::make_unique<std::vector<reco::Track>>();
   auto trackExtras = std::make_unique<std::vector<reco::TrackExtra>>();
   auto trackingRecHitCollection = std::make_unique<TrackingRecHitCollection>();
+  auto hgcSeedingTrackIds = std::make_unique<std::vector<int>>();
 
   const auto& tiles = evt.get(rechit_tiles_token_);
   const auto& seeding_regions = evt.get(seeding_regions_token_);
 
   if (!seeding_regions.empty()){
     const typename ticl::HGCTrackingAlgoBaseT<TICLLayerTiles>::Inputs input(evt, es, tiles, seeding_regions);
-    myAlgo_->makeTrajectories(input, *kfhits, *tracks, *trackExtras, *trackingRecHitCollection);
+    myAlgo_->makeTrajectories(input, *kfhits, *tracks, *trackExtras, *trackingRecHitCollection,*hgcSeedingTrackIds);
   }
 
   evt.put(std::move(kfhits), "KFHits");
   evt.put(std::move(tracks), "HGCALTracks");
   evt.put(std::move(trackExtras), "HGCALTrackExtras");
   evt.put(std::move(trackingRecHitCollection), "HGCALTrackingRecHitCollection");
+  evt.put(std::move(hgcSeedingTrackIds), "HGCSeedingTrackIds");
 }
 
 void HGCTracksProducer::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
