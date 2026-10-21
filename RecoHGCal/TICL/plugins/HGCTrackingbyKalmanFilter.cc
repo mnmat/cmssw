@@ -183,7 +183,7 @@ HGCTrackingbyKalmanFilter<TILES>::advanceOneLayer(const Start &start,
   ret.push_back(traj.foundHits()? traj : TempTrajectory(traj.direction(),0));
   ret.back().push(TrajectoryMeasurement(tsos, std::make_shared<InvalidTrackingRecHit>(*disk,missing)));
   auto rawId = ret.back().measurements()[-1].recHit()->rawId();
-  std::cout << "Invalid hit found on layer: " << HGCDiskGeomDet::layerFromRawId(rawId) << std::endl;
+  // std::cout << "Invalid hit found on layer: " << HGCDiskGeomDet::layerFromRawId(rawId) << std::endl;
   return ret;
 }
 
@@ -434,10 +434,16 @@ void HGCTrackingbyKalmanFilter<TILES>::makeTrajectories(
       mytrajectory.setSharedSeed(pseed);
       Trajectory trajectory;
       if (doSmoothing_){
-        trajectory = smoother_.trajectories(mytrajectory)[0];
+        std::cout << mytrajectory.isValid() << std::endl;
+        std::cout << mytrajectory.foundHits() << std::endl;
+        auto smoothed_trajectories = smoother_.trajectories(mytrajectory);
+        if (!smoothed_trajectories.empty()){
+          trajectory = smoothed_trajectories[0];
+        } else {
+          trajectory = mytrajectory;
+        }
       } else {
         trajectory = mytrajectory;
-        std::cout << "No Smoothing applied" << std::endl;
       }
 
 
@@ -488,19 +494,15 @@ void HGCTrackingbyKalmanFilter<TILES>::makeTrajectories(
       // This is consistent with innermost and outermost labels only for tracks from LHC collision
       if (!doBackwardPropagation_){
         if (mytrajectory.direction() == alongMomentum) {
-          std::cout << "Along Momentum" << std::endl;
           outertsos = mytrajectory.lastMeasurement().updatedState();
           innertsos = mytrajectory.firstMeasurement().updatedState();
           outerId = mytrajectory.lastMeasurement().recHit()->geographicalId().rawId();
           innerId = mytrajectory.firstMeasurement().recHit()->geographicalId().rawId();
-          std::cout << "First hit on layer: " << rhtools_.getLayerWithOffset(innerId) << std::endl;
         } else {
-          std::cout << "Opposite Momentum" << std::endl;
           outertsos = mytrajectory.firstMeasurement().updatedState();
           innertsos = mytrajectory.lastMeasurement().updatedState();
           outerId = mytrajectory.firstMeasurement().recHit()->geographicalId().rawId();
           innerId = mytrajectory.lastMeasurement().recHit()->geographicalId().rawId();
-          std::cout << "First hit on layer: " << rhtools_.getLayerWithOffset(innerId) << std::endl;
         }
       } else {
         if (mytrajectory.direction() == oppositeToMomentum) {
