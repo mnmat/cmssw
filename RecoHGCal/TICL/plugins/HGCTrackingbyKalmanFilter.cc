@@ -435,8 +435,6 @@ void HGCTrackingbyKalmanFilter<TILES>::makeTrajectories(
       mytrajectory.setSharedSeed(pseed);
       Trajectory trajectory;
       if (doSmoothing_){
-        std::cout << mytrajectory.isValid() << std::endl;
-        std::cout << mytrajectory.foundHits() << std::endl;
         auto smoothed_trajectories = smoother_.trajectories(mytrajectory);
         if (!smoothed_trajectories.empty()){
           trajectory = smoothed_trajectories[0];
@@ -462,8 +460,7 @@ void HGCTrackingbyKalmanFilter<TILES>::makeTrajectories(
         else {
           layer = HGCDiskGeomDet::layerFromRawId(detid.rawId());
         }
-        KFHit *kfhit = new KFHit(tsos, detid, tk, trackId, layer);
-        kfhits.push_back(*kfhit);
+        kfhits.emplace_back(tsos, lm.recHit()->geographicalId(), tk, trackId, layer);
       }
 
 
