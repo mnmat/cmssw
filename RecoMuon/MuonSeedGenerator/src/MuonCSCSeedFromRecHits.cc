@@ -26,7 +26,7 @@ TrajectorySeed MuonCSCSeedFromRecHits::seed() const {
   MuonRecHitContainer station1Hits, station2Hits, station3Hits, station4Hits;
   for (MuonRecHitContainer::const_iterator iter = theRhits.begin(), end = theRhits.end(); iter != end; ++iter) {
     int station = CSCDetId((*iter)->geographicalId().rawId()).station();
-    if ((*iter)->isME0()) {
+    if ((*iter)->isME0() || (*iter)->isGEM()) {
       station = 1;  //ME0DetId((*iter)->geographicalId().rawId()).station();
     }
 
@@ -159,7 +159,7 @@ MuonCSCSeedFromRecHits::ConstMuonRecHitPointer MuonCSCSeedFromRecHits::bestEndca
   int quality1 = 0, quality = 0;  //  +v  I= 5,6-p. / II= 4p.  / III= 3p.
 
   for (MuonRecHitContainer::const_iterator iter = endcapHits.begin(); iter != endcapHits.end(); iter++) {
-    if (!(*iter)->isCSC() && !(*iter)->isME0())
+    if (!(*iter)->isCSC() && !(*iter)->isME0() && !(*iter)->isGEM())
       continue;
 
     // tmp compar. Glob-Dir for the same tr-segm:

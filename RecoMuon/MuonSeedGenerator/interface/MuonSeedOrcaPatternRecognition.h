@@ -7,6 +7,8 @@
 #include "RecoMuon/MeasurementDet/interface/MuonDetLayerMeasurements.h"
 #include "RecoMuon/DetLayers/interface/MuonDetLayerGeometry.h"
 #include "RecoMuon/Records/interface/MuonRecoGeometryRecord.h"
+#include "DataFormats/GEMRecHit/interface/GEMSegmentCollection.h"
+#include "Geometry/GEMGeometry/interface/GEMGeometry.h"
 
 class MuonSeedOrcaPatternRecognition : public MuonSeedVPatternRecognition {
 public:
@@ -26,6 +28,7 @@ private:
                       const MuonRecHitContainer& me3,
                       const MuonRecHitContainer& me4,
                       const MuonRecHitContainer& me0,
+                      const MuonRecHitContainer& ge0,
                       const MuonRecHitContainer& mb1,
                       const MuonRecHitContainer& mb2,
                       const MuonRecHitContainer& mb3,
@@ -60,6 +63,8 @@ private:
   double theDeltaEtaWindow;
   double theDeltaCrackWindow;
   edm::ESGetToken<MuonDetLayerGeometry, MuonRecoGeometryRecord> muonLayersToken;
+  edm::EDGetTokenT<GEMSegmentCollection> ge0SegmentToken;
+  edm::ESGetToken<GEMGeometry, MuonGeometryRecord> gemGeomToken;
 };
 
 #endif

@@ -169,6 +169,12 @@ MuonTrajectoryBuilder::TrajectoryContainer StandAloneMuonTrajectoryBuilder::traj
   LogTrace(metname) << "The RecSegment relies on: " << endl;
   LogTrace(metname) << debug.dumpMuonId(lastDetId);
 
+  // a seed on a DetId without a DetLayer (e.g. a GE0 single-segment seed, on the super-chamber) is skipped
+  if (theService->detLayerGeometry()->idToLayer(lastDetId) == nullptr) {
+    LogTrace(metname) << "No DetLayer for the seed DetId: no trajectory will be loaded" << endl;
+    return trajectoryContainer;
+  }
+
   DetLayerWithState inputFromSeed = propagateTheSeedTSOS(lastTSOS, lastDetId);
 
   // refine the FTS given by the seed

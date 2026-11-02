@@ -28,6 +28,9 @@ protected:
   /// the name of the ME0 rec hits collection
   edm::InputTag theME0RecSegmentLabel;
 
+  /// the name of the GE0 (GEM station 0) segment collection
+  edm::InputTag theGE0RecSegmentLabel;
+
   ///Enable the DT measurement
   bool enableDTMeasurement;
 
@@ -36,6 +39,9 @@ protected:
 
   ///Enable the ME0 measurement
   bool enableME0Measurement;
+
+  ///Enable the GE0 measurement (GEM station-0 segments)
+  bool enableGE0Measurement;
 };
 
 #endif

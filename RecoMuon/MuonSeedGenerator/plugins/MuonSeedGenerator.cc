@@ -115,6 +115,8 @@ void MuonSeedGenerator::fillDescriptions(edm::ConfigurationDescriptions& descrip
   desc.add<bool>("EnableDTMeasurement", true);
   desc.add<bool>("EnableCSCMeasurement", true);
   desc.add<bool>("EnableME0Measurement", false);
+  desc.add<edm::InputTag>("GE0RecSegmentLabel", edm::InputTag("gemSegments"));
+  desc.add<bool>("EnableGE0Measurement", false);
   desc.add<std::vector<double>>("crackEtas", {0.2, 1.6, 1.7});
   desc.add<double>("crackWindow", 0.04);
   desc.add<double>("deltaPhiSearchWindow", 0.25);

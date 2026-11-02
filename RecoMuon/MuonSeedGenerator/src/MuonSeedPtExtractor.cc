@@ -3,8 +3,11 @@
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
 #include "DataFormats/MuonDetId/interface/CSCDetId.h"
 #include "DataFormats/MuonDetId/interface/ME0DetId.h"
+#include "DataFormats/GEMRecHit/interface/GEMSegment.h"
 
 #include "TMath.h"
+#include <algorithm>
+#include <cmath>
 #include <sstream>
 
 MuonSeedPtExtractor::MuonSeedPtExtractor(const edm::ParameterSet& par)
@@ -49,6 +52,9 @@ void MuonSeedPtExtractor::init(const edm::ParameterSet& par) {
   fillParametersForCombo("SME_32", par);
   fillParametersForCombo("SME_41", par);
   fillParametersForCombo("SME_42", par);
+  // Single segments (GE0): dPhi between the first and the last layer, optional
+  if (par.existsAs<std::vector<double> >("SME_GE0"))
+    fillParametersForCombo("SME_GE0", par);
 
   // Single segments (DT)
   fillParametersForCombo("SMB_10", par);
@@ -241,6 +247,19 @@ std::vector<double> MuonSeedPtExtractor::pT_extract(
       int ring = 1;  //me0Id.ring(); me0 only in ring 1
       os << me0Id.station() << ring;
       combination = "SME_" + os.str();
+    } else if (innerHit->isGEM()) {
+      // GE0 (ME0): as for a pair of stations, dPhi between the first and the last layer of the
+      // segment fit (GEMSegment::deltaPhi, opposite sign to the charge), parameterization SME_GE0.
+      // Without SME_GE0 in the configuration: psi with the ME1/1 parameterization
+      const GEMSegment* ge0Segment = dynamic_cast<const GEMSegment*>(innerHit->hit());
+      if (ge0Segment && theParametersForCombo.count("SME_GE0")) {
+        const double ge0dPhi = ge0Segment->deltaPhi();
+        dPhi = std::max(std::abs(ge0dPhi), 1.0e-6);
+        sign = (ge0dPhi > 0.) ? -1 : 1;
+        combination = "SME_GE0";
+      } else {
+        combination = "SME_11";
+      }
     } else {
       throw cms::Exception("MuonSeedPtExtractor") << "Bad hit DetId";
     }
@@ -346,7 +365,7 @@ int MuonSeedPtExtractor::stationCode(MuonTransientTrackingRecHit::ConstMuonRecHi
     result = cscID.station();
     if (result == 1 && (1 == cscID.ring() || 4 == cscID.ring()))
       result = 0;
-  } else if (hit->isME0()) {
+  } else if (hit->isME0() || hit->isGEM()) {
     result = 0;
   } else if (hit->isRPC()) {
   }

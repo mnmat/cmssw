@@ -64,6 +64,10 @@ MuonSeedOrcaPatternRecognition::MuonSeedOrcaPatternRecognition(const edm::Parame
                                                   false,
                                                   false,
                                                   enableME0Measurement);
+  if (enableGE0Measurement) {
+    ge0SegmentToken = iC.consumes<GEMSegmentCollection>(theGE0RecSegmentLabel);
+    gemGeomToken = iC.esConsumes<GEMGeometry, MuonGeometryRecord>();
+  }
 }
 
 // reconstruct muon's seeds
@@ -138,6 +142,22 @@ void MuonSeedOrcaPatternRecognition::produce(const edm::Event& event,
     const DetLayer* ME0Bwd = me0BackwardLayers[0];
     muRH_ME0Bwd = filterSegments(muonMeasurements->recHits(ME0Bwd, event), endcapdThetaCut);
   }
+  // GE0 (GEM station-0) segments: single-segment seeds only, not in the multi-station patterns
+  MuonRecHitContainer muRH_GE0Fwd, muRH_GE0Bwd;
+  const auto ge0Segments =
+      enableGE0Measurement ? event.getHandle(ge0SegmentToken) : edm::Handle<GEMSegmentCollection>();
+  if (ge0Segments.isValid()) {
+    const GEMGeometry& gemGeom = eSetup.getData(gemGeomToken);
+    MuonRecHitContainer ge0Fwd, ge0Bwd;
+    for (const auto& seg : *ge0Segments) {
+      const GEMDetId id(seg.geographicalId());
+      if (id.station() == 0)
+        (id.region() > 0 ? ge0Fwd : ge0Bwd)
+            .push_back(MuonTransientTrackingRecHit::specificBuild(gemGeom.idToDet(id), &seg));
+    }
+    muRH_GE0Fwd = filterSegments(ge0Fwd, endcapdThetaCut);
+    muRH_GE0Bwd = filterSegments(ge0Bwd, endcapdThetaCut);
+  }
 
   endcapPatterns(filterSegments(muonMeasurements->recHits(ME11Bwd, event), endcapdThetaCut),
                  filterSegments(muonMeasurements->recHits(ME12Bwd, event), endcapdThetaCut),
@@ -145,6 +165,7 @@ void MuonSeedOrcaPatternRecognition::produce(const edm::Event& event,
                  filterSegments(muonMeasurements->recHits(ME3Bwd, event), endcapdThetaCut),
                  filterSegments(muonMeasurements->recHits(ME4Bwd, event), endcapdThetaCut),
                  muRH_ME0Bwd,
+                 muRH_GE0Bwd,
                  list8,
                  list7,
                  list6,
@@ -159,6 +180,7 @@ void MuonSeedOrcaPatternRecognition::produce(const edm::Event& event,
                  filterSegments(muonMeasurements->recHits(ME3Fwd, event), endcapdThetaCut),
                  filterSegments(muonMeasurements->recHits(ME4Fwd, event), endcapdThetaCut),
                  muRH_ME0Fwd,
+                 muRH_GE0Fwd,
                  list8,
                  list7,
                  list6,
@@ -315,6 +337,7 @@ void MuonSeedOrcaPatternRecognition::endcapPatterns(const MuonRecHitContainer& m
                                                     const MuonRecHitContainer& me3,
                                                     const MuonRecHitContainer& me4,
                                                     const MuonRecHitContainer& me0,
+                                                    const MuonRecHitContainer& ge0,
                                                     const MuonRecHitContainer& mb1,
                                                     const MuonRecHitContainer& mb2,
                                                     const MuonRecHitContainer& mb3,
@@ -328,6 +351,7 @@ void MuonSeedOrcaPatternRecognition::endcapPatterns(const MuonRecHitContainer& m
   dumpLayer("ME12 ", me12);
   dumpLayer("ME11 ", me11);
   dumpLayer("ME0 ", me0);
+  dumpLayer("GE0 ", ge0);
 
   std::vector<MuonRecHitContainer> patterns;
   MuonRecHitContainer crackSegments;
@@ -515,6 +539,13 @@ void MuonSeedOrcaPatternRecognition::endcapPatterns(const MuonRecHitContainer& m
       }
     }
   }
+
+  // GE0: a single-segment seed for every segment with |eta| > 2.4 (no other detector there),
+  // whether or not this endcap has multi-segment patterns
+  for (const auto& segment : ge0) {
+    if (std::abs(segment->globalPosition().eta()) > 2.4)
+      result.push_back(MuonRecHitContainer(1, segment));
+  }
 }
 
 void MuonSeedOrcaPatternRecognition::complete(MuonRecHitContainer& seedSegments,
@@ -677,7 +708,7 @@ MuonSeedOrcaPatternRecognition::MuonRecHitContainer MuonSeedOrcaPatternRecogniti
         LogTrace(metname) << "Cutting segment " << theDumper.dumpMuonId((**segmentItr).geographicalId())
                           << " because dtheta = " << dtheta;
       }
-    } else if ((*segmentItr)->isME0()) {
+    } else if ((*segmentItr)->isME0() || (*segmentItr)->isGEM()) {
       if (fabs(dtheta) < dThetaCut) {
         result.push_back(*segmentItr);
       } else {
