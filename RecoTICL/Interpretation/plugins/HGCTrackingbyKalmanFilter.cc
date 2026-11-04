@@ -460,7 +460,7 @@ void HGCTrackingbyKalmanFilter<TILES>::makeTrajectories(
         else {
           layer = HGCDiskGeomDet::layerFromRawId(detid.rawId());
         }
-        kfhits.emplace_back(tsos, lm.recHit()->geographicalId(), tk, trackId, layer);
+        kfhits.emplace_back(tsos, it->recHit()->geographicalId(), tk, trackId, layer);
       }
 
 

@@ -11,6 +11,7 @@ from RecoTICL.Configuration.CLUE3DEM_cff import *
 from RecoTICL.Configuration.CLUE3DHAD_cff import *
 from RecoTICL.Configuration.PRbyRecovery_cff import *
 from RecoTICL.Configuration.CLUE3DBarrel_cff import *
+from RecoTICL.Configuration.KalmanFilterStep_cff import *
 
 from RecoTICL.LayerClustering.ticlLayerTileProducer_cfi import ticlLayerTileProducer
 from RecoTICL.ParticleFlow.pfTICLProducer_cfi import pfTICLProducer as _pfTICLProducer
