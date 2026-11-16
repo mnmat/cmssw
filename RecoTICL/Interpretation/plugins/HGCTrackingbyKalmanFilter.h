@@ -35,6 +35,10 @@
 #include "TrackingTools/TrackFitters/interface/KFTrajectorySmoother.h"
 #include "TrackingTools/TrackFitters/interface/KFTrajectoryFitter.h"
 
+#include "DataFormats/TrajectorySeed/interface/TrajectorySeedCollection.h"
+#include "Geometry/CommonTopologies/interface/GlobalTrackingGeometry.h"
+#include "Geometry/Records/interface/GlobalTrackingGeometryRecord.h"
+
 #include "HGCTracker.h"
 
 namespace ticl {
@@ -63,7 +67,10 @@ namespace ticl {
     edm::ESGetToken<Propagator, TrackingComponentsRecord> propagatorOppoToken_;
     edm::ESGetToken<Chi2MeasurementEstimatorBase, TrackingComponentsRecord> estimatorToken_;
     edm::ESGetToken<TrajectoryStateUpdator, TrackingComponentsRecord> updatorToken_;
-    edm::EDGetTokenT<reco::TrackCollection> trackToken_;
+    edm::EDGetTokenT<reco::TrackRefVector> sourceTracksToken_;  // uninitialised if no source tag given
+    //edm::EDGetTokenT<reco::TrackCollection> trackToken_;
+    edm::EDGetTokenT<std::vector<TrajectorySeed>> trajectorySeedToken_;
+    edm::ESGetToken<GlobalTrackingGeometry, GlobalTrackingGeometryRecord> globalGeomToken_;
     edm::EDGetTokenT<HGCRecHitCollection> hgcalRecHitsEEToken_; 
     edm::EDGetTokenT<HGCRecHitCollection> hgcalRecHitsFHToken_;
     edm::EDGetTokenT<HGCRecHitCollection> hgcalRecHitsBHToken_;

@@ -41,7 +41,6 @@
 #include "TrackingTools/TrajectoryState/interface/TrajectoryStateClosestToBeamLine.h"
 #include "TrackingTools/PatternTools/interface/TSCBLBuilderWithPropagator.h"
 
-
 #include "HGCTracker.h"
 
 using namespace ticl;
@@ -58,7 +57,9 @@ HGCTrackingbyKalmanFilter<TILES>::HGCTrackingbyKalmanFilter(const edm::Parameter
       propagatorOppoToken_(iC.esConsumes<Propagator, TrackingComponentsRecord>(edm::ESInputTag("",propNameOppo_))),
       estimatorToken_(iC.esConsumes<Chi2MeasurementEstimatorBase, TrackingComponentsRecord>(edm::ESInputTag("","Chi2"))),
       updatorToken_(iC.esConsumes<TrajectoryStateUpdator, TrackingComponentsRecord>(edm::ESInputTag("","KFUpdator"))),
-      trackToken_(iC.consumes<reco::TrackCollection>(conf.getParameter<edm::InputTag>("tracks"))),
+      //trackToken_(iC.consumes<reco::TrackCollection>(conf.getParameter<edm::InputTag>("tracks"))),
+      trajectorySeedToken_(iC.consumes<std::vector<TrajectorySeed>>(conf.getParameter<edm::InputTag>("trajectorySeeds"))),
+      globalGeomToken_(iC.esConsumes<GlobalTrackingGeometry, GlobalTrackingGeometryRecord>()),
       hgcalRecHitsEEToken_(iC.consumes<HGCRecHitCollection>(conf.getParameter<edm::InputTag>("HGCEEInput"))),
       hgcalRecHitsFHToken_(iC.consumes<HGCRecHitCollection>(conf.getParameter<edm::InputTag>("HGCFHInput"))),
       hgcalRecHitsBHToken_(iC.consumes<HGCRecHitCollection>(conf.getParameter<edm::InputTag>("HGCBHInput"))),
@@ -70,7 +71,11 @@ HGCTrackingbyKalmanFilter<TILES>::HGCTrackingbyKalmanFilter(const edm::Parameter
       doBackwardPropagation_(conf.getParameter<bool>("doBackwardPropagation")),
       doSmoothing_(conf.getParameter<bool>("doSmoothing")),
       geomCacheId_(0)
-      {};
+      {
+        const auto& srcTag = conf.getParameter<edm::InputTag>("sourceTracks");
+        if (!srcTag.label().empty())
+          sourceTracksToken_ = iC.consumes<reco::TrackRefVector>(srcTag);
+      };
 
 
 template <typename TILES>
@@ -316,6 +321,9 @@ void HGCTrackingbyKalmanFilter<TILES>::makeTrajectories(
   edm::EventSetup const &es = input.es;
   edm::Event const &ev = input.ev;
   init(ev,es);
+
+  const GlobalTrackingGeometry& globalGeom = es.getData(globalGeomToken_);
+
   const TILES &tiles = input.tiles;
   KFTrajectorySmoother smoother_(*propagator_, *updator_, *estimator_,5, 3);
 
@@ -323,40 +331,74 @@ void HGCTrackingbyKalmanFilter<TILES>::makeTrajectories(
   TrackingRecHitRefProd rHits = input.ev.template getRefBeforePut<TrackingRecHitCollection>("HGCALTrackingRecHitCollection");
   reco::TrackExtraRefProd ref_trackextras = input.ev.template getRefBeforePut<TrackExtraCollection>("HGCALTrackExtras");
 
-  edm::Handle<reco::TrackCollection> tracks_h;
-  ev.getByToken(trackToken_,tracks_h);
-  const reco::TrackCollection& tkx = *tracks_h; 
-  if (tkx.empty()){
+  // edm::Handle<reco::TrackCollection> tracks_h;
+  // ev.getByToken(trackToken_,tracks_h);
+  // const reco::TrackCollection& tkx = *tracks_h; 
+
+  // if (tkx.empty()){
+  //   edm::LogWarning("HGCTrackingbyKalmanFilter") << "No seeding track found! Exited HGCTrackingbyKalmanFilter!" << std::endl;
+  //   return;
+  // }
+
+  edm::Handle<std::vector<TrajectorySeed>> trajectorySeeds_h;
+  ev.getByToken(trajectorySeedToken_, trajectorySeeds_h);
+  const std::vector<TrajectorySeed>& seeds = *trajectorySeeds_h;
+
+  const reco::TrackRefVector* sources = nullptr;
+  if (!sourceTracksToken_.isUninitialized())
+    sources = &ev.get(sourceTracksToken_);
+
+  if (seeds.empty()){
     edm::LogWarning("HGCTrackingbyKalmanFilter") << "No seeding track found! Exited HGCTrackingbyKalmanFilter!" << std::endl;
     return;
   }
 
   // Build TSOS in HGCAL starting from tracks
-  trackId = 0;
-  for(auto tk: tkx){
-    FreeTrajectoryState fts;
-    if (doBackwardPropagation_){
-      fts = trajectoryStateTransform::innerFreeState(tk,bfield_.product());
-    } else {
-      fts = trajectoryStateTransform::outerFreeState(tk,bfield_.product());
-    }
+  // trackId = 0;
+  // for(auto tk: tkx){
+  //   FreeTrajectoryState fts;
+  //   if (doBackwardPropagation_){
+  //     fts = trajectoryStateTransform::innerFreeState(tk,bfield_.product());
+  //   } else {
+  //     fts = trajectoryStateTransform::outerFreeState(tk,bfield_.product());
+  //   }
+
+  for (unsigned int iSeed = 0; iSeed < seeds.size(); ++iSeed) {
+    const TrajectorySeed& seed = seeds[iSeed];
+    const PTrajectoryStateOnDet& pState = seed.startingState();
+    const GeomDet* det = globalGeom.idToDet(DetId(pState.detId()));
+    TrajectoryStateOnSurface start = trajectoryStateTransform::transientState(pState, &det->surface(), bfield_.product());
+    if (!start.isValid())
+      continue;
+    
     if (rescaleFTSError_!=1){
       // Rescale error of the FTS to account for transition from Tracker to HGCAL
       edm::LogInfo("HGCTrackingbyKalmanFilter") << "Rescaling FTS used to seed HGCAL tracks! Rescaling factor: " << rescaleFTSError_;
-      fts.rescaleError(rescaleFTSError_);
+      start.rescaleError(rescaleFTSError_);
     }
-    int zside = fts.momentum().eta() > 0 ? +1 : -1;
-    PropagationDirection direction;
-    if (doBackwardPropagation_){
-      direction = oppositeToMomentum;
+    const PropagationDirection direction = seed.direction();
+    const int zside = start.globalPosition().z() > 0 ? +1 : -1;  // position, not momentum: also correct outside-in
+
+    reco::Track tk;
+    if (sources) {
+      const reco::TrackRef& src = (*sources)[iSeed];
+      tk = *src;
+      trackId = src.key();  // index in the source collection, so HGCSeedingTrackIds keeps its meaning
     } else {
-      direction = alongMomentum;
+      const GlobalPoint x = start.globalPosition();
+      const GlobalVector p = start.globalMomentum();
+      tk = reco::Track(0., 0., reco::TrackBase::Point(x.x(), x.y(), x.z()),
+                       reco::TrackBase::Vector(p.x(), p.y(), p.z()), start.charge(),
+                       start.curvilinearError().matrix());
+      trackId = iSeed;
     }
+
+
     const HGCDiskLayer* layerdisk = hgcTracker_->firstDisk(zside,direction);
     bool isSilicon = true;
     
     // Extrapolate track from the tracker to first layer of HGCAL
-    std::vector<TempTrajectory> traj = advanceOneLayer(fts, layerdisk,tiles, direction, isSilicon, TempTrajectory(direction,0));
+    std::vector<TempTrajectory> traj = advanceOneLayer(start, layerdisk,tiles, direction, isSilicon, TempTrajectory(direction,0));
     if (traj.empty()){
       edm::LogWarning("HGCTrackingbyKalmanFilter") << "No valid Trajectory found! Skip track!" << std::endl; 
       trackId++;
@@ -610,7 +652,8 @@ void HGCTrackingbyKalmanFilter<TILES>::fillPSetDescription(edm::ParameterSetDesc
   iDesc.add<std::string>("propagator", "PropagatorWithMaterial"); 
   iDesc.add<std::string>("propagatorOpposite", "PropagatorWithMaterialOpposite");
   iDesc.add<std::string>("estimator", "Chi2");
-  iDesc.add<edm::InputTag>("tracks", edm::InputTag("generalTracks"));
+  iDesc.add<edm::InputTag>("trajectorySeeds", edm::InputTag("hgcTrackSeedByGeneralTracks"));
+  iDesc.add<edm::InputTag>("sourceTracks", edm::InputTag("hgcTrackSeedByGeneralTracks", "sourceTracks"));  // "" for seeds without a source track (ME0)
   iDesc.add<edm::InputTag>("HGCEEInput", edm::InputTag("HGCalRecHit", "HGCEERecHits"));
   iDesc.add<edm::InputTag>("HGCFHInput", edm::InputTag("HGCalRecHit", "HGCHEFRecHits"));
   iDesc.add<edm::InputTag>("HGCBHInput", edm::InputTag("HGCalRecHit", "HGCHEBRecHits"));

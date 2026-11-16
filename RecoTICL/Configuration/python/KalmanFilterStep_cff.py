@@ -4,6 +4,7 @@ from RecoTICL.SeedingRegions.TICLSeedingRegions_cff import ticlSeedingTrk
 from RecoTICL.Interpretation.hgcTracksProducer_cfi import hgcTracksProducer as _hgcTracksProducer
 from RecoTICL.ClusterFilters.filteredLayerClustersProducer_cfi import filteredLayerClustersProducer as _filteredLayerClustersProducer
 from RecoTICL.LayerClustering.ticlLayerTileProducer_cfi import ticlLayerTileProducer
+from RecoTICL.Interpretation.hgcTrackSeedEDProducer_cfi import hgcTrackSeedEDProducer as _hgcTrackSeedEDProducer
 
 # CLUSTER FILTERING/MASKING
 # Layer Clusters not used by Kalman Filter implementation but necessary for TracksterProducer. Masking strategy a work in progress!
@@ -14,6 +15,10 @@ filteredLayerClustersKalmanFilter = _filteredLayerClustersProducer.clone(
     algo_number = [8],
     iteration_label = "KalmanFilter",
 )
+
+# SeedProducer
+
+hgcTrackSeedByGeneralTracks = hgcTrackSeedEDProducer.clone()
 
 # PATTERN RECOGNITION
 
@@ -98,6 +103,7 @@ HGCTrackerESProducer = cms.ESProducer("HGCTrackerESProducer",
 
 ticlKalmanFilterStepTask = cms.Task(ticlSeedingTrk
     ,filteredLayerClustersKalmanFilter
+    ,hgcTrackSeedByGeneralTracks
     ,HGCTrackerESProducer
     ,ticlTrackstersKalmanFilter
     ,ticlTrackstersStandalonePropagator
