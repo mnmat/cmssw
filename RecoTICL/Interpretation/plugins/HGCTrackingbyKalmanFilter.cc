@@ -331,15 +331,6 @@ void HGCTrackingbyKalmanFilter<TILES>::makeTrajectories(
   TrackingRecHitRefProd rHits = input.ev.template getRefBeforePut<TrackingRecHitCollection>("HGCALTrackingRecHitCollection");
   reco::TrackExtraRefProd ref_trackextras = input.ev.template getRefBeforePut<TrackExtraCollection>("HGCALTrackExtras");
 
-  // edm::Handle<reco::TrackCollection> tracks_h;
-  // ev.getByToken(trackToken_,tracks_h);
-  // const reco::TrackCollection& tkx = *tracks_h; 
-
-  // if (tkx.empty()){
-  //   edm::LogWarning("HGCTrackingbyKalmanFilter") << "No seeding track found! Exited HGCTrackingbyKalmanFilter!" << std::endl;
-  //   return;
-  // }
-
   edm::Handle<std::vector<TrajectorySeed>> trajectorySeeds_h;
   ev.getByToken(trajectorySeedToken_, trajectorySeeds_h);
   const std::vector<TrajectorySeed>& seeds = *trajectorySeeds_h;
@@ -352,16 +343,6 @@ void HGCTrackingbyKalmanFilter<TILES>::makeTrajectories(
     edm::LogWarning("HGCTrackingbyKalmanFilter") << "No seeding track found! Exited HGCTrackingbyKalmanFilter!" << std::endl;
     return;
   }
-
-  // Build TSOS in HGCAL starting from tracks
-  // trackId = 0;
-  // for(auto tk: tkx){
-  //   FreeTrajectoryState fts;
-  //   if (doBackwardPropagation_){
-  //     fts = trajectoryStateTransform::innerFreeState(tk,bfield_.product());
-  //   } else {
-  //     fts = trajectoryStateTransform::outerFreeState(tk,bfield_.product());
-  //   }
 
   for (unsigned int iSeed = 0; iSeed < seeds.size(); ++iSeed) {
     const TrajectorySeed& seed = seeds[iSeed];
@@ -377,6 +358,7 @@ void HGCTrackingbyKalmanFilter<TILES>::makeTrajectories(
       start.rescaleError(rescaleFTSError_);
     }
     const PropagationDirection direction = seed.direction();
+    //const PropagationDirection direction = doBackwardPropagation_? oppositeToMomentum : alongMomentum;
     const int zside = start.globalPosition().z() > 0 ? +1 : -1;  // position, not momentum: also correct outside-in
 
     reco::Track tk;

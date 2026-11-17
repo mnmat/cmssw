@@ -18,7 +18,7 @@ filteredLayerClustersKalmanFilter = _filteredLayerClustersProducer.clone(
 
 # SeedProducer
 
-hgcTrackSeedByGeneralTracks = hgcTrackSeedEDProducer.clone()
+hgcTrackSeedByGeneralTracks = _hgcTrackSeedEDProducer.clone()
 
 # PATTERN RECOGNITION
 
@@ -77,6 +77,17 @@ ticlTrackstersStandalonePropagatorG4e = _hgcTracksProducer.clone(
     )
 )
 
+hgcSeedsGE0 = cms.EDProducer("HGCSeedSelector", seeds = cms.InputTag("ancientMuonSeed"))
+
+ticlTrackstersKalmanFilterGE0 = ticlTrackstersKalmanFilter.clone(
+    pluginHGCTrackingByKalmanFilter = dict(
+        trajectorySeeds = "hgcSeedsGE0",
+        sourceTracks = "",
+        doBackwardPropagation = True,
+        rescaleFTSError = 1.,   # start unscaled: the deltaPhi pT error is already large
+    )
+)
+
 HGCTrackerESProducer = cms.ESProducer("HGCTrackerESProducer",
     radlen = cms.vdouble(1.53770787, 0.71064359, 1.45345887, 0.57315113, 1.02882455,
         0.92384098, 1.15461784, 0.72404336, 0.9948446 , 1.0107427 ,
@@ -104,8 +115,7 @@ HGCTrackerESProducer = cms.ESProducer("HGCTrackerESProducer",
 ticlKalmanFilterStepTask = cms.Task(ticlSeedingTrk
     ,filteredLayerClustersKalmanFilter
     ,hgcTrackSeedByGeneralTracks
+    ,hgcSeedsGE0
     ,HGCTrackerESProducer
     ,ticlTrackstersKalmanFilter
-    ,ticlTrackstersStandalonePropagator
-    ,ticlTrackstersKalmanFilterG4e
-    ,ticlTrackstersStandalonePropagatorG4e)
+    ,ticlTrackstersKalmanFilterGE0)
