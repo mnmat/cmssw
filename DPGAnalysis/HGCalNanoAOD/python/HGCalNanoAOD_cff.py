@@ -21,16 +21,6 @@ OfflineHGCalTables = cms.Sequence(
     + hgcalGSFTracksTableSequence
 )
 
-from Configuration.ProcessModifiers.hgcal_ticl_kf_cff import hgcal_ticl_kf
-from DPGAnalysis.HGCalNanoAOD.hgcalTracks_cfi import *
-
-# Insert at a specific position instead of appending
-_seq = OfflineHGCalTables.copy()
-_seq.insert(2, hgcalTracksTableSequence)
-#hgcal_ticl_kf.toReplaceWith(OfflineHGCalTables, _seq)
-hgcal_ticl_kf.toReplaceWith(OfflineHGCalTables, hgcalTracksTableSequence)
-
-
 # Store additional validation objects 
 OfflineHGCalValidationTables = cms.Sequence(
     hgcalTiclAssociationsTableSequence
@@ -40,6 +30,18 @@ OfflineHGCalValidationTables = cms.Sequence(
     + hgcalLayerClustersTableSequence
     + hgcalGenSequence
 )
+
+# HGCAL Kalman-filter tracks (only scheduled in the reconstruction with hgcal_ticl_kf)
+from Configuration.ProcessModifiers.hgcal_ticl_kf_cff import hgcal_ticl_kf
+from Configuration.ProcessModifiers.enableTruth_cff import enableTruth
+from DPGAnalysis.HGCalNanoAOD.hgcalKFTruth_cff import *
+
+# Truth-graph association of the KF tracks: needs the truth graph in the input, which
+# only enableTruth persists.
+_OfflineHGCalValidationTablesKF = OfflineHGCalValidationTables.copy()
+_OfflineHGCalValidationTablesKF += hgcalKFTruthTablesSequence
+(hgcal_ticl_kf & enableTruth).toReplaceWith(OfflineHGCalValidationTables, _OfflineHGCalValidationTablesKF)
+
 
 ######################################
 # Sequences for different NanoAOD flavours

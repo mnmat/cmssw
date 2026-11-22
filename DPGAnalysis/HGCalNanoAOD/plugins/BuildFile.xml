@@ -17,6 +17,9 @@
 <use name="MagneticField/Engine"/>
 <use name="MagneticField/Records"/>
 <use name="PhysicsTools/NanoAOD"/>
+<use name="PhysicsTools/TruthInfo"/>
+<use name="SimDataFormats/Associations"/>
+<use name="SimDataFormats/TruthInfo"/>
 <use name="RecoLocalCalo/HGCalRecAlgos"/>
 <use name="RecoTICL/Common"/>
 <use name="TrackingTools/GeomPropagators"/>
