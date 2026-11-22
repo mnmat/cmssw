@@ -21,6 +21,16 @@ OfflineHGCalTables = cms.Sequence(
     + hgcalGSFTracksTableSequence
 )
 
+from Configuration.ProcessModifiers.hgcal_ticl_kf_cff import hgcal_ticl_kf
+from DPGAnalysis.HGCalNanoAOD.hgcalTracks_cfi import *
+
+# Insert at a specific position instead of appending
+_seq = OfflineHGCalTables.copy()
+_seq.insert(2, hgcalTracksTableSequence)
+#hgcal_ticl_kf.toReplaceWith(OfflineHGCalTables, _seq)
+hgcal_ticl_kf.toReplaceWith(OfflineHGCalTables, hgcalTracksTableSequence)
+
+
 # Store additional validation objects 
 OfflineHGCalValidationTables = cms.Sequence(
     hgcalTiclAssociationsTableSequence
